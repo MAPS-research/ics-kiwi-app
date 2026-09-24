@@ -1,0 +1,29 @@
+{
+  "name": "ics-kiwi-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 8100",
+    "dev:all": "node scripts/dev-all.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 8100",
+    "test": "vitest run",
+    "postinstall": "npm run prepare:webr",
+    "prepare:webr": "node scripts/copy-webr.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "webr": "0.6.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.9.0",
+    "vite": "^6.4.0",
+    "vitest": "^4.1.11"
+  }
+}

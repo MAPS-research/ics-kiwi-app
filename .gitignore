@@ -1,0 +1,9 @@
+node_modules/
+dist/
+public/webr/
+.env
+*.sqlite3
+*.sqlite3-*
+*.tsbuildinfo
+__pycache__/
+.DS_Store
