@@ -17,8 +17,9 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-export function TeacherDashboard({ classId, course, onCourse, onBack }: {
+export function TeacherDashboard({ classId, course, onCourse, onBack, onAuthenticationChange }: {
   classId: string; course: Course; onCourse: (course: Course) => void; onBack: () => void;
+  onAuthenticationChange: (authenticated: boolean) => void;
 }) {
   const [inputKey, setInputKey] = useState('');
   const [key, setKey] = useState('');
@@ -32,6 +33,11 @@ export function TeacherDashboard({ classId, course, onCourse, onBack }: {
   const [hasMore, setHasMore] = useState(false);
   const [draft, setDraft] = useState<Course>(structuredClone(course));
   const [saved, setSaved] = useState(false);
+  const [workRefreshVersion, setWorkRefreshVersion] = useState(0);
+
+  useEffect(() => {
+    onAuthenticationChange(Boolean(key));
+  }, [key, onAuthenticationChange]);
 
   const refresh = useCallback(async (secret: string, studentId = '') => {
     const [summary, history] = await Promise.all([
@@ -91,7 +97,7 @@ export function TeacherDashboard({ classId, course, onCourse, onBack }: {
   const totalAnswers = students.reduce((count, student) => count + student.answers, 0);
 
   if (!key) return <div className="teacher-login-screen">
-    <button className="text-button back-button" onClick={onBack}><ArrowLeft size={16} /> 返回学生工作台</button>
+    <button className="text-button back-button" onClick={onBack}><ArrowLeft size={16} /> 返回入口</button>
     <div className="login-card">
       <div className="login-icon"><KeyRound size={25} /></div>
       <p className="eyebrow">TEACHER ACCESS</p>
@@ -106,16 +112,21 @@ export function TeacherDashboard({ classId, course, onCourse, onBack }: {
     </div>
   </div>;
 
-  return <div className="teacher-content">
+  return <div className="teacher-content" id="teacher-overview">
     <div className="page-intro teacher-intro">
       <div>
-        <button className="text-button" onClick={onBack}><ArrowLeft size={16} /> 返回学生工作台</button>
+        <button className="text-button" onClick={onBack}><ArrowLeft size={16} /> 退出教师端</button>
         <p className="eyebrow">INSTRUCTOR OVERVIEW · {classId}</p>
         <h1>教学概览<span className="accent-dot">.</span></h1>
         <p className="muted">每次答题、代码运行与调试过程都会留在时间线中。</p>
       </div>
-      <button className="outline-button" onClick={() => void refresh(key, studentFilter)}><RefreshCw size={16} /> 刷新数据</button>
+      <button className="outline-button" disabled={busy} onClick={() => {
+        setError('');
+        setWorkRefreshVersion(previous => previous + 1);
+        void refresh(key, studentFilter).catch(e => setError(e.message));
+      }}><RefreshCw size={16} /> 刷新数据</button>
     </div>
+    {error && <p className="error-text" role="alert">{error}</p>}
 
     <div className="metrics-grid">
       <div className="metric-card"><span className="metric-icon peach"><Users size={20} /></span><span>活跃学生</span><strong>{students.length}</strong><small>当前课程</small></div>
@@ -124,10 +135,10 @@ export function TeacherDashboard({ classId, course, onCourse, onBack }: {
       <div className="metric-card"><span className="metric-icon lavender"><Activity size={20} /></span><span>互动事件</span><strong>{totalEvents}</strong><small>含编辑、提示与切换</small></div>
     </div>
 
-    <TeacherWork classId={classId} course={course} teacherKey={key} onSelectStudent={setStudentFilter} />
+    <TeacherWork classId={classId} course={course} teacherKey={key} onSelectStudent={setStudentFilter} refreshVersion={workRefreshVersion} />
 
     <div className="teacher-grid">
-      <section className="panel course-editor">
+      <section className="panel course-editor" id="course-plan">
         <div className="panel-heading"><div><p className="eyebrow">COURSE PLAN</p><h2>课程进度设置</h2></div><BookOpen size={18} /></div>
         <label className="field-label" htmlFor="course-title">课程名称</label>
         <input id="course-title" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
@@ -161,7 +172,7 @@ export function TeacherDashboard({ classId, course, onCourse, onBack }: {
       </section>
     </div>
 
-    <section className="panel timeline-panel">
+    <section className="panel timeline-panel" id="activity-history">
       <div className="panel-heading"><div><p className="eyebrow">ACTIVITY LOG</p><h2>学习与调试时间线</h2></div><span className="small-pill">最近 {events.length} 条</span></div>
       {events.length === 0 ? <div className="empty-state">这里会显示学生的代码、运行结果、答题与提示记录。</div> :
         <div className="timeline-list">{events.map(event => <div className="event-row" key={event.id}>

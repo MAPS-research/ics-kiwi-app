@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, BookOpen, CircleHelp, Clock3, Code2, Download, LoaderCircle, Play, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, CircleHelp, Clock3, Code2, Download, LoaderCircle, Play, Sparkles } from 'lucide-react';
 import { api } from './lib/api';
 import { checkAnswer, generateQuestion, localSimilarQuestion } from './lib/questions';
 import { debugHint, getRuntime, runR, type RunResult } from './lib/rEngine';
@@ -8,6 +8,8 @@ import type { Assignment, Course, Difficulty, EventRecord, KiwiClient, Question,
 const label: Record<WorkQuestion['type'], string> = {
   choice: '选择题', fill: '填空题', predict: '代码预测', complete: '代码补全', text: '文字解释',
 };
+
+type WorkRunResult = RunResult & { code: string; contextKey: string; codeRevision: number };
 
 function localExplanation(question: WorkQuestion, error: string): string {
   if (error) return `先处理当前 R 报错：${debugHint(error)} 可以打印中间变量，确认数据类型和取值。`;
@@ -32,10 +34,11 @@ export function StudentWork({ classId, course, studentId, studentName, kiwi, eve
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [code, setCode] = useState('');
-  const [runResult, setRunResult] = useState<RunResult | null>(null);
+  const [runResult, setRunResult] = useState<WorkRunResult | null>(null);
   const [running, setRunning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageArea, setMessageArea] = useState<'assignment' | 'answer' | 'similar'>('assignment');
   const [practiceFeedback, setPracticeFeedback] = useState<{ correct: boolean; explanation: string } | null>(null);
   const [aiInput, setAiInput] = useState('');
   const [aiReply, setAiReply] = useState('');
@@ -47,9 +50,21 @@ export function StudentWork({ classId, course, studentId, studentName, kiwi, eve
   const [runtimeBusy, setRuntimeBusy] = useState(false);
   const [runtimeMessage, setRuntimeMessage] = useState('');
   const lastTrackedCode = useRef('');
+  const questionCardRef = useRef<HTMLElement>(null);
+  const similarCardRef = useRef<HTMLDivElement>(null);
+  const similarControlsRef = useRef<HTMLDivElement>(null);
+  const difficultySelectRef = useRef<HTMLSelectElement>(null);
+  const codeRevision = useRef(0);
+  const answerRevision = useRef(0);
+  const mounted = useRef(true);
+  const runInFlight = useRef(false);
 
   const selected = works.find(w => w.id === selectedId) || null;
   const current = selected?.questions[questionIndex];
+  const contextKey = JSON.stringify([classId, studentId, selectedId, current?.id]);
+  const executionContext = useRef({ contextKey, code });
+  executionContext.current = { contextKey, code };
+  const answeredCount = selected?.questions.filter(q => answers[q.id]?.trim()).length || 0;
   const mySubmissions = useMemo(() => submissions.filter(s => s.assignmentId === selectedId), [submissions, selectedId]);
   const refresh = useCallback(async () => {
     const [work, subs] = await Promise.all([api.work(classId), api.submissions(classId, studentId)]);
@@ -57,14 +72,20 @@ export function StudentWork({ classId, course, studentId, studentName, kiwi, eve
   }, [classId, studentId]);
   useEffect(() => { void refresh().catch(e => setMessage(e.message)); }, [refresh]);
   useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; codeRevision.current += 1; };
+  }, []);
+  useEffect(() => {
     if (!selectedId) return;
     const saved = localStorage.getItem(`kiwi-work-${classId}-${studentId}-${selectedId}`);
+    answerRevision.current += 1;
     try { setAnswers(saved ? JSON.parse(saved) : {}); } catch { setAnswers({}); }
     setQuestionIndex(0); setMessage(''); setSimilar(null); setAiReply('');
   }, [classId, studentId, selectedId]);
   useEffect(() => {
     const saved = current && selected ? localStorage.getItem(`kiwi-code-${classId}-${studentId}-${selected.id}-${current.id}`) : null;
     const initial = saved || current?.starterCode || '';
+    codeRevision.current += 1;
     setCode(initial); lastTrackedCode.current = initial;
     setRunResult(null); setPracticeFeedback(null); setSimilar(null); setAiReply(''); setAiInput('');
   }, [classId, studentId, selected?.id, current?.id, current?.starterCode]);
@@ -77,30 +98,68 @@ export function StudentWork({ classId, course, studentId, studentName, kiwi, eve
     }, 1800);
     return () => window.clearTimeout(timer);
   }, [code, selected, current, classId, studentId, track]);
+  useEffect(() => {
+    if (!similar) return;
+    similarCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    similarCardRef.current?.focus({ preventScroll: true });
+  }, [similar]);
+
+  const goToQuestion = (index: number) => {
+    if (!selected || index < 0 || index >= selected.questions.length || busy || running) return;
+    setQuestionIndex(index);
+    questionCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    questionCardRef.current?.focus({ preventScroll: true });
+  };
+  const returnToOriginal = () => {
+    setSimilar(null); setSimilarAnswer(''); setSimilarResult(null);
+    questionCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    questionCardRef.current?.focus({ preventScroll: true });
+  };
+  const adjustSimilarDifficulty = () => {
+    similarControlsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    difficultySelectRef.current?.focus({ preventScroll: true });
+  };
 
   const setAnswer = (value: string) => {
     if (!selected || !current) return;
+    answerRevision.current += 1;
     const next = { ...answers, [current.id]: value };
     setAnswers(next); localStorage.setItem(`kiwi-work-${classId}-${studentId}-${selected.id}`, JSON.stringify(next));
     setPracticeFeedback(null);
   };
   const useCodeAsAnswer = () => { setAnswer(code); void track('work_answer_saved', { assignmentId: selectedId, questionId: current?.id, length: code.length }, current?.id); };
   const execute = async () => {
-    if (!current || running) return;
+    if (!current || runInFlight.current || runtimeBusy || !code.trim()) return;
+    const executedCode = code;
+    const executedContext = contextKey;
+    const executedRevision = codeRevision.current;
+    runInFlight.current = true;
     setRunning(true); setRunResult(null);
-    const result = await runR(code);
-    setRunResult(result); setRunning(false);
-    await track('code_run', { assignmentId: selectedId, questionTitle: current.prompt, code,
-      output: result.output, error: result.error || '', ok: result.ok, durationMs: result.durationMs }, current.id);
+    try {
+      const result = await runR(executedCode);
+      if (mounted.current && executionContext.current.contextKey === executedContext &&
+          executionContext.current.code === executedCode && codeRevision.current === executedRevision)
+        setRunResult({ ...result, code: executedCode, contextKey: executedContext, codeRevision: executedRevision });
+      else result.plots.forEach(plot => plot.close());
+      await track('code_run', { assignmentId: selectedId, questionTitle: current.prompt, code: executedCode,
+        output: result.output, error: result.error || '', ok: result.ok, durationMs: result.durationMs }, current.id);
+    } finally {
+      runInFlight.current = false;
+      if (mounted.current) setRunning(false);
+    }
   };
   const check = async () => {
     if (!selected || !current) return;
-    setBusy(true); setMessage('');
+    const checkedRevision = answerRevision.current;
+    const checkedContext = contextKey;
+    setBusy(true); setMessage(''); setMessageArea('answer');
     try {
-      const value = current.type === 'complete' ? code : answers[current.id] || '';
+      const value = answers[current.id] || '';
       const result = await api.checkPractice(classId, selected.id, { studentId, studentName,
-        questionId: current.id, answer: value, runOutput: runResult?.output });
-      setPracticeFeedback(result);
+        questionId: current.id, answer: value, runOutput: value === code && runResult?.ok && runResult.code === code &&
+          runResult.contextKey === contextKey && runResult.codeRevision === codeRevision.current ? runResult.output : undefined });
+      if (mounted.current && executionContext.current.contextKey === checkedContext && answerRevision.current === checkedRevision)
+        setPracticeFeedback(result);
       await track('answer_submitted', { assignmentId: selected.id, title: current.prompt,
         questionType: current.type, answer: value, correct: result.correct }, current.id);
     } catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
@@ -108,7 +167,7 @@ export function StudentWork({ classId, course, studentId, studentName, kiwi, eve
   };
   const submit = async () => {
     if (!selected) return;
-    setBusy(true); setMessage('');
+    setBusy(true); setMessage(''); setMessageArea('answer');
     try {
       const result = await api.submitWork(classId, selected.id, { studentId, studentName, answers });
       await track('work_submitted', { assignmentId: selected.id, attempt: result.attempt, submissionId: result.id });
@@ -117,7 +176,7 @@ export function StudentWork({ classId, course, studentId, studentName, kiwi, eve
     finally { setBusy(false); }
   };
   const ask = async () => {
-    if (!current || !aiInput.trim()) return;
+    if (!current || busy || !aiInput.trim()) return;
     setBusy(true);
     const prompt = aiInput.trim();
     const context = `课程：${course.title}；单元：${selected?.unitId}；题目：${current.prompt}；学生代码：${code.slice(0, 3000)}；运行错误：${runResult?.error || '无'}。`;
@@ -130,13 +189,14 @@ export function StudentWork({ classId, course, studentId, studentName, kiwi, eve
     await track('ai_question', { assignmentId: selectedId, prompt, response: reply, questionTitle: current.prompt }, current.id);
   };
   const makeSimilar = async () => {
-    if (!current || !selected) return;
-    setBusy(true); setMessage(''); setSimilarResult(null); setSimilarAnswer('');
+    if (!current || !selected || busy) return;
+    setBusy(true); setMessage(''); setMessageArea('similar');
     try {
       const type = current.type === 'text' || current.type === 'complete' ? 'predict' : current.type;
       const next = kiwi?.mode !== 'live' ? localSimilarQuestion(current, selected.unitId, difficulty) : await generateQuestion({ course, unitId: selected.unitId, type, difficulty, events, kiwi,
         sourceQuestion: `${current.prompt}\n${current.starterCode}`, focusNote: `围绕这道题的技能生成不同数据、同样解法的巩固题：${current.prompt.slice(0, 300)}` });
-      setSimilar(next); await track('similar_requested', { assignmentId: selected.id, sourceQuestionId: current.id,
+      setSimilarAnswer(''); setSimilarResult(null); setSimilar(next);
+      await track('similar_requested', { assignmentId: selected.id, sourceQuestionId: current.id,
         generatedQuestionId: next.id, difficulty, title: next.title }, current.id);
       await track('question_generated', { title: next.title, questionType: next.type, unitId: selected.unitId,
         source: next.source, relatedAssignmentId: selected.id }, next.id);
@@ -181,7 +241,7 @@ export function StudentWork({ classId, course, studentId, studentName, kiwi, eve
   return <div className="student-content student-work">
     <section className="page-intro"><div><p className="eyebrow">CLASSROOM WORK</p><h1>课程练习与作业<span className="accent-dot">.</span></h1><p className="muted">完成教师布置的题目，运行 R 代码，记录每次尝试。遇到困难可向 Kiwi 提问，再做相似题巩固。</p></div><div className="session-meta"><Clock3 size={16} /> 学习过程已记录</div></section>
     <div className="work-layout"><aside className="panel work-selector"><div className="panel-heading"><div><p className="eyebrow">ASSIGNED</p><h2>已发布内容</h2></div><BookOpen size={17} /></div>
-      {works.map(w => <button key={w.id} className={`work-select ${selectedId === w.id ? 'selected' : ''}`} onClick={() => { setSelectedId(w.id); void track('work_opened', { assignmentId: w.id, title: w.title }); }}>
+      {works.map(w => <button key={w.id} className={`work-select ${selectedId === w.id ? 'selected' : ''}`} disabled={busy || running} onClick={() => { setSelectedId(w.id); void track('work_opened', { assignmentId: w.id, title: w.title }); }}>
         <strong>{w.title}</strong><small>{w.kind === 'homework' ? '作业' : '练习'} · {w.questions.length} 题{w.dueAt ? ` · 截止 ${new Date(w.dueAt).toLocaleDateString('zh-CN')}` : ''}</small></button>)}
       {works.length === 0 && <p className="empty-state">教师尚未发布练习或作业。</p>}
     </aside>
@@ -189,26 +249,32 @@ export function StudentWork({ classId, course, studentId, studentName, kiwi, eve
     <div className="work-main">{selected ? <>
       <section className="panel work-panel"><div className="question-topline"><span className="question-number">{selected.kind === 'homework' ? 'HOMEWORK' : 'PRACTICE'}</span><span className="small-pill">{selected.questions.length} 题</span></div>
         <h2>{selected.title}</h2><p className="work-instructions">{selected.instructions}</p>
-          {selected.attachmentName && <div className="work-actions"><button className="outline-button" onClick={() => void download().catch(e => setMessage(e.message))}><Download size={14} /> 下载 {selected.attachmentName}</button>
+          {selected.attachmentName && <div className="work-actions"><button className="outline-button" onClick={() => void download().catch(e => { setMessageArea('assignment'); setMessage(e.message); })}><Download size={14} /> 下载 {selected.attachmentName}</button>
             {/\.(csv|rds|txt)$/i.test(selected.attachmentName) && <button className="outline-button" disabled={runtimeBusy} onClick={() => void api.attachment(classId, selected.id).then(file => {
               const bytes = Uint8Array.from(atob(file.data), ch => ch.charCodeAt(0));
               return loadData(new File([bytes], file.name, { type: file.type }));
             }).catch(e => setRuntimeMessage(e.message))}>载入附件到 R</button>}</div>}
         {selected.kind === 'homework' && <div className="submission-status">{mySubmissions.length ? `已提交 ${mySubmissions.length} 次；最近提交 ${new Date(mySubmissions[0].submittedAt).toLocaleString('zh-CN')}` : '尚未提交'}
           {mySubmissions[0]?.grade !== null && mySubmissions[0]?.grade !== undefined && <strong> · 最近评分 {mySubmissions[0].grade} 分 · {mySubmissions[0].feedback || '无评语'}</strong>}</div>}
+        {message && messageArea === 'assignment' && <p className="work-message" role="status">{message}</p>}
       </section>
-      <section className="panel work-panel"><div className="work-question-tabs">{selected.questions.map((q, index) => <button key={q.id} className={questionIndex === index ? 'selected' : ''} onClick={() => setQuestionIndex(index)}>题 {index + 1}{answers[q.id]?.trim() ? ' ✓' : ''}</button>)}</div>
+      <section className="panel work-panel" ref={questionCardRef} tabIndex={-1} aria-label="当前课程题目"><div className="work-question-tabs" aria-label="选择课程题目">{selected.questions.map((q, index) => <button key={q.id} className={questionIndex === index ? 'selected' : ''} aria-current={questionIndex === index ? 'step' : undefined} disabled={busy || running} onClick={() => goToQuestion(index)}>题 {index + 1}{answers[q.id]?.trim() ? ' ✓' : ''}</button>)}</div>
         {current && <><p className="eyebrow">{label[current.type]} · {current.points} 分</p><h2 className="work-prompt">{current.prompt}</h2>
           {current.type === 'choice' ? <div className="choices">{current.choices.map(choice => <button key={choice} className={`choice ${answers[current.id] === choice ? 'selected' : ''}`} onClick={() => setAnswer(choice)}>{choice}</button>)}</div> :
-          current.type === 'text' || current.type === 'complete' ? <textarea className="work-answer" rows={current.type === 'complete' ? 6 : 5} value={answers[current.id] || ''} onChange={e => setAnswer(e.target.value)} placeholder={current.type === 'complete' ? '在 R 编辑器调试后，点击“将代码写入答案”，也可直接在此编辑。' : '写下你的解释、证据和思路…'} /> :
-          <input className="answer-input" value={answers[current.id] || ''} onChange={e => setAnswer(e.target.value)} placeholder="输入答案…" />}
-          {practiceFeedback && <div className={`feedback ${practiceFeedback.correct ? 'correct' : 'incorrect'}`}>{practiceFeedback.correct ? '正确。' : '继续尝试。'} {practiceFeedback.explanation}</div>}
-          <div className="work-actions">{selected.kind === 'practice' && <button className="primary-button" disabled={busy} onClick={() => void check()}>检查练习答案 <ArrowRight size={15} /></button>}
-            {selected.kind === 'homework' && <button className="primary-button" disabled={busy || selected.questions.some(q => !answers[q.id]?.trim())} onClick={() => void submit()}>提交整份作业 <ArrowRight size={15} /></button>}</div></>}
+          current.type === 'text' || current.type === 'complete' ? <textarea className="work-answer" aria-label="当前题目答案" rows={current.type === 'complete' ? 6 : 5} value={answers[current.id] || ''} onChange={e => setAnswer(e.target.value)} placeholder={current.type === 'complete' ? '在 R 编辑器调试后，点击“将代码写入答案”，也可直接在此编辑。' : '写下你的解释、证据和思路…'} /> :
+          <input className="answer-input" aria-label="当前题目答案" value={answers[current.id] || ''} onChange={e => setAnswer(e.target.value)} placeholder="输入答案…" />}
+          {practiceFeedback && <div role="status" className={`feedback ${practiceFeedback.correct ? 'correct' : 'incorrect'}`}>{practiceFeedback.correct ? '正确。' : '继续尝试。'} {practiceFeedback.explanation}</div>}
+          <div className="work-actions">{selected.kind === 'practice' && <button className="primary-button" disabled={busy || !answers[current.id]?.trim()} onClick={() => void check()}>检查练习答案 <ArrowRight size={15} /></button>}
+            {selected.kind === 'homework' && <><button className="primary-button" disabled={busy || answeredCount !== selected.questions.length} onClick={() => void submit()}>提交整份作业 <ArrowRight size={15} /></button>
+              {answeredCount !== selected.questions.length && <span className="muted">还需填写 {selected.questions.length - answeredCount} 道题后提交。</span>}</>}</div>
+          {message && messageArea === 'answer' && <p className="work-message" role="status">{message}</p>}
+          <div className="work-question-navigation" aria-label="课程题目导航"><button className="outline-button" disabled={questionIndex === 0 || busy || running} onClick={() => goToQuestion(questionIndex - 1)}><ArrowLeft size={15} /> 上一题</button>
+            <span className="work-question-progress">第 {questionIndex + 1} / {selected.questions.length} 题 · 已保存 {answeredCount} 题答案</span>
+            <button className="outline-button" disabled={questionIndex === selected.questions.length - 1 || busy || running} onClick={() => goToQuestion(questionIndex + 1)}>下一题 <ArrowRight size={15} /></button></div></>}
       </section>
       {current && <section className="panel work-panel"><div className="panel-heading"><div><p className="eyebrow">R PLAYGROUND</p><h2><Code2 size={18} /> 运行与调试</h2></div><span className="runtime-status">browser webR</span></div>
         <textarea className="work-code mono" spellCheck={false} value={code} onChange={e => {
-          const value = e.target.value; setCode(value); setRunResult(null);
+          const value = e.target.value; codeRevision.current += 1; setCode(value); setRunResult(null); setPracticeFeedback(null);
           localStorage.setItem(`kiwi-code-${classId}-${studentId}-${selected.id}-${current.id}`, value);
         }} aria-label="作业 R 代码编辑器" placeholder="在这里编写 R 代码…" />
         <div className="work-actions"><button className="run-button" disabled={running || runtimeBusy || !code.trim()} onClick={() => void execute()}>{running ? <LoaderCircle className="spin" size={15} /> : <Play size={15} />} 运行代码</button><button className="outline-button" onClick={useCodeAsAnswer}>将代码写入答案</button></div>
@@ -220,19 +286,22 @@ export function StudentWork({ classId, course, studentId, studentName, kiwi, eve
       </section>}
       {current && <section className="panel work-panel"><div className="panel-heading"><div><p className="eyebrow">ASK KIWI</p><h2><CircleHelp size={18} /> 询问解释与巩固练习</h2></div><Sparkles size={17} /></div>
         <p className="muted">{kiwi?.mode === 'live' ? 'Kiwi 会结合题目和当前代码解释思路。作业模式下会避免直接给出最终答案。' : '本地模式提供与题目相关的规则提示；嵌入 Kiwi 后会回答你的具体问题。'}</p>
-        <div className="ask-row"><input value={aiInput} onChange={e => setAiInput(e.target.value)} placeholder="例如：为什么我的筛选结果是空的？" onKeyDown={e => { if (e.key === 'Enter') void ask(); }} /><button className="primary-button" disabled={busy || !aiInput.trim()} onClick={() => void ask()}>提问</button></div>
+        <div className="ask-row"><input aria-label="向 Kiwi 提问" value={aiInput} onChange={e => setAiInput(e.target.value)} placeholder="例如：为什么我的筛选结果是空的？" onKeyDown={e => { if (e.key === 'Enter') void ask(); }} /><button className="primary-button" disabled={busy || !aiInput.trim()} onClick={() => void ask()}>提问</button></div>
         {aiReply && <div className="ai-reply">{aiReply}</div>}
-        <div className="similar-controls"><label>相似题难度 <select value={difficulty} onChange={e => setDifficulty(Number(e.target.value) as Difficulty)}>{[1, 2, 3, 4, 5].map(level => <option key={level} value={level}>{level}</option>)}</select></label>
-          <button className="outline-button" disabled={busy} onClick={() => void makeSimilar()}><Sparkles size={14} /> 生成相似题</button></div>
-        {similar && <div className="similar-card"><strong>{similar.title}</strong><p>{similar.prompt}</p>{similar.code && <pre>{similar.code}</pre>}
-          {similar.type === 'choice' ? <div className="choices">{similar.choices?.map(choice => <button className={`choice ${similarAnswer === choice ? 'selected' : ''}`} key={choice} onClick={() => setSimilarAnswer(choice)}>{choice}</button>)}</div> : <input value={similarAnswer} onChange={e => setSimilarAnswer(e.target.value)} placeholder="相似题答案" />}
-          <button className="primary-button" onClick={() => { const result = checkAnswer(similar, similarAnswer); setSimilarResult(result);
+        <div className="similar-controls" ref={similarControlsRef}><label>相似题难度 <select ref={difficultySelectRef} value={difficulty} disabled={busy} onChange={e => setDifficulty(Number(e.target.value) as Difficulty)}>{[1, 2, 3, 4, 5].map(level => <option key={level} value={level}>{level}</option>)}</select></label>
+          <button className="outline-button" disabled={busy} onClick={() => void makeSimilar()}>{busy ? <LoaderCircle className="spin" size={14} /> : <Sparkles size={14} />} {busy ? '正在处理…' : '生成相似题'}</button></div>
+        {message && messageArea === 'similar' && <p className="work-message" role="status">{message}</p>}
+        {similar && <div className="similar-card" ref={similarCardRef} tabIndex={-1} aria-label={`巩固练习：${similar.title}`}><strong>{similar.title}</strong><p>{similar.prompt}</p>{similar.code && <pre>{similar.code}</pre>}
+          {similar.type === 'choice' ? <div className="choices">{similar.choices?.map(choice => <button className={`choice ${similarAnswer === choice ? 'selected' : ''}`} key={choice} disabled={busy} onClick={() => { setSimilarAnswer(choice); setSimilarResult(null); }}>{choice}</button>)}</div> : <input aria-label="相似题答案" value={similarAnswer} disabled={busy} onChange={e => { setSimilarAnswer(e.target.value); setSimilarResult(null); }} placeholder="相似题答案" />}
+          <button className="primary-button" disabled={busy || !similarAnswer.trim()} onClick={() => { const result = checkAnswer(similar, similarAnswer); setSimilarResult(result);
             void track('answer_submitted', { title: similar.title, answer: similarAnswer, correct: result,
               questionType: similar.type, relatedAssignmentId: selected.id }, similar.id); }}>检查相似题</button>
-          {similarResult !== null && <p>{similarResult ? `正确：${similar.explanation}` : '继续尝试，可在 R 编辑器里验证。'}</p>}
+          {similarResult !== null && <p role="status">{similarResult ? `正确：${similar.explanation}` : '继续尝试，可在 R 编辑器里验证。'}</p>}
+          <div className="similar-actions"><button className="outline-button" disabled={busy} onClick={() => void makeSimilar()}><Sparkles size={14} /> 再练一道相似题</button>
+            <button className="outline-button" disabled={busy} onClick={returnToOriginal}><ArrowLeft size={14} /> 返回原题</button>
+            <button className="text-button" disabled={busy} onClick={adjustSimilarDifficulty}>调整相似题难度</button></div>
         </div>}
       </section>}
-      {message && <p className="work-message">{message}</p>}
-    </> : <section className="panel work-panel empty-work"><BookOpen size={27} /><h2>选择一份练习或作业</h2><p>题目、代码工作台和 Kiwi 提问会在这里显示。</p></section>}</div></div>
+    </> : <section className="panel work-panel empty-work"><BookOpen size={27} /><h2>选择一份练习或作业</h2><p>题目、代码工作台和 Kiwi 提问会在这里显示。</p>{message && <p className="work-message" role="status">{message}</p>}</section>}</div></div>
   </div>;
 }

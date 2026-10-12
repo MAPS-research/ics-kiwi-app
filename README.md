@@ -27,12 +27,12 @@ npm install
 npm run dev:all
 ```
 
-打开 [http://127.0.0.1:8100/](http://127.0.0.1:8100/)。首次运行 R 时浏览器会从本机加载约 50 MB 的 webR 文件。SQLite 数据保存在 `data/kiwi-lab.sqlite3`。
+学生端：[http://127.0.0.1:8100/student](http://127.0.0.1:8100/student)；教师端：[http://127.0.0.1:8100/teacher](http://127.0.0.1:8100/teacher)。角色切换页为 `/entry`，根路径默认进入学生端。首次运行 R 时浏览器会从本机加载约 50 MB 的 webR 文件。SQLite 数据保存在 `data/kiwi-lab.sqlite3`。
 
 建议按以下顺序测试：
 
-1. 进入「教师视图」，用本地默认密钥 `kiwi-local-demo` 登录。点击「载入 CSS 示例草稿」，编辑并发布一份练习与一份作业。可上传 `.qmd/.md/.txt/.pdf/.csv/.r/.rds/.zip` 附件（单个 3 MB 以内）；纯文本题面会自动填入说明供教师检查。
-2. 回到「练习与作业」，选 Ada Chen。练习可反复检查；作业可逐题保存答案、在 R 编辑器运行和修改代码、下载或载入课程数据、再提交整份作业。浏览器会保存未提交的答案和每题代码。
+1. 打开教师端，用本地默认密钥 `kiwi-local-demo` 登录。点击「载入 CSS 示例草稿」，编辑并发布一份练习与一份作业。可上传 `.qmd/.md/.txt/.pdf/.csv/.r/.rds/.zip` 附件（单个 3 MB 以内）；纯文本题面会自动填入说明供教师检查。
+2. 通过「切换入口」进入学生端「练习与作业」，选 Ada Chen。练习可反复检查；作业可逐题保存答案、在 R 编辑器运行和修改代码、下载或载入课程数据、再提交整份作业。浏览器会保存未提交的答案和每题代码。
 3. 在题目下向 Kiwi 提问、调节难度并生成相似题。独立本地模式给出与题目技能相关的规则提示和参数化题；嵌入 Kiwi 且 SDK AI 可用时调用 Kiwi AI。
 4. 切换 Bo Lin 测试另一名学生。教师端可看每次代码运行、错误输出、编辑快照、作答、提问内容、提交时间和尝试次数；在「作业提交与评分」填分数和评语。
 5. Data Hub 每行一名学生，包含各作业得分和提交次数、互动次数、活动学习分钟、自由练习次数、R 运行和 Kiwi 提问次数。可导入 `studentId,学生姓名` 名单，让尚未活动的学生也显示，并导出 CSV。
@@ -58,6 +58,12 @@ node scripts/register-kiwi-app.mjs --kiwi-repo /path/to/kiwi --class <classId>
 脚本参考了 [CADWiki Kiwi App](https://github.com/MAPS-research/cadwiki-kiwi-app) 的本地注册流程。它需要 Kiwi 仓库已执行 `npm install && npx prisma generate`，且 `.env` 含 `DATABASE_URL`。默认 slug 是 `ics-r-lab`，本地地址是 `http://127.0.0.1:8100`。若已有获批的 `contextualChat` prompt，可在注册时加 `--context-prompt <approvedPromptId>`，并在本项目 `.env` 设 `VITE_KIWI_CONTEXT_PROMPT_ID`。
 
 ## 验证
+
+每版更新由独立 review agent 在浏览器中分别完成学生与教师的实际任务，并检查桌面及窄屏显示。报告保存在 `docs/reviews/`，包括步骤、证据、使用困难与剩余问题；阻断问题修复后须重测。具体流程见 [AGENTS.md](AGENTS.md)。
+
+本版记录：[v0.2.0 学生与教师使用评审](docs/reviews/2026-10-12-v0.2.0.md)。
+
+v0.2.0 的紫色主题和自托管 Montserrat 字体根据 `kiwi-ui` 的 `src/Theme.ts`、`src/fonts/montserrat.css` 与 `public/kiwi-design-tokens.css` 核对，参考 commit `fbc29beab4c6063c07fcf273d89e7237fad850b7`。主站实际按钮主题为 Purple 800（`#6A1B9A`），公共 tokens 的 Purple 700（`#7B1FA2`）与其不同；本 App 以主站实际主题为准。
 
 ```bash
 npm run build

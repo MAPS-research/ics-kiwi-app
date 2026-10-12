@@ -21,8 +21,8 @@ function exportHub(hub: HubData) {
   URL.revokeObjectURL(url);
 }
 
-export function TeacherWork({ classId, course, teacherKey, onSelectStudent }: {
-  classId: string; course: Course; teacherKey: string; onSelectStudent: (id: string) => void;
+export function TeacherWork({ classId, course, teacherKey, onSelectStudent, refreshVersion }: {
+  classId: string; course: Course; teacherKey: string; onSelectStudent: (id: string) => void; refreshVersion: number;
 }) {
   const [works, setWorks] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -32,6 +32,8 @@ export function TeacherWork({ classId, course, teacherKey, onSelectStudent }: {
   const [gradeValues, setGradeValues] = useState<Record<string, { grade: string; feedback: string }>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageArea, setMessageArea] = useState<'manager' | 'editor' | 'grading' | 'hub'>('editor');
+  const [gradedId, setGradedId] = useState('');
   const [rosterText, setRosterText] = useState('');
 
   const refresh = useCallback(async () => {
@@ -40,19 +42,20 @@ export function TeacherWork({ classId, course, teacherKey, onSelectStudent }: {
     ]);
     setWorks(work); setSubmissions(subs); setHub(data);
   }, [classId, teacherKey]);
-  useEffect(() => { void refresh().catch(e => setMessage(e.message)); }, [refresh]);
+  useEffect(() => { void refresh().catch(e => { setMessageArea('manager'); setMessage(e.message); }); }, [refresh, refreshVersion]);
 
   const edit = (work: Assignment) => {
     setDraft({ id: work.id, kind: work.kind, title: work.title, unitId: work.unitId,
       instructions: work.instructions, dueAt: work.dueAt, status: work.status,
       attachmentName: work.attachmentName, questions: structuredClone(work.questions) });
-    setAttachment(null); setMessage('');
+    setAttachment(null); setMessage(''); setMessageArea('editor');
     document.getElementById('work-editor')?.scrollIntoView({ behavior: 'smooth' });
   };
   const updateQuestion = (id: string, update: Partial<WorkQuestion>) =>
     setDraft(previous => ({ ...previous, questions: previous.questions.map(q => q.id === id ? { ...q, ...update } : q) }));
   const importFile = async (file?: File) => {
     if (!file) return;
+    setMessageArea('editor');
     if (file.size > 3_000_000) { setMessage('附件最大 3 MB。'); return; }
     const data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
@@ -66,7 +69,7 @@ export function TeacherWork({ classId, course, teacherKey, onSelectStudent }: {
     setMessage(`已载入 ${file.name}。请检查说明与题目，再保存草稿。`);
   };
   const save = async () => {
-    setBusy(true); setMessage('');
+    setBusy(true); setMessage(''); setMessageArea('editor');
     try {
       const saved = await api.saveWork(classId, { ...draft, ...(attachment ? { attachment } : {}) }, teacherKey, draft.id);
       setDraft(previous => ({ ...previous, id: saved.id, attachmentName: saved.attachmentName, status: saved.status }));
@@ -75,21 +78,21 @@ export function TeacherWork({ classId, course, teacherKey, onSelectStudent }: {
     finally { setBusy(false); }
   };
   const toggle = async (work: Assignment) => {
-    setBusy(true); setMessage('');
+    setBusy(true); setMessage(''); setMessageArea('manager');
     try { await api.workStatus(classId, work.id, work.status === 'draft' ? 'published' : 'draft', teacherKey); await refresh();
       setMessage(work.status === 'draft' ? '已发布给学生。' : '已撤回为草稿。'); }
     catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   };
   const seed = async () => {
-    setBusy(true); setMessage('');
+    setBusy(true); setMessage(''); setMessageArea('manager');
     try { const result = await api.seedSamples(classId, teacherKey); await refresh(); setMessage(`已添加 ${result.created} 份 CSS 示例草稿。`); }
     catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   };
   const grade = async (sub: Submission) => {
     const value = gradeValues[sub.id]; if (!value) return;
-    setBusy(true); setMessage('');
+    setBusy(true); setMessage(''); setMessageArea('grading'); setGradedId(sub.id);
     try { await api.grade(classId, sub.id, Number(value.grade), value.feedback, teacherKey); await refresh(); setMessage('评分已保存。'); }
     catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
@@ -101,7 +104,7 @@ export function TeacherWork({ classId, course, teacherKey, onSelectStudent }: {
         const [studentId, ...name] = line.split(/[,\t]/);
         return { studentId: studentId.trim(), studentName: name.join(' ').trim() };
       });
-    setBusy(true); setMessage('');
+    setBusy(true); setMessage(''); setMessageArea('hub');
     try { const result = await api.importRoster(classId, students, teacherKey); await refresh();
       setMessage(`已导入 ${result.count} 名学生，未活动学生也会显示在数据表中。`); }
     catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
@@ -109,7 +112,7 @@ export function TeacherWork({ classId, course, teacherKey, onSelectStudent }: {
   };
 
   return <div className="teacher-work">
-    <section className="panel work-panel">
+    <section className="panel work-panel" id="assignment-manager">
       <div className="panel-heading"><div><p className="eyebrow">TEACHER AUTHORING</p><h2>练习与作业</h2></div><button className="outline-button" onClick={() => void seed()} disabled={busy}>载入 CSS 示例草稿</button></div>
       <p className="muted">示例根据四份 R 作业的技能范围改写。教师填写答案并检查后发布，学生端不会收到参考答案。</p>
       <div className="work-list">{works.map(work => <div className="work-list-row" key={work.id}>
@@ -117,7 +120,8 @@ export function TeacherWork({ classId, course, teacherKey, onSelectStudent }: {
         <button className="outline-button" onClick={() => edit(work)}>编辑</button>
         <button className="primary-button" disabled={busy} onClick={() => void toggle(work)}>{work.status === 'draft' ? '发布' : '撤回'}</button>
       </div>)}</div>
-      <button className="text-button" onClick={() => { setDraft(blank(course)); setAttachment(null); }}>＋ 新建练习或作业</button>
+      <button className="text-button" onClick={() => { setDraft(blank(course)); setAttachment(null); setMessage(''); setMessageArea('editor'); document.getElementById('work-editor')?.scrollIntoView({ behavior: 'smooth' }); }}>＋ 新建练习或作业</button>
+      {message && messageArea === 'manager' && <p className="work-message" role="status">{message}</p>}
     </section>
 
     <section className="panel work-panel" id="work-editor">
@@ -140,23 +144,26 @@ export function TeacherWork({ classId, course, teacherKey, onSelectStudent }: {
         <label className="work-label">解析 / 评分要点<textarea rows={2} value={q.explanation || ''} onChange={e => updateQuestion(q.id, { explanation: e.target.value })} /></label>
       </div>)}</div>
       <div className="work-actions"><button className="outline-button" onClick={() => setDraft({ ...draft, questions: [...draft.questions, newQuestion()] })}>＋ 添加题目</button><button className="primary-button" disabled={busy} onClick={() => void save()}>保存草稿</button></div>
-      {message && <p className="work-message">{message}</p>}
+      {message && messageArea === 'editor' && <p className="work-message" role="status">{message}</p>}
     </section>
 
-    <section className="panel work-panel">
+    <section className="panel work-panel" id="student-data-hub">
       <div className="panel-heading"><div><p className="eyebrow">DATA HUB</p><h2>班级学习数据</h2></div><button className="outline-button" onClick={() => exportHub(hub)}>导出 CSV</button></div>
       <p className="muted">每行一名学生。得分采用该作业最后一次已批改提交；学习时间为页面可见时的累计活动时长。</p>
+      <p className="hub-scroll-hint">左右滑动表格可查看全部作业和学习数据。</p>
       <details className="roster-import"><summary>导入学生名单（含未活动学生）</summary><p>每行填写 studentId,学生姓名；正式接入 Kiwi 时，studentId 应与 Kiwi 用户 ID 一致。</p>
         <textarea rows={3} value={rosterText} onChange={e => setRosterText(e.target.value)} placeholder={'student-001,张同学\nstudent-002,李同学'} />
         <div className="work-actions"><label className="outline-button">选择 CSV / TSV 文件<input type="file" accept=".csv,.tsv,.txt" onChange={e => { const file = e.target.files?.[0]; if (file) void file.text().then(setRosterText); }} /></label>
           <button className="primary-button" disabled={busy || !rosterText.trim()} onClick={() => void importRoster()}>导入名单</button></div></details>
+      {message && messageArea === 'hub' && <p className="work-message" role="status">{message}</p>}
       <div className="hub-scroll"><table className="hub-table"><thead><tr><th>学生</th>{hub.assignments.map(a => <th key={`${a.id}-score`}>{a.title}<br />得分</th>)}{hub.assignments.map(a => <th key={`${a.id}-attempts`}>{a.title}<br />尝试</th>)}<th>互动</th><th>学习分钟</th><th>自由练习</th><th>R 运行</th><th>Kiwi 提问</th></tr></thead>
         <tbody>{hub.students.map(s => <tr key={s.studentId}><td><button className="text-button" onClick={() => onSelectStudent(s.studentId)}>{s.studentName}</button></td>{hub.assignments.map(a => <td key={`${a.id}-score`}>{s.scoreByAssignment[a.id] ?? '—'}</td>)}{hub.assignments.map(a => <td key={`${a.id}-attempts`}>{s.attemptsByAssignment[a.id] ?? 0}</td>)}<td>{s.interactions}</td><td>{Math.round(s.learningSeconds / 60)}</td><td>{s.freePracticeCount}</td><td>{s.codeRuns}</td><td>{s.aiQuestions}</td></tr>)}</tbody></table></div>
       {hub.students.length === 0 && <p className="empty-state">还没有学生记录。</p>}
     </section>
 
-    <section className="panel work-panel">
-      <div className="panel-heading"><div><p className="eyebrow">GRADING</p><h2>作业提交与评分</h2></div><button className="outline-button" onClick={() => void refresh()}>刷新</button></div>
+    <section className="panel work-panel" id="homework-grading">
+      <div className="panel-heading"><div><p className="eyebrow">GRADING</p><h2>作业提交与评分</h2></div><button className="outline-button" disabled={busy} onClick={() => void refresh().catch(e => { setMessageArea('grading'); setGradedId(''); setMessage(e.message); })}>刷新</button></div>
+      {message && messageArea === 'grading' && !gradedId && <p className="work-message" role="status">{message}</p>}
       {submissions.filter(s => works.some(w => w.id === s.assignmentId)).map(sub => {
         const work = works.find(w => w.id === sub.assignmentId)!;
         const max = work.questions.reduce((sum, q) => sum + q.points, 0);
@@ -166,6 +173,7 @@ export function TeacherWork({ classId, course, teacherKey, onSelectStudent }: {
           <div className="grade-controls"><label>得分 / {max}<input type="number" min="0" max={max} value={value.grade} onChange={e => setGradeValues({ ...gradeValues, [sub.id]: { ...value, grade: e.target.value } })} /></label>
             <label>评语<input value={value.feedback} onChange={e => setGradeValues({ ...gradeValues, [sub.id]: { ...value, feedback: e.target.value } })} /></label>
             <button className="primary-button" disabled={busy || value.grade === ''} onClick={() => void grade(sub)}>保存评分</button></div>
+          {message && messageArea === 'grading' && gradedId === sub.id && <p className="work-message" role="status">{message}</p>}
         </div>;
       })}
       {submissions.length === 0 && <p className="empty-state">暂无学生提交。</p>}
