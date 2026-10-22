@@ -1,6 +1,6 @@
 {
   "name": "ics-kiwi-app",
-  "version": "0.2.0",
+  "version": "0.5.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,12 @@
     "preview": "vite preview --host 127.0.0.1 --port 8100",
     "test": "vitest run",
     "postinstall": "npm run prepare:webr",
-    "prepare:webr": "node scripts/copy-webr.mjs"
+    "prepare:webr": "node scripts/copy-webr.mjs",
+    "demo:setup": "node scripts/local-kiwi/setup.mjs",
+    "demo:start": "node scripts/local-kiwi/start.mjs",
+    "demo:stop": "node scripts/local-kiwi/start.mjs stop",
+    "demo:status": "node scripts/local-kiwi/start.mjs status",
+    "demo:seed": "node scripts/local-kiwi/seed-app.mjs"
   },
   "dependencies": {
     "@fontsource-variable/montserrat": "^5.3.0",

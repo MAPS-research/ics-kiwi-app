@@ -1,25 +1,10 @@
 # CSS Kiwi Lab
 
-可在本地运行的 Computational Social Science（SOCS-SH 190）Kiwi App 原型。教师发布练习和 homework；学生在同一页面作答、运行 R、调试、向 Kiwi 提问并生成相似题；教师批改并在 Data Hub 查看每位学生的学习过程。
+A local Computational Social Science learning app for SOCS-SH 190. Version **0.5.1** repairs teacher entry from Kiwi's global menu, including instructor course selection and recovery after a failed lookup. Kiwi and CSS Lab share verified course identity and teacher analytics covering both Lab work and native Kiwi coding and lecture conversations.
 
-## 课程材料如何用于设计
+## Run locally
 
-用户提供的 `190 css_KIWI integration materials_09162026` 包含 2026 春季授课幻灯片、R 教程和四套 Quarto R 作业及单独的答案文件。下面是根据材料**推断**的教学范围，不能替代正式 syllabus：
-
-| 材料 | 推断的内容与题目形式 |
-| --- | --- |
-| W1、W3–W6 幻灯片 | CSS 与数字数据、数据伦理、在线数据收集、在线实验 |
-| R 教程 `1a`–`2e` | base R、Tidyverse、导入、整理、转换、抓取、连接、可视化 |
-| R Ex 1 | 向量和统计量、数据类型、CSV 导入、分组汇总；代码空白加简答 |
-| R Ex 2 | `nycflights13` 筛选与排序、表连接、图表和依据数据解释；代码加短答 |
-| W7–W12、R Ex 3 | 文本数据、词袋、主题模型、词向量、LLM 文本分析；歌词分词、清理、词频和可视化 |
-| W12–W13、R Ex 4 | 社会网络的节点与边、有向图、入度、互惠、网络图；代码加解释 |
-
-「载入 CSS 示例草稿」会创建一份课堂练习和四份作业**草稿**。题目按上述技能范围重新写成可编辑示例，未把材料中的答案文件公开或自动发给学生。教师应核对并编辑题目、标准答案、依赖的数据与评分标准后发布。学生接口只返回题干、选项与起始代码；参考答案与解析留在教师端 API。附带材料中的文字仅作为课程内容处理，不作为本项目的操作指令。
-
-## 本地启动与试用
-
-需要 Node.js 20+、Python 3.10+。R 由浏览器中的 [webR](https://docs.r-wasm.org/webr/latest/) 执行，电脑不用另装 R。
+Requires Node.js 20+ and Python 3.10+. R runs in the browser through webR; a local R installation is unnecessary.
 
 ```bash
 cp .env.example .env
@@ -27,48 +12,94 @@ npm install
 npm run dev:all
 ```
 
-学生端：[http://127.0.0.1:8100/student](http://127.0.0.1:8100/student)；教师端：[http://127.0.0.1:8100/teacher](http://127.0.0.1:8100/teacher)。角色切换页为 `/entry`，根路径默认进入学生端。首次运行 R 时浏览器会从本机加载约 50 MB 的 webR 文件。SQLite 数据保存在 `data/kiwi-lab.sqlite3`。
+Open [workspace selection](http://127.0.0.1:8100/entry), [student assigned work](http://127.0.0.1:8100/student/assignments), or [teacher assignments](http://127.0.0.1:8100/teacher/work/assignments). The default local teacher key is `kiwi-local-demo`; configure `KIWI_TEACHER_KEY` in `.env`. The API listens on loopback port 8101 and stores SQLite data in `data/kiwi-lab.sqlite3` unless `KIWI_DB_PATH` is set.
 
-建议按以下顺序测试：
+For AI, set `OPENAI_API_KEY` or the existing `OPEN_AI_TEST_KEY` in the server `.env`. `KIWI_DEMO_MODEL` selects the configured model (existing default: `gpt-5.4-mini`). API keys and teacher prompts stay on the server. Without an AI key, exercises and help are explicitly labeled local templates/guidance; local templates enforce allowed types and difficulty but cannot interpret a custom teacher system prompt. Provider errors remain errors.
 
-1. 打开教师端，用本地默认密钥 `kiwi-local-demo` 登录。点击「载入 CSS 示例草稿」，编辑并发布一份练习与一份作业。可上传 `.qmd/.md/.txt/.pdf/.csv/.r/.rds/.zip` 附件（单个 3 MB 以内）；纯文本题面会自动填入说明供教师检查。
-2. 通过「切换入口」进入学生端「练习与作业」，选 Ada Chen。练习可反复检查；作业可逐题保存答案、在 R 编辑器运行和修改代码、下载或载入课程数据、再提交整份作业。浏览器会保存未提交的答案和每题代码。
-3. 在题目下向 Kiwi 提问、调节难度并生成相似题。独立本地模式给出与题目技能相关的规则提示和参数化题；嵌入 Kiwi 且 SDK AI 可用时调用 Kiwi AI。
-4. 切换 Bo Lin 测试另一名学生。教师端可看每次代码运行、错误输出、编辑快照、作答、提问内容、提交时间和尝试次数；在「作业提交与评分」填分数和评语。
-5. Data Hub 每行一名学生，包含各作业得分和提交次数、互动次数、活动学习分钟、自由练习次数、R 运行和 Kiwi 提问次数。可导入 `studentId,学生姓名` 名单，让尚未活动的学生也显示，并导出 CSV。
+## Pages and workflows
 
-本地教师密钥在 `.env` 的 `KIWI_TEACHER_KEY` 中修改，改后重启服务。Data Hub 的得分采用该作业最后一次已评分提交。学习时长按页面可见且有近期操作时的 30 秒心跳累计，属于活动估计值。
+Navigation changes the URL and rendered page. Refresh, deep links, and browser Back/Forward are supported; navigation does not scroll through a page containing every module.
 
-## R、AI 与数据边界
+| Teacher module | Pages |
+| --- | --- |
+| Practice & assignments | Assignment list; create/edit; publish/unpublish; grading; chapter-specific generation settings |
+| Course management | Course plan and current chapter; enrollment and roster import; Kiwi lecture-to-chapter links |
+| Data analytics | Overview; interaction explorer; full session; answer/question evidence; grades and Data Hub |
 
-- 学生代码在自己的浏览器 webR 中执行，服务端只存记录，不执行代码。编辑器支持 base R、错误输出、调试提示、数据文件导入和按需安装 webR 可用的 R 包。上传的 CSV/RDS/TXT 会写到 `/home/web_user/`，可用绝对路径读取。课程原始作业涉及 `tidyverse`、`nycflights13`、`taylor`、`quanteda`、`tidygraph`、`ggraph` 等包；其 webR 可用性和包下载情况需要在目标浏览器核对。当前文本运行台不显示生成的绘图。
-- 教师作业用手动评分，适合开放式分析题；已发布的课堂练习由服务端按参考答案即时检查。学生可以提交多次作业，每次答案快照和提交时间都会保留。已产生提交的作业不允许直接改题或撤回，避免成绩对应的题目被改写。
-- Kiwi SDK 连接时使用 `ready`、`askAI`、`updateContext`、`documentChunks` 和可选的 `contextualChat`。本地独立运行时，AI 解释会退回规则提示，相似题使用本地模板。真实 AI 出题和解释仍应由教师抽查质量；作业提问的提示词要求只解释思路与调试方法。
-- API 仅监听 `127.0.0.1`。Vite 开发服务拒绝直接读取 `server/`、`data/`、`.env` 和 `.git`；学生端 API 也不会发送答案。教师接口需要密钥，但学生身份、事件、答案与运行输出由浏览器提交，未接入 Kiwi 的服务端身份验证。**这是本地试用版，不要把端口公开或将其直接用于正式成绩评定。**部署给真实班级前需接入可信身份、按课程授权、HTTPS、数据保留策略和适当的 R 执行隔离。Kiwi SDK 当前没有供此独立 API 直接验证学生身份或写入自定义事件的通用接口，因此使用本地 SQLite。
+Students have Assigned work, Guided practice, R workspace, Ask Kiwi, and Course outline. Within an assignment, **Answer & submit**, **R workspace**, **Ask Kiwi**, and **Similar practice** are separate pages sharing the selected question. Answers and code are saved in the current browser; AI conversations persist on the server. Generated practice is retained in the browser session.
 
-## 嵌入 Kiwi
+Create a draft, fill in questions and reference answers, then publish it from the assignment list. Classroom practice is checked immediately; homework is manually graded. Homework submission requires every answer. Retrying the same pending request does not create another submission. A deliberate subsequent submission creates a new attempt. Once work has submissions, create a revision to preserve its original questions and grades.
 
-仓库中的 `public/sdk/v1/kiwi-app-sdk.js` 来自 [Kiwi App SDK](https://github.com/NYUSH-ML/kiwi-app-sdk) / [kiwi-ui](https://github.com/NYUSH-ML/kiwi-ui) 的本地 v1 bundle。先按 [Kiwi 后端](https://github.com/NYUSH-ML/kiwi) 与 kiwi-ui 的说明启动主服务，再用本项目的注册脚本：
+Teacher generation settings apply per chapter: an English system prompt, minimum/maximum/default difficulty, allowed question types, and output token limit. Every AI request loads the current server-owned policy; students supply typed learning inputs in user messages. Teachers' rules occupy a higher-priority developer message. Students cannot send system messages, model settings, token limits, or policy overrides through these endpoints. Types/difficulty are validated before generation and generated question schemas are checked afterward. Similar-question generation rejects copied concrete numeric vectors or substantive source stems, retries once, then reports a failure if the repetition continues.
+
+## Analytics and definitions
+
+Overview cards link to filtered evidence tables. The explorer groups data by student, chapter, assignment, question, Kiwi material, or complete session. Source filters distinguish CSS Lab from Kiwi, with original record IDs, lecture pages, code/output and conversation threads in the evidence. It supports name/ID search, sorting, chapter/assignment filters, and filters for answer attempts, R runs, R errors, successful runs, or Kiwi questions.
+
+- A session represents one student working on one question, code workspace, or dialogue thread in a browser session. Repeated attempts, code, and dialogue about that question are grouped together. Thirty minutes of inactivity starts a new session.
+- Course progress counts completed chapters; the current chapter remains in progress. Active students means meaningful activity in the last seven days.
+- Average answer attempts and interactions divide all recorded activity by students with recorded activity. Timing heartbeats are excluded from interactions. Per-row averages use students represented in that row.
+- Checked accuracy uses automatically checked attempts. Ungraded/open-ended homework is not counted as incorrect. Homework attempts count per-question submitted snapshots.
+- Question evidence shows answer/option counts and shares, including unused authored options. It displays up to 50 distinct answers; shares use all matching attempts. Raw student questions are paginated.
+- Repeated questions use normalized exact text. Shared topics use named keyword rules with original examples and session links; they are candidates for teacher inspection, not inferred diagnoses.
+- Data Hub scores use the latest graded submission. Active minutes estimate CSS Lab engagement from visible-page activity heartbeats; they do not estimate time spent reading in native Kiwi. CSV export neutralizes spreadsheet formula prefixes.
+
+Original event payloads and timestamps are retained. Old homework attempts missing question-level telemetry are recovered from actual submission snapshots and explicitly labeled. Legacy events without enough chapter information remain unattributed. Existing authored assignments, answers, feedback, and grades are preserved in their original language.
+
+Analytics aggregate indexed session counters on the server instead of downloading the full event log. Table responses default to 25 rows and cap at 100; full-session events use 100-event cursor pages. Teacher authoring loads 20 assignments per page; grading loads 10 submissions plus only their associated questions. Assignment dropdowns use lightweight metadata. Students load question bodies and up to 100 latest submissions for the selected assignment. AI concurrency is bounded and requests are rate-limited. See [Kiwi integration and limits](docs/architecture-v0.5.0.md) and the [Lab workflow architecture](docs/architecture-v0.4.0.md).
+
+## Official Kiwi demo
+
+The existing full local demo includes the official Kiwi UI/backend, PostgreSQL, Redis, and MinIO. Current installation is retained:
+
+```bash
+npm run demo:start
+npm run demo:status
+npm run demo:stop
+```
+
+For a fresh installation, configure the server key, install Docker Desktop and dependencies, then run:
+
+```bash
+npm run demo:setup
+npm run demo:start
+```
+
+Open [Kiwi login](http://localhost:3001/login). Accounts are in `.local/demo-credentials.json`; the app teacher key is in `.local/app-access.json`. They are not bundled in the browser. The setup pins Node.js 24.21.0 and upstream repositories, and retains existing app assignments/submissions. New example content is English; legacy demo titles are matched without duplicating or rewriting existing work.
+
+From Kiwi’s student home or teacher class list, use **Open CSS Lab** below the course card. **Back to Kiwi** returns to the course Materials page (student) or class list (teacher). The host SDK supplies an app token; the Lab server verifies course membership and permissions with Kiwi. Embedded teachers use Kiwi sign-in, without a second local teacher key.
+
+The [global teacher entry](http://localhost:3001/admin/app/ics-r-lab) resolves the courses where CSS Lab is enabled: one opens automatically, several require a selection, and a lookup failure offers a retry. Ordinary instructors use their teaching assignments; administrators use their existing course access. Standalone teacher pages link to **Sign in with Kiwi** and label the independent demo-key form separately. Initialization failures offer retry and return navigation instead of leaving a spinner running.
+
+Teacher analytics refresh native Kiwi activity automatically while open and offer **Refresh Kiwi activity**. Native scratchpad runs, lecture page events, and AI questions/responses join Lab evidence without erasing their source. **Course management → Kiwi materials** links lecture materials to Lab chapters. Historical code outcomes without the corrected capture metadata remain unknown.
+
+Lab AI generation and tutoring still use server-owned teacher policy. Native Kiwi conversations remain in Kiwi; the Lab imports an analytics projection. Historical records from this Lab’s old SDK chat are excluded from the native import to avoid counting them twice. See the [integration architecture](docs/architecture-v0.5.0.md), [local demo guide](docs/local-kiwi-demo.md), and [partial independent browser review](docs/reviews/2026-10-15-v0.5.0.md).
+
+Register the app with an existing local Kiwi installation:
 
 ```bash
 node scripts/register-kiwi-app.mjs --kiwi-repo /path/to/kiwi --list-classes
 node scripts/register-kiwi-app.mjs --kiwi-repo /path/to/kiwi --class <classId>
 ```
 
-脚本参考了 [CADWiki Kiwi App](https://github.com/MAPS-research/cadwiki-kiwi-app) 的本地注册流程。它需要 Kiwi 仓库已执行 `npm install && npx prisma generate`，且 `.env` 含 `DATABASE_URL`。默认 slug 是 `ics-r-lab`，本地地址是 `http://127.0.0.1:8100`。若已有获批的 `contextualChat` prompt，可在注册时加 `--context-prompt <approvedPromptId>`，并在本项目 `.env` 设 `VITE_KIWI_CONTEXT_PROMPT_ID`。
+## Course examples and boundaries
 
-## 验证
+The supplied `190 css_KIWI integration materials_09162026` informed editable examples: CSS/digital-data ethics, base R/import/wrangling, flights/joins/visualization, lyrics/text preprocessing, and social networks. This is an inferred skill mapping, not an authoritative syllabus. The app does not publish the supplied answer files. Teachers must check examples, reference answers, attached data, and rubrics before assigning them. Student work APIs redact reference answers and explanations.
 
-每版更新由独立 review agent 在浏览器中分别完成学生与教师的实际任务，并检查桌面及窄屏显示。报告保存在 `docs/reviews/`，包括步骤、证据、使用困难与剩余问题；阻断问题修复后须重测。具体流程见 [AGENTS.md](AGENTS.md)。
+R code executes in browser webR, never on the Python server. CSV/RDS/TXT can be loaded into `/home/web_user/`; webR-compatible packages can be installed as needed. The current workspace is a text console and does not render plots. Package availability, large datasets, and external networks require separate verification.
 
-本版记录：[v0.2.0 学生与教师使用评审](docs/reviews/2026-10-12-v0.2.0.md)。
+This remains a local pilot. Embedded courses require a server-verified Kiwi app token and current course permissions. Standalone demo identity and its teacher key apply to unlinked demo courses. Shared deployment still requires HTTPS, managed persistence and retention, and deployment/load validation. No production-capacity claim is made from local API checks or a query benchmark.
 
-v0.2.0 的紫色主题和自托管 Montserrat 字体根据 `kiwi-ui` 的 `src/Theme.ts`、`src/fonts/montserrat.css` 与 `public/kiwi-design-tokens.css` 核对，参考 commit `fbc29beab4c6063c07fcf273d89e7237fad850b7`。主站实际按钮主题为 Purple 800（`#6A1B9A`），公共 tokens 的 Purple 700（`#7B1FA2`）与其不同；本 App 以主站实际主题为准。
+## Validation
 
 ```bash
 npm run build
 npm test
-python3 -m unittest server.test_app -q
+python3 -m unittest server.test_app server.test_kiwi_bridge -q
+node scripts/verify-r-capture.mjs
+python3 scripts/benchmark-analytics.py --sessions 100000
 ```
 
-API 测试覆盖草稿与发布、答案隔离、练习判定、附件、重复提交、评分、名单和 Data Hub。浏览器端还应至少执行一次成功 R 代码和一次报错代码，以确认目标浏览器可载入 webR。
+[Independent v0.5.1 review](docs/reviews/2026-10-15-v0.5.1.md) found three additional entry defects, all corrected and retested in 14 DOM cases. [v0.5.1 engineering verification](docs/reviews/2026-10-15-v0.5.1-engineering.md) records actual sign-in/course APIs, authorization checks, builds, and preservation. Required browser review is **incomplete** after the session was stopped: teacher UI, student regressions, and true narrow-viewport checks remain pending. The [v0.5.0 browser review](docs/reviews/2026-10-15-v0.5.0.md) records earlier student launch/SSO/return and native lecture chat; [v0.5.0 engineering validation](docs/reviews/2026-10-15-v0.5.0-engineering.md) records ingestion and real-R checks. Earlier reports: [v0.4](docs/reviews/2026-10-15-v0.4.0.md), [v0.3](docs/reviews/2026-10-14-v0.3.0.md), [v0.2](docs/reviews/2026-10-12-v0.2.0.md).
+
+Theme/fonts match the active local `NYUSH-ML/kiwi-ui` commit `fbc29beab4c6063c07fcf273d89e7237fad850b7`. Both `src/Theme.ts` and `public/kiwi-design-tokens.css` were checked: active primary is Purple 800 (`#6A1B9A`), while public tokens still use Purple 700. Montserrat is self-hosted; success/error retain their semantic colors.

@@ -1,0 +1,41 @@
+# Kiwi integration — v0.5.0
+
+## Entry and identity
+
+Kiwi student home and teacher class cards resolve each course's enabled app binding before showing **Open CSS Lab**. Existing course tabs remain available. Lab's **Back to Kiwi** uses the host SDK's acknowledged navigation message, returning students to their current course Materials and teachers to their class list. Standalone **Open Kiwi** opens the configured host.
+
+The v0.5.1 global teacher link `/admin/app/ics-r-lab` resolves an enabled teaching course before mounting the course-only frame. It normalizes the actual instructor endpoint's Class objects as well as legacy string IDs; administrators use the existing administrator list. Binding lookups run in batches of six. One eligible course opens automatically, several require an explicit choice, and a failed lookup remains a retryable error. The host layout's generic first-course fallback excludes CSS Lab so it cannot override this choice. Explicit course URLs retain their course scope. App metadata requests clear prior errors, suppress late writes after navigation, and render only metadata resolved for the current scope; a keyed frame prevents a previous course's identity from being reused. These changes preserve the existing token and permission checks.
+
+The browser requests an app token from the real host SDK. The Python API forwards it to the configured Kiwi backend's `/api/kiwi-apps/ics-r-lab/lab/context`. Kiwi verifies its signature with its own existing guard, the app slug, a non-null course, enabled app binding, active whitelist/app, current membership, and permissions. The Lab never receives Kiwi's signing secret or the parent session token. It uses the verified user/course, including Kiwi's `professor` role. Auth failures in an embedded frame remain errors.
+
+Native analytics require both `class:analytics:read` in the token/current app binding and the current instructor's `canViewAnalytics` permission (or system administrator status). Lab authoring uses `canManageMaterials` as course-management permission. User IDs in student writes must match the verified identity; private student reads require ownership or analytics access. A student cannot elevate access with `X-Teacher-Key`. Linked classes reject anonymous access and the standalone teacher key. Context checks cache for at most five seconds, bounded to 128 token hashes; no tokens are stored in SQLite.
+
+## Native activity
+
+The bridge exports an allowlist of student interactions for the token's course: native IDE runs and code sharing, PDF page changes, and native AI questions. It exports student prompts and the latest recorded non-intermediate AI answer, not generic HTTP traffic or hidden system prompts. Only currently enrolled students are included. Historical `app-ics-r-lab-*` SDK records are excluded from this additional source because they belong to the Lab's earlier telemetry path.
+
+Two ordered streams cover interaction creation and later `ServerAction` creation. Cursor pages contain at most 200 changes and share a fixed snapshot, with a two-second safety delay. An AI response arriving later updates its original interaction through the action stream. PostgreSQL indexes cover course/time, action time, and action interaction/time. Each Lab request processes at most five pages and persists the cursor transactionally; the UI resumes a backfill, reports its progress, and refreshes every 30 seconds while mounted. Completed snapshots replay five minutes to reconcile short late commits. This is incremental ingestion of append events, not CDC for arbitrary edits/deletions to old Kiwi rows.
+
+SQLite uses a unique `(class_id, source, upstream_id)` key. Re-imports replace evidence and adjust counters instead of adding an interaction or question. Projection version changes trigger idempotent reconciliation of prior native records. Source-specific session context prevents native and Lab events from collapsing into each other. Session timelines use occurrence time and an indexed `(time,id)` cursor. Original upstream IDs remain available. Existing authored assignments, submissions, and grades are not migrated or rewritten.
+
+The explorer and Data Hub aggregate the unified session rollups. Source filters and source cards distinguish **CSS Lab** and **Kiwi**. Native lecture metadata groups material/page/thread, and **Course management → Kiwi materials** links materials to chapters without changing session IDs or event counts. Materials without a mapping remain explicitly unlinked. PDF view events use zero-based page indices, while native chat sends one-based page numbers; the projection displays both correctly as human page numbers.
+
+Code runs have known successes, known failures, and unknown outcomes. The corrected native runner records `captured-result-v1`, language, success and errors. Older native runs cannot be classified from `codeRuns - codeErrors` and remain unknown, including the two review runs made before the runner correction. Total code runs still includes those records. Lab active minutes cover only Lab heartbeats, not inferred lecture reading time.
+
+## Reproducible host changes
+
+Upstream backend: `NYUSH-ML/kiwi` at `2fe8d2d331dc619a1e22fe2fa61df2758ba7b353`. Upstream UI/theme: `NYUSH-ML/kiwi-ui` at `fbc29beab4c6063c07fcf273d89e7237fad850b7`. Montserrat and the active purple.800 theme are unchanged; semantic errors/success retain their colors.
+
+Tracked controller and UI adapters live in `scripts/local-kiwi/bridge/`. `backend-patches.mjs` installs/registers the scoped controller. `frontend.mjs` installs course launch buttons, the teacher navigation acknowledgement, and native R output capture. It copies the same local webR assets/runner used by the Lab, avoids the native runner's swallowed R errors, waits for execution before feedback, and disables duplicate Run clicks. It also moves logout's state change out of React render. These are local compatibility changes, not remote upstream commits.
+
+`upgrade-integration.mjs` operates only on the isolated loopback demo database. It upgrades scopes/UI roles and indexes, repairs the two known demo passwords from the retained private credentials if mismatched, and corrects the demo PDF's material category. Course and assignment content, submissions and grades are retained. Fresh `demo:setup` applies it automatically. `app-session.mjs` and demo seeding use real password sign-in followed by the app-token endpoint rather than bypassing linked-class auth.
+
+For another Kiwi deployment, install/review the controller and UI adapters there, enable `class:analytics:read` in both app whitelist and course binding, provision the three indexes, and set server-only `KIWI_API_ORIGIN` plus `KIWI_CLASS_IDS`. Registering a frontend URL by itself does not install the bridge. HTTPS is required for a non-loopback API origin.
+
+## Verification and remaining limits
+
+See the [engineering verification](reviews/2026-10-15-v0.5.0-engineering.md) and [independent browser review](reviews/2026-10-15-v0.5.0.md). Browser verification confirmed student entry/identity/return and created the native lecture interactions; it stopped before teacher and responsive review. Code fixes after that interruption have API, build, type, and real-R runtime checks, not browser retest approval.
+
+This is a local pilot. Per-process sync locks and SQLite's writer serialization are appropriate for its single API process; multiple API workers need a shared ingestion lease/queue and a production datastore. Native metadata import currently reports truncation above 1,000 materials or 10,000 enrolled students. Evidence strings are abbreviated above 100,000 characters with an explicit flag, and original record IDs are retained. No multi-user load or production-size native-history test has been performed. The earlier synthetic 100k-session query benchmark is not a capacity guarantee.
+
+Deletion/retention changes in Kiwi do not automatically erase the local analytics projection; deployment must establish its own retention/deletion process. Unusual old-record edits, very long transactions outside the replay window, large file uploads/plots, all external R packages, and the reported native React maximum-update-depth warning still require targeted verification. No untested workflow is recorded as passed.

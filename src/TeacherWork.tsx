@@ -1,182 +1,1007 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api } from './lib/api';
-import type { Assignment, Course, HubData, Submission, WorkQuestion } from './types';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Copy, Plus, Save } from "lucide-react";
+import { api } from "./lib/api";
+import { navigate } from "./lib/navigation";
+import { questionLabels } from "./Practice";
+import type {
+  Assignment,
+  Course,
+  GenerationPolicy,
+  Submission,
+  WorkQuestion,
+  WorkOption,
+} from "./types";
 
-const newQuestion = (): WorkQuestion => ({ id: `q-${crypto.randomUUID()}`, type: 'text', prompt: '', points: 10,
-  choices: [], starterCode: '', answer: '', explanation: '' });
-const blank = (course: Course): { kind: 'practice' | 'homework'; title: string; unitId: string;
-  instructions: string; dueAt: string | null; questions: WorkQuestion[] } => ({ kind: 'homework', title: '', unitId: course.currentUnitId,
-  instructions: '', dueAt: null as string | null, questions: [newQuestion()] });
-type Draft = ReturnType<typeof blank> & { id?: string; status?: 'draft' | 'published'; attachmentName?: string | null };
+const newQuestion = (): WorkQuestion => ({
+  id: `q-${crypto.randomUUID()}`,
+  type: "text",
+  prompt: "",
+  points: 10,
+  choices: [],
+  starterCode: "",
+  answer: "",
+  explanation: "",
+});
+const blank = (course: Course) => ({
+  kind: "homework" as Assignment["kind"],
+  title: "",
+  unitId: course.currentUnitId,
+  instructions: "",
+  dueAt: null as string | null,
+  questions: [newQuestion()],
+});
+type Draft = ReturnType<typeof blank> & {
+  id?: string;
+  status?: Assignment["status"];
+  attachmentName?: string | null;
+  attachmentSourceId?: string;
+};
+const toLocal = (iso: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.valueOf())) return "";
+  return new Date(d.valueOf() - d.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+};
 
-function exportHub(hub: HubData) {
-  const head = ['学生 ID', '学生', ...hub.assignments.flatMap(a => [`${a.title} 得分`, `${a.title} 提交次数`]),
-    '互动次数', '学习分钟', '自由练习次数', 'R 运行次数', 'Kiwi 提问次数'];
-  const rows = hub.students.map(s => [s.studentId, s.studentName,
-    ...hub.assignments.flatMap(a => [s.scoreByAssignment[a.id] ?? '', s.attemptsByAssignment[a.id] ?? 0]),
-    s.interactions, Math.round(s.learningSeconds / 60), s.freePracticeCount, s.codeRuns, s.aiQuestions]);
-  const csv = [head, ...rows].map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\r\n');
-  const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
-  const link = document.createElement('a'); link.href = url; link.download = 'css-kiwi-data-hub.csv'; link.click();
-  URL.revokeObjectURL(url);
-}
-
-export function TeacherWork({ classId, course, teacherKey, onSelectStudent, refreshVersion }: {
-  classId: string; course: Course; teacherKey: string; onSelectStudent: (id: string) => void; refreshVersion: number;
+export function TeacherWork({
+  classId,
+  course,
+  teacherKey,
+  route,
+}: {
+  classId: string;
+  course: Course;
+  teacherKey: string;
+  route: string;
 }) {
   const [works, setWorks] = useState<Assignment[]>([]);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [hub, setHub] = useState<HubData>({ assignments: [], students: [] });
+  const [subs, setSubs] = useState<Submission[]>([]);
+  const [options, setOptions] = useState<WorkOption[]>([]);
+  const [total, setTotal] = useState(0);
+  const loadId = useRef(0);
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [draft, setDraft] = useState<Draft>(blank(course));
-  const [attachment, setAttachment] = useState<{ name: string; type: string; data: string } | null>(null);
-  const [gradeValues, setGradeValues] = useState<Record<string, { grade: string; feedback: string }>>({});
+  const [attachment, setAttachment] = useState<{
+    name: string;
+    type: string;
+    data: string;
+  } | null>(null);
+  const [grades, setGrades] = useState<
+    Record<string, { grade: string; feedback: string }>
+  >({});
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const [messageArea, setMessageArea] = useState<'manager' | 'editor' | 'grading' | 'hub'>('editor');
-  const [gradedId, setGradedId] = useState('');
-  const [rosterText, setRosterText] = useState('');
-
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [policies, setPolicies] = useState<GenerationPolicy[]>([]);
+  const [policyUnit, setPolicyUnit] = useState(course.currentUnitId);
+  const [policy, setPolicy] = useState<GenerationPolicy | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const url = new URL(route, location.origin),
+    section = url.pathname.split("/")[3] || "assignments",
+    editId = url.pathname.split("/")[4] || "";
+  const selectedAssignment = url.searchParams.get("assignmentId") || "";
+  const loadedEditor = useRef("");
+  useEffect(() => {
+    const timer = setTimeout(() => setAppliedSearch(search), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
   const refresh = useCallback(async () => {
-    const [work, subs, data] = await Promise.all([
-      api.work(classId, teacherKey), api.submissions(classId, undefined, teacherKey), api.hub(classId, teacherKey),
-    ]);
-    setWorks(work); setSubmissions(subs); setHub(data);
-  }, [classId, teacherKey]);
-  useEffect(() => { void refresh().catch(e => { setMessageArea('manager'); setMessage(e.message); }); }, [refresh, refreshVersion]);
-
-  const edit = (work: Assignment) => {
-    setDraft({ id: work.id, kind: work.kind, title: work.title, unitId: work.unitId,
-      instructions: work.instructions, dueAt: work.dueAt, status: work.status,
-      attachmentName: work.attachmentName, questions: structuredClone(work.questions) });
-    setAttachment(null); setMessage(''); setMessageArea('editor');
-    document.getElementById('work-editor')?.scrollIntoView({ behavior: 'smooth' });
-  };
-  const updateQuestion = (id: string, update: Partial<WorkQuestion>) =>
-    setDraft(previous => ({ ...previous, questions: previous.questions.map(q => q.id === id ? { ...q, ...update } : q) }));
-  const importFile = async (file?: File) => {
-    if (!file) return;
-    setMessageArea('editor');
-    if (file.size > 3_000_000) { setMessage('附件最大 3 MB。'); return; }
-    const data = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
-      reader.onerror = () => reject(new Error('文件读取失败')); reader.readAsDataURL(file);
-    });
-    setAttachment({ name: file.name, type: file.type || 'application/octet-stream', data });
-    if (/\.(qmd|md|txt)$/i.test(file.name)) {
-      const text = await file.text();
-      setDraft(previous => ({ ...previous, instructions: text.slice(0, 12000) }));
-    }
-    setMessage(`已载入 ${file.name}。请检查说明与题目，再保存草稿。`);
-  };
-  const save = async () => {
-    setBusy(true); setMessage(''); setMessageArea('editor');
-    try {
-      const saved = await api.saveWork(classId, { ...draft, ...(attachment ? { attachment } : {}) }, teacherKey, draft.id);
-      setDraft(previous => ({ ...previous, id: saved.id, attachmentName: saved.attachmentName, status: saved.status }));
-      setAttachment(null); await refresh(); setMessage('草稿已保存。');
-    } catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
-    finally { setBusy(false); }
-  };
-  const toggle = async (work: Assignment) => {
-    setBusy(true); setMessage(''); setMessageArea('manager');
-    try { await api.workStatus(classId, work.id, work.status === 'draft' ? 'published' : 'draft', teacherKey); await refresh();
-      setMessage(work.status === 'draft' ? '已发布给学生。' : '已撤回为草稿。'); }
-    catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
-    finally { setBusy(false); }
-  };
-  const seed = async () => {
-    setBusy(true); setMessage(''); setMessageArea('manager');
-    try { const result = await api.seedSamples(classId, teacherKey); await refresh(); setMessage(`已添加 ${result.created} 份 CSS 示例草稿。`); }
-    catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
-    finally { setBusy(false); }
-  };
-  const grade = async (sub: Submission) => {
-    const value = gradeValues[sub.id]; if (!value) return;
-    setBusy(true); setMessage(''); setMessageArea('grading'); setGradedId(sub.id);
-    try { await api.grade(classId, sub.id, Number(value.grade), value.feedback, teacherKey); await refresh(); setMessage('评分已保存。'); }
-    catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
-    finally { setBusy(false); }
-  };
-  const importRoster = async () => {
-    const students = rosterText.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
-      .filter(line => !/^student.?id[,\t]/i.test(line))
-      .map(line => {
-        const [studentId, ...name] = line.split(/[,\t]/);
-        return { studentId: studentId.trim(), studentName: name.join(' ').trim() };
+    const request = ++loadId.current;
+    setLoaded(false);
+    if (section === "assignments" || section === "grading") {
+      const result = await api.workPage(classId, teacherKey, {
+        view: section,
+        page: String(page),
+        search: appliedSearch,
+        status: filter,
+        assignmentId: selectedAssignment,
       });
-    setBusy(true); setMessage(''); setMessageArea('hub');
-    try { const result = await api.importRoster(classId, students, teacherKey); await refresh();
-      setMessage(`已导入 ${result.count} 名学生，未活动学生也会显示在数据表中。`); }
-    catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
-    finally { setBusy(false); }
+      if (request !== loadId.current) return;
+      setWorks(result.assignments);
+      setSubs(result.submissions);
+      setOptions(result.options);
+      setTotal(result.total);
+    } else if (section === "edit") {
+      const [detail, opts] = await Promise.all([
+        api.workDetail(classId, editId, teacherKey),
+        api.workOptions(classId, teacherKey),
+      ]);
+      if (request !== loadId.current) return;
+      setWorks([detail]);
+      setOptions(opts);
+    } else if (section === "policies") {
+      const policies = await api.policies(classId, teacherKey);
+      if (request !== loadId.current) return;
+      setPolicies(policies);
+    }
+    if (request === loadId.current) setLoaded(true);
+  }, [
+    classId,
+    teacherKey,
+    section,
+    editId,
+    page,
+    appliedSearch,
+    filter,
+    selectedAssignment,
+  ]);
+  useEffect(() => {
+    void refresh().catch((e) => setError(e.message));
+    return () => {
+      loadId.current += 1;
+    };
+  }, [refresh]);
+  useEffect(() => {
+    setPolicy(policies.find((p) => p.unitId === policyUnit) || null);
+  }, [policies, policyUnit]);
+  useEffect(() => {
+    setMessage("");
+    setError("");
+  }, [section, editId]);
+  useEffect(() => {
+    if (section === "new" && loadedEditor.current !== "new") {
+      setDraft(blank(course));
+      setAttachment(null);
+      loadedEditor.current = "new";
+    }
+    if (section === "edit" && editId && loadedEditor.current !== editId) {
+      const w = works.find((w) => w.id === editId);
+      if (w) {
+        setDraft(structuredClone(w));
+        setAttachment(null);
+        loadedEditor.current = editId;
+      }
+    }
+  }, [section, editId, works, course]);
+  const update = (id: string, values: Partial<WorkQuestion>) =>
+    setDraft((d) => ({
+      ...d,
+      questions: d.questions.map((q) =>
+        q.id === id ? { ...q, ...values } : q,
+      ),
+    }));
+  const save = async () => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const value = await api.saveWork(
+        classId,
+        { ...draft, ...(attachment ? { attachment } : {}) },
+        teacherKey,
+        draft.id,
+      );
+      setDraft(value);
+      setAttachment(null);
+      await refresh();
+      loadedEditor.current = value.id;
+      navigate(`/teacher/work/edit/${value.id}`);
+      setMessage(
+        value.status === "published"
+          ? "Published assignment updated."
+          : "Draft saved. Publish it from the assignment list when ready.",
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
   };
-
-  return <div className="teacher-work">
-    <section className="panel work-panel" id="assignment-manager">
-      <div className="panel-heading"><div><p className="eyebrow">TEACHER AUTHORING</p><h2>练习与作业</h2></div><button className="outline-button" onClick={() => void seed()} disabled={busy}>载入 CSS 示例草稿</button></div>
-      <p className="muted">示例根据四份 R 作业的技能范围改写。教师填写答案并检查后发布，学生端不会收到参考答案。</p>
-      <div className="work-list">{works.map(work => <div className="work-list-row" key={work.id}>
-        <div><strong>{work.title}</strong><small>{work.kind === 'homework' ? '作业' : '练习'} · {work.questions.length} 题 · {work.status === 'draft' ? '草稿' : '已发布'}</small></div>
-        <button className="outline-button" onClick={() => edit(work)}>编辑</button>
-        <button className="primary-button" disabled={busy} onClick={() => void toggle(work)}>{work.status === 'draft' ? '发布' : '撤回'}</button>
-      </div>)}</div>
-      <button className="text-button" onClick={() => { setDraft(blank(course)); setAttachment(null); setMessage(''); setMessageArea('editor'); document.getElementById('work-editor')?.scrollIntoView({ behavior: 'smooth' }); }}>＋ 新建练习或作业</button>
-      {message && messageArea === 'manager' && <p className="work-message" role="status">{message}</p>}
-    </section>
-
-    <section className="panel work-panel" id="work-editor">
-      <div className="panel-heading"><div><p className="eyebrow">EDITOR</p><h2>{draft.id ? '编辑题目' : '新建题目'}</h2></div><span className="small-pill">{draft.status === 'published' ? '已发布' : '草稿'}</span></div>
-      <div className="work-form-grid"><label>类型<select value={draft.kind} onChange={e => setDraft({ ...draft, kind: e.target.value as Draft['kind'] })}><option value="practice">课堂练习</option><option value="homework">作业 / Homework</option></select></label>
-        <label>对应单元<select value={draft.unitId} onChange={e => setDraft({ ...draft, unitId: e.target.value })}>{course.units.map(u => <option key={u.id} value={u.id}>{u.title}</option>)}</select></label>
-        <label>标题<input value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="例如：作业 2 · 数据连接" /></label>
-        <label>截止时间<input type="datetime-local" value={draft.dueAt?.slice(0, 16) || ''} onChange={e => setDraft({ ...draft, dueAt: e.target.value || null })} /></label></div>
-      <label className="work-label">说明 / 上传的题面<textarea rows={5} value={draft.instructions} onChange={e => setDraft({ ...draft, instructions: e.target.value })} /></label>
-      <label className="work-label">上传作业文件（qmd、md、txt、pdf、csv、R、rds、zip；小于 3 MB）<input type="file" accept=".qmd,.md,.txt,.pdf,.csv,.r,.rds,.zip" onChange={e => void importFile(e.target.files?.[0]).catch(err => setMessage(err.message))} /></label>
-      {(attachment?.name || draft.attachmentName) && <small>附件：{attachment?.name || draft.attachmentName}</small>}
-      <div className="work-question-list">{draft.questions.map((q, index) => <div className="work-question-edit" key={q.id}>
-        <div className="row-between"><strong>题目 {index + 1}</strong><button className="text-button" disabled={draft.questions.length === 1} onClick={() => setDraft({ ...draft, questions: draft.questions.filter(item => item.id !== q.id) })}>删除</button></div>
-        <div className="work-form-grid"><label>题型<select value={q.type} onChange={e => updateQuestion(q.id, { type: e.target.value as WorkQuestion['type'] })}><option value="text">文字解释</option><option value="choice">选择</option><option value="fill">填空</option><option value="predict">代码预测</option><option value="complete">代码补全</option></select></label>
-          <label>分值<input type="number" min="1" max="100" value={q.points} onChange={e => updateQuestion(q.id, { points: Number(e.target.value) })} /></label></div>
-        <label className="work-label">题干<textarea rows={2} value={q.prompt} onChange={e => updateQuestion(q.id, { prompt: e.target.value })} /></label>
-        {q.type === 'choice' && <label className="work-label">选项（每行一个）<textarea rows={4} value={q.choices.join('\n')} onChange={e => updateQuestion(q.id, { choices: e.target.value.split('\n') })} /></label>}
-        {(q.type === 'complete' || q.type === 'predict') && <label className="work-label">R 起始代码<textarea className="mono" rows={5} value={q.starterCode} onChange={e => updateQuestion(q.id, { starterCode: e.target.value })} /></label>}
-        <label className="work-label">参考答案<textarea rows={2} value={q.answer || ''} onChange={e => updateQuestion(q.id, { answer: e.target.value })} /></label>
-        <label className="work-label">解析 / 评分要点<textarea rows={2} value={q.explanation || ''} onChange={e => updateQuestion(q.id, { explanation: e.target.value })} /></label>
-      </div>)}</div>
-      <div className="work-actions"><button className="outline-button" onClick={() => setDraft({ ...draft, questions: [...draft.questions, newQuestion()] })}>＋ 添加题目</button><button className="primary-button" disabled={busy} onClick={() => void save()}>保存草稿</button></div>
-      {message && messageArea === 'editor' && <p className="work-message" role="status">{message}</p>}
-    </section>
-
-    <section className="panel work-panel" id="student-data-hub">
-      <div className="panel-heading"><div><p className="eyebrow">DATA HUB</p><h2>班级学习数据</h2></div><button className="outline-button" onClick={() => exportHub(hub)}>导出 CSV</button></div>
-      <p className="muted">每行一名学生。得分采用该作业最后一次已批改提交；学习时间为页面可见时的累计活动时长。</p>
-      <p className="hub-scroll-hint">左右滑动表格可查看全部作业和学习数据。</p>
-      <details className="roster-import"><summary>导入学生名单（含未活动学生）</summary><p>每行填写 studentId,学生姓名；正式接入 Kiwi 时，studentId 应与 Kiwi 用户 ID 一致。</p>
-        <textarea rows={3} value={rosterText} onChange={e => setRosterText(e.target.value)} placeholder={'student-001,张同学\nstudent-002,李同学'} />
-        <div className="work-actions"><label className="outline-button">选择 CSV / TSV 文件<input type="file" accept=".csv,.tsv,.txt" onChange={e => { const file = e.target.files?.[0]; if (file) void file.text().then(setRosterText); }} /></label>
-          <button className="primary-button" disabled={busy || !rosterText.trim()} onClick={() => void importRoster()}>导入名单</button></div></details>
-      {message && messageArea === 'hub' && <p className="work-message" role="status">{message}</p>}
-      <div className="hub-scroll"><table className="hub-table"><thead><tr><th>学生</th>{hub.assignments.map(a => <th key={`${a.id}-score`}>{a.title}<br />得分</th>)}{hub.assignments.map(a => <th key={`${a.id}-attempts`}>{a.title}<br />尝试</th>)}<th>互动</th><th>学习分钟</th><th>自由练习</th><th>R 运行</th><th>Kiwi 提问</th></tr></thead>
-        <tbody>{hub.students.map(s => <tr key={s.studentId}><td><button className="text-button" onClick={() => onSelectStudent(s.studentId)}>{s.studentName}</button></td>{hub.assignments.map(a => <td key={`${a.id}-score`}>{s.scoreByAssignment[a.id] ?? '—'}</td>)}{hub.assignments.map(a => <td key={`${a.id}-attempts`}>{s.attemptsByAssignment[a.id] ?? 0}</td>)}<td>{s.interactions}</td><td>{Math.round(s.learningSeconds / 60)}</td><td>{s.freePracticeCount}</td><td>{s.codeRuns}</td><td>{s.aiQuestions}</td></tr>)}</tbody></table></div>
-      {hub.students.length === 0 && <p className="empty-state">还没有学生记录。</p>}
-    </section>
-
-    <section className="panel work-panel" id="homework-grading">
-      <div className="panel-heading"><div><p className="eyebrow">GRADING</p><h2>作业提交与评分</h2></div><button className="outline-button" disabled={busy} onClick={() => void refresh().catch(e => { setMessageArea('grading'); setGradedId(''); setMessage(e.message); })}>刷新</button></div>
-      {message && messageArea === 'grading' && !gradedId && <p className="work-message" role="status">{message}</p>}
-      {submissions.filter(s => works.some(w => w.id === s.assignmentId)).map(sub => {
-        const work = works.find(w => w.id === sub.assignmentId)!;
-        const max = work.questions.reduce((sum, q) => sum + q.points, 0);
-        const value = gradeValues[sub.id] || { grade: sub.grade?.toString() || '', feedback: sub.feedback || '' };
-        return <div className="grading-card" key={sub.id}><div className="row-between"><strong>{sub.studentName} · {work.title}</strong><small>第 {sub.attempt} 次提交 · {new Date(sub.submittedAt).toLocaleString('zh-CN')}</small></div>
-          {work.questions.map(q => <div className="grading-answer" key={q.id}><strong>{q.prompt}（{q.points} 分）</strong><pre>{sub.answers[q.id] || '未答'}</pre><small>参考：{q.answer || '教师自行判断'}</small></div>)}
-          <div className="grade-controls"><label>得分 / {max}<input type="number" min="0" max={max} value={value.grade} onChange={e => setGradeValues({ ...gradeValues, [sub.id]: { ...value, grade: e.target.value } })} /></label>
-            <label>评语<input value={value.feedback} onChange={e => setGradeValues({ ...gradeValues, [sub.id]: { ...value, feedback: e.target.value } })} /></label>
-            <button className="primary-button" disabled={busy || value.grade === ''} onClick={() => void grade(sub)}>保存评分</button></div>
-          {message && messageArea === 'grading' && gradedId === sub.id && <p className="work-message" role="status">{message}</p>}
-        </div>;
-      })}
-      {submissions.length === 0 && <p className="empty-state">暂无学生提交。</p>}
-    </section>
-  </div>;
+  const upload = async (file?: File) => {
+    if (!file) return;
+    if (file.size > 3_000_000) {
+      setError("Attachments must be smaller than 3 MB.");
+      return;
+    }
+    const data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+      reader.onerror = () => reject(new Error("Could not read the attachment"));
+      reader.readAsDataURL(file);
+    });
+    setAttachment({
+      name: file.name,
+      type: file.type || "application/octet-stream",
+      data,
+    });
+    if (/\.(md|qmd|txt)$/i.test(file.name)) {
+      const text = await file.text();
+      setDraft((d) => ({ ...d, instructions: text.slice(0, 12000) }));
+    }
+  };
+  const toggle = async (w: Assignment) => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await api.workStatus(
+        classId,
+        w.id,
+        w.status === "draft" ? "published" : "draft",
+        teacherKey,
+      );
+      await refresh();
+      setMessage(
+        w.status === "draft"
+          ? "Assignment published to students."
+          : "Assignment returned to draft.",
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const revision = (w: Assignment) => {
+    loadedEditor.current = "new";
+    setDraft({
+      ...structuredClone(w),
+      id: undefined,
+      status: "draft",
+      title: `${w.title} — revision`,
+      attachmentSourceId: w.id,
+      questions: w.questions.map((q) => ({
+        ...q,
+        id: `q-${crypto.randomUUID()}`,
+      })),
+    });
+    setAttachment(null);
+    navigate("/teacher/work/new");
+  };
+  const filtered = works;
+  const filteredSubs = subs;
+  const frozen = Boolean(
+    draft.id && options.find((w) => w.id === draft.id)?.hasSubmissions,
+  );
+  return (
+    <div className="teacher-work">
+      <nav className="page-tabs" aria-label="Practice and assignment pages">
+        {[
+          ["assignments", "Assignments"],
+          ["grading", "Grading"],
+          ["policies", "Generation settings"],
+        ].map(([id, label]) => (
+          <a
+            href={`/teacher/work/${id}`}
+            key={id}
+            aria-current={
+              section === id ||
+              (id === "assignments" && ["new", "edit"].includes(section))
+                ? "page"
+                : undefined
+            }
+            onClick={(e) => {
+              e.preventDefault();
+              setSearch("");
+              setFilter("all");
+              setPage(1);
+              navigate(`/teacher/work/${id}`);
+            }}
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
+      )}
+      {message && (
+        <p className="work-message" role="status">
+          {message}
+        </p>
+      )}
+      {section === "policies" ? (
+        <section className="panel work-panel focused-panel">
+          <p className="eyebrow">TEACHER GENERATION POLICY</p>
+          <h2>Guide practice by chapter</h2>
+          <p className="muted">
+            Your system prompt is applied by the server above student requests.
+            Difficulty and question types are enforced on every generated
+            request. Changes apply to new exercises and replies.
+          </p>
+          <label className="work-label">
+            Chapter
+            <select
+              value={policyUnit}
+              onChange={(e) => setPolicyUnit(e.target.value)}
+            >
+              {course.units.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          {policy && (
+            <>
+              <label className="work-label">
+                Teacher system prompt (English)
+                <textarea
+                  aria-label="Teacher system prompt"
+                  rows={7}
+                  maxLength={6000}
+                  value={policy.systemPrompt || ""}
+                  onChange={(e) =>
+                    setPolicy({ ...policy, systemPrompt: e.target.value })
+                  }
+                />
+              </label>
+              <div className="work-form-grid">
+                {(
+                  [
+                    "minDifficulty",
+                    "maxDifficulty",
+                    "defaultDifficulty",
+                  ] as const
+                ).map((k, i) => (
+                  <label key={k}>
+                    {
+                      [
+                        "Minimum difficulty",
+                        "Maximum difficulty",
+                        "Default difficulty",
+                      ][i]
+                    }
+                    <input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={policy[k]}
+                      onChange={(e) =>
+                        setPolicy({ ...policy, [k]: Number(e.target.value) })
+                      }
+                    />
+                  </label>
+                ))}
+                <label>
+                  Output token limit
+                  <input
+                    type="number"
+                    min={512}
+                    max={4000}
+                    step={128}
+                    value={policy.maxOutputTokens}
+                    onChange={(e) =>
+                      setPolicy({
+                        ...policy,
+                        maxOutputTokens: Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+              </div>
+              <fieldset className="policy-types">
+                <legend>Allowed question types</legend>
+                {Object.entries(questionLabels).map(([id, label]) => (
+                  <label key={id}>
+                    <input
+                      type="checkbox"
+                      checked={policy.allowedTypes.includes(
+                        id as (typeof policy.allowedTypes)[number],
+                      )}
+                      onChange={(e) =>
+                        setPolicy({
+                          ...policy,
+                          allowedTypes: e.target.checked
+                            ? [
+                                ...policy.allowedTypes,
+                                id as (typeof policy.allowedTypes)[number],
+                              ]
+                            : policy.allowedTypes.filter((t) => t !== id),
+                        })
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </fieldset>
+              <div className="work-actions">
+                <button
+                  className="primary-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setBusy(true);
+                    setError("");
+                    setMessage("");
+                    void api
+                      .savePolicy(
+                        classId,
+                        { ...policy, unitId: policyUnit },
+                        teacherKey,
+                      )
+                      .then(() => refresh())
+                      .then(() =>
+                        setMessage("Chapter generation policy saved."),
+                      )
+                      .catch((e) => setError(e.message))
+                      .finally(() => setBusy(false));
+                  }}
+                >
+                  <Save size={16} />
+                  Save chapter policy
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      ) : section === "grading" ? (
+        <section className="panel work-panel">
+          <div className="panel-heading">
+            <h2>Review submissions</h2>
+            <button
+              className="outline-button"
+              onClick={() => void refresh().catch((e) => setError(e.message))}
+            >
+              Refresh submissions
+            </button>
+          </div>
+          <div className="table-toolbar">
+            <label>
+              Assignment
+              <select
+                value={selectedAssignment}
+                onChange={(e) => {
+                  setPage(1);
+                  navigate(
+                    `/teacher/work/grading${e.target.value ? `?assignmentId=${e.target.value}` : ""}`,
+                  );
+                }}
+              >
+                <option value="">All assignments</option>
+                {options
+                  .filter((w) => w.kind === "homework")
+                  .map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.title}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              Student
+              <input
+                placeholder="Search name or ID"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
+            <label>
+              Status
+              <select
+                value={filter}
+                onChange={(e) => {
+                  setFilter(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="all">All submissions</option>
+                <option value="ungraded">Awaiting grade</option>
+              </select>
+            </label>
+          </div>
+          {!loaded && (
+            <p role="status" className="empty-state">
+              Loading submissions…
+            </p>
+          )}
+          {loaded &&
+            filteredSubs.map((s) => {
+              const w = works.find((w) => w.id === s.assignmentId);
+              if (!w) return null;
+              const max = w.questions.reduce((n, q) => n + q.points, 0);
+              const value = grades[s.id] || {
+                grade: s.grade?.toString() || "",
+                feedback: s.feedback || "",
+              };
+              return (
+                <article className="grading-card" key={s.id}>
+                  <div className="row-between">
+                    <div>
+                      <strong>
+                        {s.studentName} · {w.title}
+                      </strong>
+                      <p className="muted">
+                        Attempt {s.attempt} ·{" "}
+                        {new Date(s.submittedAt).toLocaleString("en-US")}
+                      </p>
+                    </div>
+                    <button
+                      className="text-button"
+                      onClick={() =>
+                        navigate(
+                          `/teacher/analytics/table?group=sessions&studentId=${s.studentId}&assignmentId=${w.id}`,
+                        )
+                      }
+                    >
+                      View learning sessions <ArrowRight size={15} />
+                    </button>
+                  </div>
+                  {w.questions.map((q, i) => (
+                    <details className="grading-answer" key={q.id} open>
+                      <summary>
+                        Question {i + 1} · {q.points} points
+                      </summary>
+                      <p>{q.prompt}</p>
+                      <pre>{s.answers[q.id] || "No answer"}</pre>
+                      <small>
+                        Reference: {q.answer || "Use your grading rubric."}
+                      </small>
+                    </details>
+                  ))}
+                  <div className="grade-controls">
+                    <label>
+                      Score / {max}
+                      <input
+                        aria-label={`Score for ${s.id}`}
+                        type="number"
+                        min={0}
+                        max={max}
+                        value={value.grade}
+                        onChange={(e) =>
+                          setGrades({
+                            ...grades,
+                            [s.id]: { ...value, grade: e.target.value },
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Feedback
+                      <input
+                        aria-label={`Feedback for ${s.id}`}
+                        value={value.feedback}
+                        onChange={(e) =>
+                          setGrades({
+                            ...grades,
+                            [s.id]: { ...value, feedback: e.target.value },
+                          })
+                        }
+                      />
+                    </label>
+                    <button
+                      className="primary-button"
+                      disabled={busy || value.grade === ""}
+                      onClick={() => {
+                        setBusy(true);
+                        setError("");
+                        setMessage("");
+                        void api
+                          .grade(
+                            classId,
+                            s.id,
+                            Number(value.grade),
+                            value.feedback,
+                            teacherKey,
+                          )
+                          .then(() => refresh())
+                          .then(() =>
+                            setMessage(
+                              `Grade saved for ${s.studentName}, attempt ${s.attempt}.`,
+                            ),
+                          )
+                          .catch((e) => setError(e.message))
+                          .finally(() => setBusy(false));
+                      }}
+                    >
+                      Save grade
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          {loaded && !filteredSubs.length && (
+            <p className="empty-state">No submissions match these filters.</p>
+          )}
+          <Pager page={page} total={total} size={10} onPage={setPage} />
+        </section>
+      ) : section === "new" || section === "edit" ? (
+        <section className="panel work-panel focused-panel">
+          <button
+            className="text-button"
+            onClick={() => navigate("/teacher/work/assignments")}
+          >
+            <ArrowLeft size={15} /> Assignment list
+          </button>
+          <h2>{draft.id ? "Edit assignment" : "Create assignment"}</h2>
+          {frozen && (
+            <div className="work-message">
+              This assignment has submissions. Create a revision to preserve the
+              original questions and grades.
+              <button
+                className="text-button"
+                onClick={() => revision(works.find((w) => w.id === draft.id)!)}
+              >
+                <Copy size={15} />
+                Create revision
+              </button>
+            </div>
+          )}
+          <fieldset
+            className="editor-fields"
+            disabled={!loaded || frozen || busy}
+          >
+            <div className="work-form-grid">
+              <label>
+                Kind
+                <select
+                  value={draft.kind}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      kind: e.target.value as Draft["kind"],
+                    })
+                  }
+                >
+                  <option value="homework">Homework</option>
+                  <option value="practice">Class practice</option>
+                </select>
+              </label>
+              <label>
+                Chapter
+                <select
+                  value={draft.unitId}
+                  onChange={(e) =>
+                    setDraft({ ...draft, unitId: e.target.value })
+                  }
+                >
+                  {course.units.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Title
+                <input
+                  value={draft.title}
+                  maxLength={120}
+                  onChange={(e) =>
+                    setDraft({ ...draft, title: e.target.value })
+                  }
+                  placeholder="Week 3 · Data filtering"
+                />
+              </label>
+              <label>
+                Due date (your local time)
+                <input
+                  type="datetime-local"
+                  value={toLocal(draft.dueAt)}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      dueAt: e.target.value
+                        ? new Date(e.target.value).toISOString()
+                        : null,
+                    })
+                  }
+                />
+              </label>
+            </div>
+            <label className="work-label">
+              Instructions
+              <textarea
+                rows={4}
+                maxLength={12000}
+                value={draft.instructions}
+                onChange={(e) =>
+                  setDraft({ ...draft, instructions: e.target.value })
+                }
+              />
+            </label>
+            <label className="work-label">
+              Attachment · up to 3 MB
+              <input
+                type="file"
+                accept=".qmd,.md,.txt,.pdf,.csv,.r,.rds,.zip"
+                onChange={(e) =>
+                  void upload(e.target.files?.[0]).catch((err) =>
+                    setError(err.message),
+                  )
+                }
+              />
+            </label>
+            {(attachment?.name || draft.attachmentName) && (
+              <p className="muted">
+                {attachment?.name || draft.attachmentName}
+              </p>
+            )}
+            <div className="work-question-list">
+              {draft.questions.map((q, i) => (
+                <article className="work-question-edit" key={q.id}>
+                  <div className="row-between">
+                    <h3>Question {i + 1}</h3>
+                    <button
+                      className="text-button"
+                      disabled={draft.questions.length === 1}
+                      onClick={() =>
+                        setDraft({
+                          ...draft,
+                          questions: draft.questions.filter(
+                            (v) => v.id !== q.id,
+                          ),
+                        })
+                      }
+                    >
+                      Remove question
+                    </button>
+                  </div>
+                  <div className="work-form-grid">
+                    <label>
+                      Question type
+                      <select
+                        value={q.type}
+                        onChange={(e) =>
+                          update(q.id, {
+                            type: e.target.value as WorkQuestion["type"],
+                          })
+                        }
+                      >
+                        <option value="text">Written response</option>
+                        {Object.entries(questionLabels).map(([id, label]) => (
+                          <option key={id} value={id}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Points
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={q.points}
+                        onChange={(e) =>
+                          update(q.id, { points: Number(e.target.value) })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label className="work-label">
+                    Question prompt
+                    <textarea
+                      rows={3}
+                      value={q.prompt}
+                      maxLength={4000}
+                      onChange={(e) => update(q.id, { prompt: e.target.value })}
+                    />
+                  </label>
+                  {q.type === "choice" && (
+                    <label className="work-label">
+                      Choices (one per line)
+                      <textarea
+                        rows={4}
+                        value={q.choices.join("\n")}
+                        onChange={(e) =>
+                          update(q.id, { choices: e.target.value.split("\n") })
+                        }
+                      />
+                    </label>
+                  )}
+                  {["complete", "predict"].includes(q.type) && (
+                    <label className="work-label">
+                      Starter R code
+                      <textarea
+                        rows={4}
+                        className="mono"
+                        value={q.starterCode}
+                        onChange={(e) =>
+                          update(q.id, { starterCode: e.target.value })
+                        }
+                      />
+                    </label>
+                  )}
+                  <label className="work-label">
+                    Reference answer
+                    <textarea
+                      rows={2}
+                      value={q.answer || ""}
+                      onChange={(e) => update(q.id, { answer: e.target.value })}
+                    />
+                  </label>
+                  <label className="work-label">
+                    Explanation / grading rubric
+                    <textarea
+                      rows={2}
+                      value={q.explanation || ""}
+                      onChange={(e) =>
+                        update(q.id, { explanation: e.target.value })
+                      }
+                    />
+                  </label>
+                </article>
+              ))}
+            </div>
+            <div className="work-actions">
+              <button
+                className="outline-button"
+                disabled={draft.questions.length >= 30}
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    questions: [...draft.questions, newQuestion()],
+                  })
+                }
+              >
+                <Plus size={15} /> Add question
+              </button>
+              <button className="primary-button" onClick={() => void save()}>
+                <Save size={15} />
+                {draft.status === "published"
+                  ? "Save published changes"
+                  : "Save draft"}
+              </button>
+            </div>
+          </fieldset>
+        </section>
+      ) : (
+        <section className="panel work-panel">
+          <div className="panel-heading">
+            <h2>Manage assigned work</h2>
+            <button
+              className="primary-button"
+              onClick={() => {
+                loadedEditor.current = "";
+                navigate("/teacher/work/new");
+              }}
+            >
+              <Plus size={16} /> New assignment
+            </button>
+          </div>
+          <div className="table-toolbar">
+            <label>
+              Find an assignment
+              <input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search assignment titles"
+              />
+            </label>
+            <label>
+              Status
+              <select
+                value={filter}
+                onChange={(e) => {
+                  setFilter(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="all">All</option>
+                <option value="draft">Drafts</option>
+                <option value="published">Published</option>
+              </select>
+            </label>
+          </div>
+          <div className="work-list">
+            {!loaded && (
+              <p role="status" className="empty-state">
+                Loading assignments…
+              </p>
+            )}
+            {loaded &&
+              filtered.map((w) => (
+                <article className="work-list-row" key={w.id}>
+                  <div>
+                    <strong>{w.title}</strong>
+                    <small>
+                      {w.kind === "homework" ? "Homework" : "Practice"} ·{" "}
+                      {w.questions.length} questions ·{" "}
+                      {w.status === "draft" ? "Draft" : "Published"} ·{" "}
+                      {course.units.find((u) => u.id === w.unitId)?.title ||
+                        w.unitId}
+                    </small>
+                  </div>
+                  <button
+                    className="outline-button"
+                    onClick={() => navigate(`/teacher/work/edit/${w.id}`)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="outline-button"
+                    onClick={() =>
+                      navigate(`/teacher/work/grading?assignmentId=${w.id}`)
+                    }
+                  >
+                    Grade
+                  </button>
+                  <button
+                    className="primary-button"
+                    disabled={
+                      busy ||
+                      (w.status === "published" &&
+                        options.find((o) => o.id === w.id)?.hasSubmissions)
+                    }
+                    onClick={() => void toggle(w)}
+                  >
+                    {w.status === "draft" ? "Publish" : "Unpublish"}
+                  </button>
+                </article>
+              ))}
+          </div>
+          {loaded && !filtered.length && (
+            <p className="empty-state">
+              No assignments match. Create a draft to get started.
+            </p>
+          )}
+          <Pager page={page} total={total} size={20} onPage={setPage} />
+          <details className="sample-loader">
+            <summary>Course example drafts</summary>
+            <p className="muted">
+              Create editable examples based on the course skills. Review
+              answers and instructions before publishing.
+            </p>
+            <button
+              className="outline-button"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                void api
+                  .seedSamples(classId, teacherKey)
+                  .then((r) => {
+                    setMessage(`${r.created} example drafts created.`);
+                    return refresh();
+                  })
+                  .catch((e) => setError(e.message))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              Load CSS example drafts
+            </button>
+          </details>
+        </section>
+      )}
+    </div>
+  );
+}
+export function Pager({
+  page,
+  total,
+  size,
+  onPage,
+}: {
+  page: number;
+  total: number;
+  size: number;
+  onPage: (page: number) => void;
+}) {
+  return (
+    <div className="pagination">
+      <span>
+        {total
+          ? `${(page - 1) * size + 1}–${Math.min(page * size, total)} of ${total}`
+          : "0 results"}
+      </span>
+      <button
+        className="outline-button"
+        disabled={page <= 1}
+        onClick={() => onPage(page - 1)}
+      >
+        <ArrowLeft size={15} />
+        Previous
+      </button>
+      <button
+        className="outline-button"
+        disabled={page * size >= total}
+        onClick={() => onPage(page + 1)}
+      >
+        Next
+        <ArrowRight size={15} />
+      </button>
+    </div>
+  );
 }
