@@ -1,0 +1,555 @@
+/* ASSESS — assignments list, editor, starter assignments and the student assignment page.
+ * Purple is for interaction only; status colors use the semantic tokens (P7). Every rule is prefixed .assess-. */
+
+.assess-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── list ─────────────────────────────────────────────────────────────────────────────────── */
+.assess-list {
+  display: grid;
+  gap: 10px;
+}
+.assess-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.assess-search input {
+  min-width: min(260px, 100%);
+}
+.assess-segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.assess-segmented button {
+  border: 0;
+  border-right: 1px solid var(--kiwi-border-default);
+  background: var(--kiwi-bg-paper);
+  color: var(--kiwi-text-primary);
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.assess-segmented button:last-child {
+  border-right: 0;
+}
+.assess-segmented button[aria-pressed="true"] {
+  background: var(--kiwi-bg-selected);
+  color: var(--kiwi-primary);
+  font-weight: 600;
+}
+.assess-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--kiwi-border-light);
+}
+.assess-row:last-of-type {
+  border-bottom: 0;
+}
+.assess-row-main {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+.assess-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.assess-row-title a {
+  font-weight: 600;
+  color: var(--kiwi-text-primary);
+  text-decoration: none;
+}
+.assess-row-title a:hover,
+.assess-row-title a:focus-visible {
+  color: var(--kiwi-primary);
+  text-decoration: underline;
+}
+.assess-meta {
+  margin: 4px 0 0;
+  color: var(--kiwi-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+/* Decision D2: the answer-protection state under a homework row's meta line. */
+.assess-protection {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+/* S-M01: "Revision of …" / "Revised as …" links between an original and its revisions */
+.assess-lineage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.assess-meta .popover {
+  display: inline-block;
+}
+.assess-count {
+  padding: 0;
+  font-size: 13px;
+  text-decoration: underline dotted;
+}
+.assess-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.assess-danger {
+  color: var(--kiwi-error);
+}
+.assess-starter-link {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+.assess-starter-link a {
+  color: var(--kiwi-primary);
+}
+.assess-count-popover .popover-panel {
+  max-width: min(560px, calc(100vw - 32px));
+}
+.assess-student-list {
+  display: grid;
+  gap: 8px;
+  width: min(540px, calc(100vw - 50px));
+}
+.assess-student-list .table-scroll {
+  max-height: 320px;
+  overflow: auto;
+}
+.assess-student-list .data-table {
+  width: 100%;
+  min-width: 0;
+}
+.assess-student-list .data-table td,
+.assess-student-list .data-table th {
+  font-size: 13px;
+  padding: 6px 8px;
+  white-space: normal;
+}
+
+/* ── editor ───────────────────────────────────────────────────────────────────────────────── */
+.assess-editor {
+  display: grid;
+  gap: 16px;
+  padding-bottom: 8px;
+}
+.assess-editor-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.assess-section {
+  display: grid;
+  gap: 12px;
+  padding: 20px 24px;
+}
+.assess-section > h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.assess-fieldset {
+  display: grid;
+  gap: 10px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.assess-fieldset > legend {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.assess-inline-group {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--kiwi-border-light);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0;
+  min-width: 0;
+}
+.assess-inline-group > legend {
+  font-size: 13px;
+  color: var(--kiwi-text-secondary);
+  padding: 0 4px;
+}
+.assess-question {
+  border-left: 3px solid var(--kiwi-border-default);
+  padding-left: 12px;
+  display: grid;
+  gap: 10px;
+}
+.assess-field-error {
+  color: var(--kiwi-error);
+  font-size: 13px;
+}
+.assess-try-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--kiwi-bg-subtle);
+  border-radius: 8px;
+}
+.assess-try-check label {
+  flex: 1 1 220px;
+  /* RV6-m16: label above a full-width input, like the other editor fields (the placeholder is no longer cut off) */
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.assess-try-check label input {
+  width: 100%;
+  min-width: 0;
+}
+.assess-try-check [role="status"] {
+  flex-basis: 100%;
+  font-size: 13px;
+}
+/* S-M01: a revision of homework the student already submitted */
+.assess-original-note {
+  margin: 6px 0 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--kiwi-primary);
+  background: var(--kiwi-bg-selected);
+  border-radius: 4px;
+  font-size: 14px;
+}
+.assess-notice {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--kiwi-warning);
+  background: var(--kiwi-bg-subtle);
+  font-size: 14px;
+}
+.assess-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--kiwi-warning);
+  border-radius: 8px;
+  background: var(--kiwi-bg-subtle);
+}
+.assess-attachments {
+  display: grid;
+  gap: 8px;
+}
+.assess-attachments h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.assess-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.assess-files li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+.assess-file-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.assess-upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+.assess-file-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.assess-file-button:focus-within {
+  outline: 2px solid var(--kiwi-primary);
+  outline-offset: 2px;
+}
+.assess-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 14px;
+  background: var(--kiwi-bg-paper);
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 10px;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+}
+.assess-footer .work-actions {
+  margin: 0;
+}
+/* S-M06: a failed save or publish next to the buttons, inside the sticky footer */
+.assess-footer-error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+}
+.assess-problems {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--kiwi-warning);
+  font-size: 13px;
+}
+
+/* ── student ──────────────────────────────────────────────────────────────────────────────── */
+.assess-student-head {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.assess-student-head p {
+  margin: 0;
+}
+.assess-due strong {
+  color: var(--kiwi-text-primary);
+}
+.assess-subhead {
+  margin: 20px 0 10px;
+  font-size: 16px;
+  color: var(--kiwi-text-secondary);
+}
+.assess-submissions {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 10px;
+}
+.assess-submissions p {
+  margin: 0;
+}
+.assess-late {
+  color: var(--kiwi-warning);
+}
+.assess-released {
+  display: grid;
+  gap: 4px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--kiwi-success);
+  background: var(--kiwi-bg-subtle);
+}
+.assess-released ul {
+  margin: 0;
+  padding-left: 18px;
+}
+/* RV6-M01/M09/m19: late window, penalty and the released adjustment line */
+.assess-adjustment {
+  color: var(--kiwi-warning);
+  font-weight: 600;
+}
+.assess-late-window {
+  color: var(--kiwi-warning);
+}
+/* B-m03: a refused submit (closed, not open, attempts used) is stated next to Submit, not at the top of the page */
+.assess-submit-alert {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-left: 4px solid var(--kiwi-error);
+  background: var(--kiwi-error-bg);
+  color: var(--kiwi-text-primary);
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.assess-submit-alert p { margin: 0; overflow-wrap: anywhere; }
+.assess-submit-alert p + p { margin-top: 6px; }
+.assess-submit-alert:focus { outline: 2px solid var(--kiwi-primary); outline-offset: 2px; }
+.assess-late-warning {
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--kiwi-warning);
+  background: var(--kiwi-warning-bg);
+  font-size: 13px;
+}
+.work-answer.mono {
+  font-family: var(--kiwi-font-family-mono);
+  font-size: 13px;
+}
+.question-answered-dot {
+  font-size: 0.7em;
+}
+.assess-explanation {
+  padding: 8px 12px;
+  border-left: 3px solid var(--kiwi-success);
+  background: var(--kiwi-bg-subtle);
+}
+
+@media (max-width: 767px) {
+  .assess-section {
+    padding: 16px;
+  }
+  .assess-row-actions {
+    width: 100%;
+  }
+  .assess-footer {
+    border-radius: 0;
+    margin: 0 -12px;
+  }
+}
+
+/* RV6-m12: compact student shell on phones — one scrollable nav row, no breadcrumb, a slim top bar — so the question
+ * starts in the first screen (teacher pages use the drawer menu instead). */
+@media (max-width: 620px) {
+  .role-student .sidebar {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    height: auto;
+    gap: 2px;
+    padding: 0 0 0 14px;
+  }
+  .role-student .brand {
+    height: 46px;
+    padding: 0;
+    flex: 0 0 auto;
+  }
+  .role-student .brand .kiwi-wordmark {
+    font-size: 24px;
+  }
+  .role-student .brand-name,
+  .role-student .sidebar-section-title {
+    display: none;
+  }
+  .role-student .sidebar .sidebar-scroll {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    min-width: 0;
+    gap: 2px;
+    margin: 0;
+    padding: 6px 12px 6px 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .role-student .sidebar a.nav-item,
+  .role-student .sidebar a.nav-item:not(.active) {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: auto;
+    height: 32px;
+    min-height: 0;
+    margin: 0;
+    padding: 0 9px;
+    gap: 5px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .role-student .nav-item svg {
+    width: 15px;
+    height: 15px;
+  }
+  .role-student .topbar {
+    min-height: 0;
+    padding: 6px 16px;
+  }
+  .role-student .breadcrumb {
+    display: none;
+  }
+  .role-student .topbar-right {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .role-student .demo-identity {
+    padding: 6px 16px 0;
+  }
+  .role-student .student-content {
+    padding-top: 12px;
+  }
+  .role-student .page-intro {
+    margin-bottom: 12px;
+  }
+  .role-student .page-intro h1 {
+    font-size: 22px;
+    margin-bottom: 4px;
+  }
+}
+
+/* RV6-m16: editor fields in a row line up at the top (labels with a hint under them no longer push their neighbours) */
+.assess-section .work-form-grid,
+.assess-question .work-form-grid {
+  align-items: start;
+}
+.assess-section .work-form-grid > label,
+.assess-question .work-form-grid > label {
+  align-content: start;
+}
+/* RV6-m16: the Student help block uses the editor's field typography (bold 12px labels, 13px options and notes) */
+.assess-help-fieldset > legend {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--kiwi-text-primary);
+}
+.assess-help-fieldset .checkbox-label {
+  font-size: 13px;
+}
+.assess-help-fieldset .assess-help-select {
+  display: grid;
+  gap: 6px;
+  max-width: 420px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.assess-help-fieldset .assess-help-select select {
+  font-size: 13px;
+  font-weight: 600;
+}
+.assess-section .assess-notice {
+  font-size: 13px;
+}
+
+/* RT-06: an in-class question shows "Auto-checked, not graded" where a homework question has its Points field */
+.assess-question .work-form-grid > .assess-not-graded {
+  align-self: end;
+  margin: 0 0 10px;
+  font-size: 13px;
+}

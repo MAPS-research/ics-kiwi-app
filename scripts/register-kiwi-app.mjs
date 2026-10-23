@@ -59,11 +59,12 @@ const die = (msg) => {
 const APP = {
   slug: APP_SLUG,
   name: "Kiwi R Lab",
-  description:
-    "Adaptive R practice with browser-side execution and instructor learning history.",
+  // [AU-D2-24] no "Adaptive" claim; [AU-D2-11] Kiwi's own chat on Lab pages applies its Socratic guardrail.
+  description: "R practice, assignments and teacher analytics.",
+  config: { tutoringMode: "guidance" },
   baseUrl: APP_URL,
   category: "plugin",
-  version: "1.0.0",
+  version: JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version,
   appType: "frontend_only",
   // LLM requests and scoped data ops use the Kiwi host bridge.
   capabilities: ["auth", "frontend-actions"],
@@ -71,14 +72,15 @@ const APP = {
     {
       uiSlug: "student",
       uiName: "Kiwi R Lab",
-      uiUrl: `${APP_URL}/`,
+      uiUrl: `${APP_URL}/student`,
       placement: "class-tab",
-      allowedRoles: ["student", "ta", "instructor", "admin"],
+      allowedRoles: ["student", "ta", "instructor", "professor", "admin"],
       tabOrder: 0,
     },
+    { uiSlug: "teacher", uiName: "CSS Lab Teaching & Analytics", uiUrl: `${APP_URL}/teacher`, placement: "admin-panel", allowedRoles: ["ta", "instructor", "professor", "admin"], tabOrder: 0 },
   ],
   // Course material access; optional approved student context prompt.
-  maxScopes: ["class:materials:chunks:read", ...(flag("context-prompt") ? ["context:student_learning:read", `llm:prompt:${flag("context-prompt")}`] : [])],
+  maxScopes: ["class:materials:chunks:read", "class:analytics:read", ...(flag("context-prompt") ? ["context:student_learning:read", `llm:prompt:${flag("context-prompt")}`] : [])],
 }
 
 // ── borrow deps from the kiwi repo ───────────────────────────────────────────
@@ -114,7 +116,11 @@ async function loadKiwiDeps() {
 
   const { PrismaClient } = await import(pathToFileURL(prismaPath).href)
   const bcrypt = (await import(pathToFileURL(bcryptPath).href)).default
-  return { prisma: new PrismaClient(), bcrypt }
+  const adapterPath = path.join(KIWI_REPO, "node_modules", "@prisma", "adapter-pg", "dist", "index.js")
+  const adapter = fs.existsSync(adapterPath)
+    ? new (await import(pathToFileURL(adapterPath).href)).PrismaPg({ connectionString: process.env.DATABASE_URL })
+    : undefined
+  return { prisma: new PrismaClient(adapter ? { adapter } : undefined), bcrypt }
 }
 
 const className = (c) => {
@@ -202,6 +208,7 @@ async function registerViaDb(prisma) {
       version: APP.version,
       appType: APP.appType,
       capabilities: APP.capabilities,
+      config: APP.config,
       isActive: true,
     },
     create: {
@@ -213,6 +220,7 @@ async function registerViaDb(prisma) {
       version: APP.version,
       appType: APP.appType,
       capabilities: APP.capabilities,
+      config: APP.config,
       isActive: true,
     },
   })

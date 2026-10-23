@@ -1,0 +1,235 @@
+/* airun workstream styles (owned by AIRUN; imported by src/main.tsx). Use the Kiwi theme tokens from src/theme.css.
+ * Semantic colors (success/warning/error) stay separate from the purple interaction theme (P7). */
+
+/* ── Student: Ask Kiwi, practice items ─────────────────────────────────────────────────────── */
+.airun-notice {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--kiwi-primary);
+  background: var(--kiwi-bg-selected);
+  color: var(--kiwi-text-primary);
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+.airun-guard-notice,
+.airun-warning {
+  margin: 4px 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--kiwi-warning);
+  background: rgba(239, 108, 0, 0.08);
+  color: var(--kiwi-text-primary);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.airun-item-meta {
+  margin: 0 0 4px;
+  color: var(--kiwi-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.feedback.neutral {
+  border-color: var(--kiwi-border-default);
+  background: var(--kiwi-bg-subtle);
+  color: var(--kiwi-text-primary);
+}
+
+.airun-ai-feedback {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: var(--kiwi-bg-subtle);
+  border-radius: 6px;
+}
+
+.airun-revealed {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+
+/* ── Teacher: AI-generated practice review ─────────────────────────────────────────────────── */
+.airun-filter-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.airun-filter-panel label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  min-width: 160px;
+}
+
+.airun-group {
+  margin-bottom: 12px;
+  padding: 12px 16px;
+}
+
+.airun-group > summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 4px 0 8px;
+}
+
+.airun-item-card {
+  border-top: 1px solid var(--kiwi-border-light);
+  padding: 12px 0;
+  min-width: 0;
+}
+
+.airun-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.airun-provenance,
+.airun-meta {
+  margin: 4px 0;
+  color: var(--kiwi-text-secondary);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.airun-choices {
+  margin: 6px 0;
+  padding-left: 24px;
+}
+
+.airun-choices li.is-answer {
+  font-weight: 700;
+}
+
+.airun-answer-mark {
+  color: var(--kiwi-success);
+  font-weight: 600;
+}
+
+.airun-key {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 8px 0;
+}
+
+.airun-key dt {
+  font-weight: 600;
+  color: var(--kiwi-text-secondary);
+}
+
+.airun-key dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.airun-run-output,
+.airun-pre {
+  margin: 4px 0 0;
+  padding: 8px;
+  max-height: 260px;
+  overflow: auto;
+  background: var(--kiwi-bg-subtle);
+  border-radius: 4px;
+  font-family: var(--kiwi-font-family-mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+
+.airun-call {
+  margin-bottom: 12px;
+  padding: 12px 16px;
+}
+
+.airun-guard-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+@media (max-width: 767px) {
+  .airun-key {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .airun-filter-panel label {
+    min-width: 0;
+    flex: 1 1 140px;
+  }
+}
+
+.airun-flag-form {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 6px;
+}
+
+.airun-flag-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+/* RV6-M05: AI-generated prompts, feedback and explanations render fenced R code as code blocks (ResponseText). */
+.response-text.question-prompt {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--kiwi-text-primary);
+  margin: 0 0 16px;
+}
+.response-text.question-prompt p,
+.response-text.airun-ai-feedback p,
+.airun-revealed .response-text p,
+.airun-key .response-text p {
+  margin: 4px 0;
+}
+.response-text.question-prompt pre,
+.airun-key .response-text pre {
+  margin: 8px 0;
+}
+
+/* RT-01: the check feedback box keeps the verdict on one line and renders the explanation like the prompt. */
+.check-feedback-body {
+  flex: 1;
+  min-width: 0;
+}
+.check-feedback-verdict {
+  margin: 0;
+  font-weight: 600;
+}
+.response-text.check-feedback-explanation {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--kiwi-text-primary);
+}
+.response-text.check-feedback-explanation p {
+  margin: 4px 0;
+}
+.response-text.check-feedback-explanation pre {
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: var(--kiwi-bg-paper);
+}
+.check-feedback-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* RT-04: the Ask Kiwi composer spans the panel with room for a few lines. */
+.airun-chat .kiwi-chat-input {
+  display: block;
+  width: 100%;
+  min-height: 104px;
+  resize: vertical;
+  font-size: 14px;
+  line-height: 1.5;
+}

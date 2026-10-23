@@ -1,0 +1,520 @@
+/* airules workstream styles (owned by AIRULES; imported by src/main.tsx). Kiwi theme tokens from src/theme.css only;
+   status colors come from the semantic StatusBadge tones (P7). */
+
+/* ── shared sections ─────────────────────────────────────────────────────────────────────── */
+.airules-section {
+  margin-top: 16px;
+  max-width: 1040px;
+}
+.airules-section h3 {
+  font-size: 14px;
+  margin: 18px 0 8px;
+}
+.airules-inline-label {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.airules-inline-label select {
+  width: auto;
+  min-width: 240px;
+  max-width: 100%;
+}
+.airules-check {
+  font-size: 13px;
+  color: var(--kiwi-text-primary);
+  margin: 8px 0;
+}
+.airules-check input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--kiwi-primary);
+}
+.airules-check-list {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+.airules-check-list .airules-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  width: fit-content;
+  max-width: 100%;
+}
+.airules-check-list .airules-check input {
+  flex: 0 0 auto;
+}
+.airules-field-error {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+.airules-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.airules-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--kiwi-font-family-mono);
+  font-size: 12px;
+  background: var(--kiwi-bg-subtle);
+  border: 1px solid var(--kiwi-border-light);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 6px 0;
+  max-height: 320px;
+  overflow: auto;
+}
+.airules-caption {
+  text-align: left;
+  padding: 10px 16px;
+  font-weight: 600;
+  color: var(--kiwi-text-secondary);
+}
+
+/* ── status bar and scope ────────────────────────────────────────────────────────────────── */
+.airules-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: 1040px;
+  padding: 10px 14px;
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 10px;
+  background: var(--kiwi-bg-paper);
+  font-size: 13px;
+  color: var(--kiwi-text-primary);
+}
+.airules-status.is-connected {
+  border-left: 4px solid var(--kiwi-success);
+}
+.airules-status.is-local {
+  border-left: 4px solid var(--kiwi-warning);
+}
+.airules-applies {
+  margin-top: 4px;
+}
+.airules-unsaved {
+  color: var(--kiwi-warning);
+}
+.airules-platform-rules {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--kiwi-text-primary);
+}
+.airules-lint {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.airules-form-title {
+  margin-top: 0 !important;
+}
+.airules-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+  margin: 12px 0;
+}
+.airules-grid-3 label {
+  display: grid;
+  gap: 6px;
+  color: var(--kiwi-text-secondary);
+  font-size: 13px;
+}
+.airules-rubric {
+  margin: 8px 0 14px;
+}
+.airules-rubric summary,
+.airules-packages summary,
+.airules-messages summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--kiwi-primary);
+}
+.airules-rubric .work-label {
+  margin-top: 8px;
+}
+.airules-actions {
+  border-top: 1px solid var(--kiwi-border-light);
+  margin-top: 18px;
+  padding-top: 14px;
+}
+.airules-note {
+  max-width: 520px;
+}
+
+/* ── overview matrix ─────────────────────────────────────────────────────────────────────── */
+.airules-matrix th[scope="row"] {
+  font-weight: 600;
+  background: var(--kiwi-bg-paper);
+  min-width: 220px;
+}
+.airules-cell {
+  color: var(--kiwi-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+/* S-m12: on phones the matrix fits its box (group columns no longer sit off-screen); the chapter column stays pinned */
+@media (max-width: 600px) {
+  .airules-matrix { min-width: 0; }
+  .airules-matrix th[scope="row"] { min-width: 0; width: 42%; position: sticky; left: 0; z-index: 1; overflow-wrap: anywhere; }
+  .airules-matrix th, .airules-matrix td { padding-left: 6px; padding-right: 6px; }
+  .airules-cell { white-space: normal; overflow-wrap: anywhere; }
+}
+.airules-cell.is-customized {
+  color: var(--kiwi-primary);
+  font-weight: 600;
+}
+.airules-cell:hover,
+.airules-cell:focus-visible {
+  text-decoration: underline;
+}
+
+/* ── test panel, saved checks, history ───────────────────────────────────────────────────── */
+.airules-test-result {
+  border-top: 1px solid var(--kiwi-border-light);
+  margin-top: 14px;
+  padding-top: 10px;
+}
+.airules-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+  font-size: 13px;
+}
+.airules-facts dt {
+  color: var(--kiwi-text-secondary);
+  font-size: 12px;
+}
+.airules-facts dd {
+  margin: 2px 0 0;
+}
+.airules-item {
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+}
+.airules-messages ol {
+  padding-left: 18px;
+}
+.airules-save-check {
+  border-top: 1px solid var(--kiwi-border-light);
+  margin-top: 16px;
+}
+.airules-checks,
+.airules-history {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.airules-checks li,
+.airules-history li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid var(--kiwi-border-light);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.airules-history-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.airules-history-main .muted {
+  margin: 0;
+  flex-basis: 100%;
+}
+.airules-history-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.airules-check-detail {
+  margin: 4px 0 0;
+}
+/* RV6-M06: long instructions wrap inside both columns (data-table cells otherwise stay on one line) and the change is marked */
+.airules-diff {
+  min-width: 520px;
+  table-layout: fixed;
+}
+.airules-diff .airules-diff-setting {
+  width: 22%;
+}
+.data-table.airules-diff th[scope="row"] {
+  white-space: normal;
+}
+.data-table td.airules-diff-value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.airules-diff-removed {
+  background: var(--kiwi-error-bg);
+  color: var(--kiwi-error);
+}
+.airules-diff-added {
+  background: var(--kiwi-success-bg);
+  color: var(--kiwi-success);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ── chapters page ───────────────────────────────────────────────────────────────────────── */
+.airules-chapters-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 28px;
+}
+.airules-chapters-top .muted {
+  flex-basis: 100%;
+  margin: 0;
+}
+.airules-this-week {
+  margin: 0;
+  font-size: 14px;
+}
+.airules-chapter-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  max-width: 1040px;
+}
+.airules-chapter {
+  padding: 16px 18px;
+}
+.airules-chapter.is-archived {
+  background: var(--kiwi-bg-subtle);
+}
+.airules-chapter-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.airules-grip {
+  color: var(--kiwi-text-secondary);
+  cursor: grab;
+}
+.airules-chapter-move {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+}
+.airules-chapter-move .icon-button {
+  width: 34px;
+  height: 34px;
+}
+.airules-chapter-fields {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin: 12px 0;
+}
+.airules-chapter-fields label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--kiwi-text-secondary);
+}
+.airules-chapter-fields .airules-wide {
+  grid-column: span 2;
+}
+.airules-packages .policy-types {
+  margin-top: 8px;
+}
+.airules-files ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+.airules-files li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  font-size: 13px;
+}
+/* S-M05: chapter notes (staff only), shown as text; "Edit notes" opens the text box */
+.airules-notes {
+  margin: 8px 0;
+}
+.airules-notes-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+.airules-notes-head h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.airules-notes-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.airules-template {
+  margin: 4px 0 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.airules-notes > .muted:not(.airules-template) {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+.airules-notes textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+/* S-M03: an AI reference file the chapter's rules do not send yet */
+.airules-file-note {
+  flex-basis: 100%;
+  color: var(--kiwi-text-secondary);
+  font-size: 12px;
+}
+.airules-file-name {
+  min-width: 180px;
+  overflow-wrap: anywhere;
+}
+.airules-upload {
+  margin-top: 8px;
+}
+.airules-hint-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.airules-hint-row .icon-button {
+  width: 36px;
+  height: 36px;
+}
+.airules-links {
+  font-size: 13px;
+  margin: 12px 0 0;
+  overflow-wrap: anywhere;
+}
+.airules-links a {
+  color: var(--kiwi-primary);
+}
+.airules-sticky-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--kiwi-bg-default);
+  padding: 10px 0;
+  max-width: 1040px;
+}
+
+/* ── student course outline ──────────────────────────────────────────────────────────────── */
+ol.course-outline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.course-outline .is-locked {
+  opacity: 0.75;
+}
+.outline-access {
+  margin-left: 8px;
+}
+
+/* ── narrow screens (390 px: no horizontal page scroll) ─────────────────────────────────── */
+@media (max-width: 767px) {
+  .airules-grid-3,
+  .airules-facts,
+  .airules-chapter-fields,
+  .airules-hint-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .airules-chapter-fields .airules-wide {
+    grid-column: auto;
+  }
+  .airules-inline-label select {
+    min-width: 0;
+    width: 100%;
+  }
+  .airules-checks li,
+  .airules-history li {
+    flex-direction: column;
+  }
+}
+
+/* RT-05: phone-width comparison — one card per changed setting, newer version (with the marked change) first */
+.airules-diff-stacked {
+  display: none;
+}
+.airules-diff-card {
+  border: 1px solid var(--kiwi-border-light);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.airules-diff-card h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.airules-diff-card dl {
+  margin: 0;
+}
+.airules-diff-card dt {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--kiwi-text-secondary);
+}
+.airules-diff-card dd {
+  margin: 2px 0 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.airules-diff-card dd:last-child {
+  margin-bottom: 0;
+}
+@media (max-width: 767px) {
+  .airules-diff-scroll {
+    display: none;
+  }
+  .airules-diff-stacked {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .airules-diff-stacked > .airules-caption {
+    margin: 0;
+    padding: 0;
+    font-size: 13px;
+  }
+}

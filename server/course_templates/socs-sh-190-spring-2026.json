@@ -1,0 +1,475 @@
+{
+  "key": "socs-sh-190-spring-2026",
+  "title": "SOCS-SH 190 Introduction to Computational Social Science · Spring 2026",
+  "description": "The 12 lecture weeks of the Spring 2026 course with their R sessions and packages, taken from the course materials (lecture slides, the 13 R-session .qmd files and the Quarto site). An editable draft: chapter dates are the Spring 2026 meeting dates and move with the week shift or your term start; R-session pairings the slides do not name are marked as inferred. No assignments are included.",
+  "sources": [
+    "190 css_KIWI integration materials_09162026/Slides_26sp: module schedule tables (W1 slide 39 class outline; W3–W6 slide 2 'Data in Digital Age'; W7–W12 slide 2 'Text-as-Data'; SNA slides 2–3) with meeting dates and the R session of each week",
+    "190 css_KIWI integration materials_09162026/R Session of SOCS-SH 190 Intro. to CSS (13 R-session .qmd files, library()/pkg:: calls, _quarto.yml sections)",
+    "docs/handoff/v0.6.0-decisions.md D4 (2026-10-23 correction: pairing follows the slides' schedule tables)"
+  ],
+  "manifest": {
+    "format": "css-lab-course-package",
+    "formatVersion": 1,
+    "appVersion": "0.6.0",
+    "termStart": "2026-01-19",
+    "timezone": "Asia/Shanghai"
+  },
+  "course": {
+    "units": [
+      {
+        "id": "css190-01-intro",
+        "title": "Introduction to CSS",
+        "goal": "Opportunities and challenges of computational social science; installing R and RStudio; the R environment and the tidyverse workflow.",
+        "access": "default",
+        "week": 1,
+        "startsOn": "2026-01-19",
+        "runtime": {
+          "packages": [
+            "tidyverse",
+            "ggplot2",
+            "palmerpenguins",
+            "visNetwork"
+          ],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": []
+        },
+        "rSessions": [
+          {
+            "id": "1a",
+            "title": "Hello, R!",
+            "file": "1a. R to begin with.qmd"
+          },
+          {
+            "id": "1b",
+            "title": "Preview of Tidyverse",
+            "file": "1b. Preview of Tidyverse.qmd"
+          }
+        ],
+        "pairing": "slides",
+        "runLocally": [],
+        "liveApi": [],
+        "notes": [
+          "R session 1a · Hello, R! (1a. R to begin with.qmd).",
+          "R session 1b · Preview of Tidyverse (1b. Preview of Tidyverse.qmd).",
+          "Slides (Weeks 1–2): R session “Install R and RStudio; R environment; R workflow in tidyverse framework”."
+        ]
+      },
+      {
+        "id": "css190-02-digital-data",
+        "title": "Data in the digital age",
+        "goal": "Common good and problematic characteristics of big data in the digital age; importing and wrangling data in the tidyverse.",
+        "access": "default",
+        "week": 3,
+        "startsOn": "2026-02-02",
+        "runtime": {
+          "packages": [
+            "tidyverse",
+            "dplyr",
+            "tidyr",
+            "palmerpenguins"
+          ],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": []
+        },
+        "rSessions": [
+          {
+            "id": "2a",
+            "title": "Import and Tidy",
+            "file": "2a. Import and tidy.qmd"
+          }
+        ],
+        "pairing": "slides",
+        "runLocally": [],
+        "liveApi": [],
+        "notes": [
+          "R session 2a · Import and Tidy (2a. Import and tidy.qmd).",
+          "Slides (Week 3): R session “Data import & data wrangling in Tidyverse framework”.",
+          "R Ex. 1 assigned (Feb 4)."
+        ]
+      },
+      {
+        "id": "css190-03-ethics",
+        "title": "Big data problems, contd. & research ethics",
+        "goal": "Problematic characteristics of big data, continued; research ethics; data wrangling continued.",
+        "access": "default",
+        "week": 4,
+        "startsOn": "2026-02-09",
+        "runtime": {
+          "packages": [
+            "tidyverse"
+          ],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": []
+        },
+        "rSessions": [
+          {
+            "id": "2b",
+            "title": "Data Transformation",
+            "file": "2b. Transform.qmd"
+          }
+        ],
+        "pairing": "slides",
+        "runLocally": [],
+        "liveApi": [],
+        "notes": [
+          "R session 2b · Data Transformation (2b. Transform.qmd).",
+          "Slides (Week 4): R session “Data wrangling cont’d”.",
+          "Assignment 1 introduced (Feb 9); R Ex. 1 due Feb 13.",
+          "Spring Festival holiday follows (no classes)."
+        ]
+      },
+      {
+        "id": "css190-04-online-data",
+        "title": "Online data collection",
+        "goal": "Research ethics continued; collecting online data through APIs (the YouTube API as the example).",
+        "access": "default",
+        "week": 5,
+        "startsOn": "2026-02-23",
+        "runtime": {
+          "packages": [
+            "tidyverse",
+            "stringr",
+            "tuber",
+            "vosonSML",
+            "httpuv",
+            "usethis"
+          ],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": [
+            {
+              "match": "oauth",
+              "hint": "The YouTube API sign-in cannot run in the browser. Load the provided data file instead: load(\"YT_scraped_Data.RData\")."
+            }
+          ]
+        },
+        "rSessions": [
+          {
+            "id": "2c",
+            "title": "Collecting YouTube Data",
+            "file": "2c. Online data scraping.qmd"
+          }
+        ],
+        "pairing": "slides",
+        "runLocally": [],
+        "liveApi": [
+          "tuber",
+          "vosonSML",
+          "httpuv",
+          "usethis"
+        ],
+        "notes": [
+          "R session 2c · Collecting YouTube Data (2c. Online data scraping.qmd).",
+          "Slides (Week 5): R session “Web data collection (e.g., YouTube API)”.",
+          "Assignment 1 due Feb 27.",
+          "tuber, vosonSML, httpuv and usethis install in the browser, but the live YouTube API steps need network access and a Google OAuth sign-in that cannot run there: in CSS Lab, use the provided data file (YT_scraped_Data.RData) instead of calling the API."
+        ]
+      },
+      {
+        "id": "css190-05-experiments",
+        "title": "Online experiments & data hunt",
+        "goal": "Online experiments (concepts); formulating research questions; data hunt; revisiting online data collection; data visualization with ggplot2.",
+        "access": "default",
+        "week": 6,
+        "startsOn": "2026-03-02",
+        "runtime": {
+          "packages": [
+            "tidyverse",
+            "palmerpenguins"
+          ],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": [
+            {
+              "match": "duke",
+              "hint": "The duke package cannot be installed in the browser's R (webR). Run the duke palette steps in RStudio on your computer, then continue here."
+            }
+          ]
+        },
+        "rSessions": [
+          {
+            "id": "2d",
+            "title": "Data Linkage",
+            "file": "2d. Data linkage.qmd"
+          },
+          {
+            "id": "2e",
+            "title": "Visualization",
+            "file": "2e. Visualization.qmd"
+          }
+        ],
+        "pairing": "inferred",
+        "runLocally": [
+          "duke"
+        ],
+        "liveApi": [],
+        "notes": [
+          "R session 2d · Data Linkage (2d. Data linkage.qmd).",
+          "R session 2e · Visualization (2e. Visualization.qmd).",
+          "Slides (Week 6): R session “Collecting online data: a revisit; Data visualization in ggplot2”. 2e matches the ggplot2 part; pairing 2d (Data Linkage) with “a revisit” is inferred.",
+          "R Ex. 2 assigned (Mar 5), due Mar 13 (extended to Mar 24).",
+          "Run locally: duke is not installable in webR 0.6.0, so that part runs in RStudio on the student's computer."
+        ]
+      },
+      {
+        "id": "css190-06-text-as-data",
+        "title": "Text-as-data overview",
+        "goal": "Overview of text as data; data visualization continued (Viz 101 cont’d).",
+        "access": "default",
+        "week": 7,
+        "startsOn": "2026-03-09",
+        "runtime": {
+          "packages": [
+            "tidyverse",
+            "palmerpenguins"
+          ],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": [
+            {
+              "match": "duke",
+              "hint": "The duke package cannot be installed in the browser's R (webR). Run the duke palette steps in RStudio on your computer, then continue here."
+            }
+          ]
+        },
+        "rSessions": [
+          {
+            "id": "2e",
+            "title": "Visualization",
+            "file": "2e. Visualization.qmd"
+          }
+        ],
+        "pairing": "slides",
+        "runLocally": [
+          "duke"
+        ],
+        "liveApi": [],
+        "notes": [
+          "R session 2e · Visualization (2e. Visualization.qmd).",
+          "Slides (Week 7): R session “Viz 101 cont’d” (continues 2e Visualization).",
+          "Class project instruction (Mar 11).",
+          "Run locally: duke is not installable in webR 0.6.0, so that part runs in RStudio on the student's computer."
+        ]
+      },
+      {
+        "id": "css190-07-bag-of-words",
+        "title": "Bag of words & similarity metrics",
+        "goal": "Bag-of-words representations and similarity metrics; textual data basics in R; preprocessing (text wrangling).",
+        "access": "default",
+        "week": 8,
+        "startsOn": "2026-03-16",
+        "runtime": {
+          "packages": [
+            "tidyverse",
+            "tidytext",
+            "quanteda",
+            "textstem",
+            "ggwordcloud",
+            "sotu",
+            "quanteda.textstats",
+            "quanteda.textplots"
+          ],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": []
+        },
+        "rSessions": [
+          {
+            "id": "3a",
+            "title": "Tokenization and Preprocessing",
+            "file": "3a. tidytext basics.qmd"
+          },
+          {
+            "id": "3b",
+            "title": "Bag of Words",
+            "file": "3b. Bag of Words.qmd"
+          }
+        ],
+        "pairing": "slides",
+        "runLocally": [],
+        "liveApi": [],
+        "notes": [
+          "R session 3a · Tokenization and Preprocessing (3a. tidytext basics.qmd).",
+          "R session 3b · Bag of Words (3b. Bag of Words.qmd).",
+          "Slides (Week 8): R session “Textual data basics in R; Bag-of-words; Preprocessing (text wrangling)”.",
+          "R Ex. 2 due Mar 24."
+        ]
+      },
+      {
+        "id": "css190-08-topic-models",
+        "title": "Topic modeling",
+        "goal": "Topic models (LDA and STM): fitting, choosing the number of topics and interpreting them.",
+        "access": "default",
+        "week": 9,
+        "startsOn": "2026-03-23",
+        "runtime": {
+          "packages": [
+            "topicmodels",
+            "stm",
+            "tidytext",
+            "quanteda",
+            "reshape2",
+            "sotu",
+            "tidyverse"
+          ],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": [
+            {
+              "match": "ldatuning",
+              "hint": "The ldatuning package cannot be installed in the browser's R (webR). Run the choose-K step in RStudio on your computer, then continue here."
+            }
+          ]
+        },
+        "rSessions": [
+          {
+            "id": "3c",
+            "title": "Topic Modeling",
+            "file": "3c. topic models.qmd"
+          }
+        ],
+        "pairing": "slides",
+        "runLocally": [
+          "ldatuning"
+        ],
+        "liveApi": [],
+        "notes": [
+          "R session 3c · Topic Modeling (3c. topic models.qmd).",
+          "Slides (Week 9): R session “Topic models in R”.",
+          "Writing assignment 2 instruction (Mar 25); class project proposal due Mar 27.",
+          "Run locally: ldatuning is not installable in webR 0.6.0, so that part runs in RStudio on the student's computer."
+        ]
+      },
+      {
+        "id": "css190-09-embeddings",
+        "title": "Word embeddings",
+        "goal": "Word embeddings: word2vec, semantic similarity and analogies.",
+        "access": "default",
+        "week": 10,
+        "startsOn": "2026-03-30",
+        "runtime": {
+          "packages": [
+            "word2vec"
+          ],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": []
+        },
+        "rSessions": [
+          {
+            "id": "3d",
+            "title": "Word Embeddings",
+            "file": "3d. word embeddings.qmd"
+          }
+        ],
+        "pairing": "slides",
+        "runLocally": [],
+        "liveApi": [],
+        "notes": [
+          "R session 3d · Word Embeddings (3d. word embeddings.qmd).",
+          "Slides (Week 10): R session “Word embeddings in R”.",
+          "R Ex. 3 due Apr 3.",
+          "Qingming Festival / spring break follows (Apr 6–10)."
+        ]
+      },
+      {
+        "id": "css190-10-llms",
+        "title": "LLMs for text analysis",
+        "goal": "Exploring large language models for text analysis; class project hands-on.",
+        "access": "default",
+        "week": 11,
+        "startsOn": "2026-04-13",
+        "runtime": {
+          "packages": [],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": []
+        },
+        "rSessions": [],
+        "pairing": "none",
+        "runLocally": [],
+        "liveApi": [],
+        "notes": [
+          "No R session this week: the slides (Week 11) list “Prior R session cont’d; class project hands-on”.",
+          "Writing assignment 2 due Apr 17."
+        ]
+      },
+      {
+        "id": "css190-11-sna-1",
+        "title": "Social network analysis I",
+        "goal": "SNA 101: concepts, structures and applications; network data in R.",
+        "access": "default",
+        "week": 12,
+        "startsOn": "2026-04-20",
+        "runtime": {
+          "packages": [
+            "tidygraph",
+            "manynet",
+            "tidyverse"
+          ],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": []
+        },
+        "rSessions": [
+          {
+            "id": "4a",
+            "title": "SNA data introduction",
+            "file": "4a. SNA.qmd"
+          }
+        ],
+        "pairing": "slides",
+        "runLocally": [],
+        "liveApi": [],
+        "notes": [
+          "R session 4a · SNA data introduction (4a. SNA.qmd).",
+          "Slides (Week 12): R session “SNA data in R”."
+        ]
+      },
+      {
+        "id": "css190-12-sna-2",
+        "title": "Social network analysis II",
+        "goal": "Selection and influence in networks; visualizing networks.",
+        "access": "default",
+        "week": 13,
+        "startsOn": "2026-04-27",
+        "runtime": {
+          "packages": [
+            "ggraph",
+            "tidygraph",
+            "visNetwork",
+            "quanteda",
+            "skimr",
+            "sotu",
+            "tidyverse"
+          ],
+          "datasetFileIds": [],
+          "timeoutSeconds": 12,
+          "errorHints": []
+        },
+        "rSessions": [
+          {
+            "id": "4b",
+            "title": "Network visualization",
+            "file": "4b. visualization 1.qmd"
+          }
+        ],
+        "pairing": "slides",
+        "runLocally": [],
+        "liveApi": [],
+        "notes": [
+          "R session 4b · Network visualization (4b. visualization 1.qmd).",
+          "Slides (Week 13): R session “Viz. networks”.",
+          "R Ex. 4 assigned (Apr 27), due May 4.",
+          "Week 14 (May 4 & 6): pitch day. Final paper due May 13."
+        ]
+      }
+    ]
+  },
+  "assignments": [],
+  "ai_rules": [],
+  "groups": []
+}
