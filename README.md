@@ -731,6 +731,7 @@ These are approved for the local demo only. A production Kiwi needs them upstrea
   - WAL mode, so `-wal`/`-shm` files may sit next to it while the API runs.
   - Git ignores `*.sqlite3` and `*.sqlite3-*`.
 - **Secrets inside.** The file also holds the server secrets for demo sessions and research ids.
+- **File modes.** A `data/` directory or database the API creates is owner-only (0700 / 0600; `-wal`/`-shm` follow the database file). Existing directories and files keep their modes, so on an install created by an older version or a copied-in database run once: `chmod 700 data && chmod 600 data/kiwi-lab.sqlite3*`.
 - **Every start.** Once it has bound its port, the API runs the schema and any pending migrations: 13 for v0.6.0, recorded in `schema_migrations`. Later starts change nothing. A start that cannot bind its port does not open the database at all.
 - **Automatic backup.** Before the first pending migration, if the database already has data, the API writes `<db dir>/backups/<name>.pre-<tag>-<UTC yyyymmddTHHMMSS>.sqlite3` (file mode 0600, directory mode 0700).
   - If that backup fails, startup stops with `Kiwi Lab API did not start: Could not back up the database before <tag>: … no data was changed.` and exit code 1.
@@ -756,7 +757,7 @@ Restore:
 4. Start the API.
 
 ```bash
-mkdir -p data/replaced
+mkdir -p data/replaced && chmod 700 data/replaced
 mv data/kiwi-lab.sqlite3 data/replaced/kiwi-lab.$(date -u +%Y%m%dT%H%M%SZ).sqlite3
 ls data/kiwi-lab.sqlite3-wal data/kiwi-lab.sqlite3-shm 2>/dev/null   # if listed, move them into data/replaced/ too
 cp data/backups/<file>.sqlite3 data/kiwi-lab.sqlite3
@@ -819,7 +820,7 @@ A **course package** moves course design only (chapters, assignments, rules, gro
 | --- | --- |
 | `curl -s http://127.0.0.1:8101/api/health` | `{"ok": true, "runtime": "browser-webR", "aiAvailable": <true\|false>, "version": "0.6.0"}` (public, no sign-in) |
 | `curl -s http://127.0.0.1:8100/api/health` | same body through the Vite proxy (checks UI and proxy) |
-| `KEY=$(sed -n 's/^KIWI_TEACHER_KEY=//p' .env \| head -1)` (prints nothing), then `curl -s -X POST -H "X-Teacher-Key: $KEY" "http://127.0.0.1:8101/api/teacher/verify?classId=local-r-class"` | `{"ok": true, "role": "instructor"}`; a wrong key gives 401 `"Teacher key is incorrect"` |
+| `KEY=$(sed -n 's/^KIWI_TEACHER_KEY=//p' .env \| head -1)` (prints nothing), then `printf 'X-Teacher-Key: %s\n' "$KEY" \| curl -s -X POST -H @- "http://127.0.0.1:8101/api/teacher/verify?classId=local-r-class"` (the key reaches curl on stdin, so `ps` never shows it) | `{"ok": true, "role": "instructor"}`; a wrong key gives 401 `"Teacher key is incorrect"` |
 | `npm run demo:status` | `kiwi-api`, `kiwi-ui`, `app-api`, `app-ui`: `ready` |
 
 `aiAvailable: true` only means that a key is set; it does not prove the key works. `demo:start` and `demo:status` do not check the version.
@@ -866,7 +867,7 @@ A **course package** moves course design only (chapters, assignments, rules, gro
 
 ## Validation and tests
 
-Results recorded on the development Mac (macOS arm64) on 2026-10-23 (Node 22.16.0, Python 3.13.5), on the working tree with the known-minors fixes (on top of `e8d819e`). Counts can change with later commits, so re-run the suites rather than trusting these numbers.
+Results recorded on the development Mac (macOS arm64) on 2026-10-23 (Node 22.16.0, Python 3.13.5), on the working tree that became commit `28092f6` (the known-minors fixes on top of `e8d819e`); a fresh clone of `28092f6` gave the same counts for `test:server`, `npm test` and `test:scripts`, and passed `tsc`, the build and the R capture check. Counts can change with later commits, so re-run the suites rather than trusting these numbers.
 
 | Command | What it checks | Recorded result |
 | --- | --- | --- |
@@ -884,7 +885,8 @@ Results recorded on the development Mac (macOS arm64) on 2026-10-23 (Node 22.16.
 
 Also checked on 2026-10-23:
 
-- before the known-minors fixes: a fresh clone deployed in standalone mode by following [set_up_for_agent.md](set_up_for_agent.md), including the background start pattern above, an import of a copy of a v0.5.1 database and a rollback to its automatic backup. The runbook has been updated for the fixes since (bind before migrate, `.env` duplicates, `demo:start` port, setup without GitHub access), and the updated runbook has not been run end to end;
+- before the known-minors fixes: a fresh clone deployed in standalone mode by following [set_up_for_agent.md](set_up_for_agent.md), including the background start pattern above, an import of a copy of a v0.5.1 database and a rollback to its automatic backup. The runbook has been updated for the fixes since (bind before migrate, `.env` duplicates, `demo:start` port, setup without GitHub access);
+- after the known-minors fixes: a fresh agent followed the updated runbook on a fresh clone of `28092f6` in standalone mode (start on an empty database, then import of a copy of a v0.5.1 database, smoke tests, V1–V5 and V9) and got the expected results; Kiwi mode got the preflight only, and no rollback was run. The runbook changes made after that run (an API listing that also works in zsh, a commit check, a check that the UI proxy reaches the right API, owner-only file modes, the teacher key kept off `curl`'s command line) were checked block by block on a scratch clone, not in another end-to-end run;
 - the v0.5.1 → v0.6.0 migration on copies of real v0.5.1 databases: no core table lost rows, and v0.5.1 ran again on the restored backup. No migration file (`server/migrations*.py`, `server/db.py`) changed in the known-minors fixes;
 - by the fixer of the known-minors fixes, on a scratch copy of the live database (API 8700, Vite 8701): the roster, the explorer's *Students* view and the Course package panel at 1280 and 390 px, and a second API on the busy port 8700, which exited without creating its database file.
 

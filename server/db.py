@@ -44,8 +44,15 @@ class ManagedConnection(sqlite3.Connection):
 
 def connection(db_path: Path | str | None = None) -> sqlite3.Connection:
     target = Path(db_path) if db_path is not None else path()
-    target.parent.mkdir(parents=True, exist_ok=True)
+    # WHY: the database holds student data, so a directory or file this process creates is owner-only (0700/0600);
+    # SQLite gives -wal/-shm the database file's mode. Existing directories and files keep the operator's modes.
+    if not target.parent.exists():
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(target.parent, 0o700)   # mkdir's mode is reduced by the umask
+    created = not target.exists()
     db = sqlite3.connect(target, timeout=10, factory=ManagedConnection)
+    if created and target.exists():
+        os.chmod(target, 0o600)
     db.row_factory = sqlite3.Row
     return db
 

@@ -20,7 +20,8 @@ This runbook is for a coding agent (Codex, Claude Code or similar) that deploys 
 - **Version facts.**
   - The code is on branch `codex/css-lab-v0.6.0` of `https://github.com/MAPS-research/ics-kiwi-app.git` (draft PR #2). `main` is older. The repository is private.
   - `package.json` reports `"version": "0.6.0"`, and `GET /api/health` returns `"version": "0.6.0"`.
-  - If a fresh clone does not contain this file (it may have been added after the last push), keep using the copy you were given.
+  - This runbook describes commit `28092f6` (`docs: add delivery README and agent setup runbook; final polish fixes`) or a later commit on that branch. The older commit `e8d819e` also reports version 0.6.0 but lacks this file and the rest of `28092f6` (75 files changed), so the version alone does not identify the code; §6.1 checks the commit.
+  - If a fresh clone does not contain this file, or §6.1 reports that it does not contain `28092f6`, the branch on GitHub is older than this runbook (the human has not pushed it yet). Stop and tell the human; do not deploy the older code.
 
 ## 2. Hard rules for the agent
 
@@ -52,6 +53,7 @@ This runbook is for a coding agent (Codex, Claude Code or similar) that deploys 
 
 ## 3. Conventions used below
 
+- **Shell.** The blocks are written for bash (macOS's `/bin/bash` 3.2 is enough) and also work in zsh 5.9. zsh is the default login shell on macOS, and some agent tools run their shell commands in the login shell (Claude Code's Bash tool does). In any other shell, or when you adapt a block, run it under bash: put the block between `bash <<'SH'` and a final line `SH`; the `<<'PY'` blocks inside still work. When you adapt a block, never loop over an unquoted variable (`for x in $var`): zsh does not split it into words, so the loop runs once with the whole multi-line value. Loop over `$(command)` or `command | while read -r x` instead; zsh splits those.
 - **Working directory.** Run every block from the repository root. If your tool resets the working directory between calls, begin each block with `cd <absolute repo path>`.
 - **Shell state.** Variables do not survive between tool calls. The chosen ports are saved once in `.local/standalone/ports.env`, and later blocks load that file with `. .local/standalone/ports.env`.
 - **Run-state directory.** Standalone pid and log files go in `.local/standalone/`. It is git-ignored, and the demo scripts do not use it.
@@ -119,7 +121,7 @@ PY
 - **If it fails:**
   - An `AssertionError` or "no such function" means `python3` resolves to an old interpreter. Ask the human which Python 3.10+ to use.
   - On a WARN line, tell the human; standalone deployment can continue, but expect V1 (§12) to report one failure.
-  - With conda, the human activates the environment, or you run `source "$HOME/anaconda3/etc/profile.d/conda.sh" && conda activate <env>` in each block.
+  - With conda, the human activates the environment, or you run `source "<conda base>/etc/profile.d/conda.sh" && conda activate <env>` in each block. The base directory varies (for example `/opt/anaconda3`, `$HOME/anaconda3` or `$HOME/miniconda3`); `conda info --base` prints it. If that fails in your tool's shell (a `conda` shell function inherited without its `CONDA_EXE` fails in zsh; `bash -c 'conda info --base'` may still work), ask the human for the path. Do not guess it.
   - All npm scripts call bare `python3`, so it must resolve correctly in every block.
 
 ### 5.4 Git, curl, lsof and optional tools
@@ -174,15 +176,19 @@ done
 An app API that serves a database does not keep the file open between requests: it opens a new SQLite connection for each request and closes it afterwards (`server/db.py`, `connection()`). So `lsof <database>` prints nothing even while an API is serving that file, and a free port proves nothing about the database. This block finds every running API and the database it uses.
 
 ```bash
-pids=$(pgrep -f '[s]erver/app\.py' || true)
-[ -n "$pids" ] || echo "PASS no app API is running"
-for pid in $pids; do
+found=0
+# WHY $(pgrep …) and not a variable: zsh does not split an unquoted $pids into words, so two APIs became one garbled line.
+for pid in $(pgrep -f '[s]erver/app\.py'); do
+  found=1
   cmd=$(ps -p "$pid" -o command= 2>/dev/null)
   cwd=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)
   port=$(lsof -nP -a -p "$pid" -iTCP -sTCP:LISTEN -Fn 2>/dev/null | sed -n 's/^n.*://p' | head -1)
   db=$(python3 - "$cwd" "$cmd" <<'PY'
 import os, re, sys
 cwd, cmd = sys.argv[1], sys.argv[2]
+if not cwd:   # WHY: joining "" would resolve to *your* directory and wrongly name this checkout's database
+    print("unknown (cwd not readable; ask the human)")
+    sys.exit(0)
 m = re.search(r"(\S*)server/app\.py", cmd)
 root = os.path.realpath(os.path.join(cwd, m.group(1) if m else "."))
 value = None
@@ -199,9 +205,12 @@ PY
 )
   echo "API pid=$pid port=${port:-none} cwd=${cwd:-unknown} db=$db"
 done
+[ "$found" = 1 ] || echo "PASS no app API is running"
 ```
 
-The `db=` value is what that API's `.env` implies. A `KIWI_DB_PATH` exported in the shell that started it cannot be seen (macOS does not show other processes' environments), so ask the human when in doubt.
+- **Expect:** one `API pid=… port=… cwd=… db=…` line per running API, each with a single pid, or `PASS no app API is running`. A line whose `pid=` value spans two lines means the block ran in a shell that did not split the pid list: re-run it under bash (§3).
+- The `db=` value is what that API's `.env` implies. A `KIWI_DB_PATH` exported in the shell that started it cannot be seen (macOS does not show other processes' environments), so ask the human when in doubt.
+- `db=unknown (cwd not readable; ask the human)` means `lsof` could not read that process's working directory (another user's process, or one that just exited). Treat it as possibly serving the database you will use, and ask the human which database it serves.
 
 #### (c) Kiwi Docker project (Kiwi mode only)
 
@@ -223,7 +232,7 @@ docker volume ls --filter name=css-kiwi-demo_ --format 'volume {{.Name}}' 2>/dev
 
 - **Expect:** `PASS <port> free` for every port; `PASS no app API is running`, or only APIs whose `db=` is not a database this deployment will use; in Kiwi mode, no `css-kiwi-demo` container and no `css-kiwi-demo_*` volume (fresh install), or containers marked `THIS CHECKOUT` (existing demo).
 - **If it fails:**
-  - **An API serves the database you will use.** Its `db=` is this checkout's `data/kiwi-lab.sqlite3`, or the Q5 file you would use in place. This applies on any port, even when the ports you chose are free. Do **not** start a second API against that file: the v0.6.0 API would migrate it while the other API keeps writing, and those later writes would be missing from every backup. Ask Q7:
+  - **An API serves the database you will use.** Its `db=` is this checkout's `data/kiwi-lab.sqlite3`, or the Q5 file you would use in place, or `unknown` until the human tells you otherwise. This applies on any port, even when the ports you chose are free. Do **not** start a second API against that file: the v0.6.0 API would migrate it while the other API keeps writing, and those later writes would be missing from every backup. Ask Q7:
     - **yes:** stop that pid after the human confirms it (`kill <pid>`, then re-run (b)), and continue with §8;
     - **no:** leave it running and deploy into a separate fresh clone (§6.1), importing a copy of the database (§8 with **Copy it in**).
   - **Standalone, a busy port that is not such an API:** pick other free ports. Re-run (a) with candidates (for example 8401 and 8421) and confirm them with the human. Never stop the busy process.
@@ -301,10 +310,12 @@ Both:
 ```bash
 node -p 'require("./package.json").version'
 git log -1 --format='%h %s'
+git merge-base --is-ancestor 28092f6889e9fe2451fca2ac29689b56a7fddc83 HEAD 2>/dev/null && echo "PASS commit 28092f6 or later" || echo "FAIL this checkout does not contain commit 28092f6"
 ```
 
-- **Expect:** the version prints `0.6.0`. An existing checkout should already be on `codex/css-lab-v0.6.0`.
+- **Expect:** `0.6.0`, the commit line (`28092f6 docs: add delivery README and agent setup runbook; final polish fixes`, or a later commit), then `PASS commit 28092f6 or later`. An existing checkout should already be on `codex/css-lab-v0.6.0`.
 - **If it fails:**
+  - On `FAIL … does not contain commit 28092f6`, typically with `e8d819e fix: resolve PR #2 known minor issues` as the commit line, the branch was not pushed after this runbook was written: the code differs from what this runbook and its expected numbers (§12) describe. Stop and tell the human that the branch must be pushed first. Do not continue with the older code. (The check also fails in a `--depth` clone that does not reach `28092f6`; the clone command above is not shallow.)
   - `fatal: could not read Username` or `Repository not found`: no access to the private repository. Stop and ask the human to authenticate (§5.9); do not enter credentials yourself.
   - If an existing checkout is on another branch or has local changes, stop and ask. Do not switch branches or discard changes.
   - If the directory already exists, skip the clone; do not re-clone over it.
@@ -498,40 +509,59 @@ done
 
   `Kiwi Lab API: http://127.0.0.1:<port>` is printed after the port is bound and the migrations have run, right before the API starts serving. The `curl` checks above remain the readiness test, because they also cover the UI and its proxy.
 
+**Then make sure the data directory is private.** Since the commit that follows `28092f6`, the API creates a new `data/` as 0700 and a new `data/kiwi-lab.sqlite3` as 0600 (its backups were already 0600 in a 0700 directory). It does not change a directory or database that already existed, for example one copied in (§8.3) or created by an older version, which may be 0755/0644 and so readable by other users of this computer. Run this every time you reach this point (the restart after §8.3 included); it changes nothing when the modes are already right. Changing the modes while the API runs is safe, and SQLite gives a new `-wal`/`-shm` file the mode of the database file.
+
+```bash
+chmod 700 data
+for f in data/kiwi-lab.sqlite3 data/kiwi-lab.sqlite3-wal data/kiwi-lab.sqlite3-shm; do [ -e "$f" ] && chmod 600 "$f"; done
+ls -ld data data/kiwi-lab.sqlite3 | cut -c1-10
+```
+
+- **Expect:** `drwx------`, then `-rw-------`.
+- **With `KIWI_DB_PATH`:** run the same `chmod 600` on that file and its `-wal`/`-shm`. Ask the human before changing the mode of a directory outside this checkout.
+- This is a gap in the app, not in your setup: `server/db.py` (`connection()`) creates the directory and the file without setting a mode. Mention it in the report (§13).
+
 ### 6.8 Health check
 
 ```bash
 . .local/standalone/ports.env
 curl -s "http://127.0.0.1:$UI_PORT/api/health" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True and d.get("runtime")=="browser-webR" and d.get("version")=="0.6.0", d; print("PASS health", d)'
+# WHY: every v0.6.0 API returns the same health body, so prove that the UI proxy reaches *this* checkout's API:
+# send an unknown path through the UI and look for it in this API's log (the API logs paths, never query strings).
+PROBE="agent-probe-$(date +%s)-$$"
+curl -s -o /dev/null -w 'probe through the UI -> HTTP %{http_code}\n' "http://127.0.0.1:$UI_PORT/api/$PROBE"
+sleep 1
+grep -q "GET /api/$PROBE 404" .local/standalone/api.log && echo "PASS the UI proxy reaches this checkout's API on port $API_PORT" || echo "FAIL the UI proxy reaches some other API"
 ```
 
-- **Expect:** `PASS health {'ok': True, 'runtime': 'browser-webR', 'aiAvailable': <bool>, 'version': '0.6.0'}`.
+- **Expect:** `PASS health {'ok': True, 'runtime': 'browser-webR', 'aiAvailable': <bool>, 'version': '0.6.0'}`, `probe through the UI -> HTTP 404`, then `PASS the UI proxy reaches this checkout's API on port <API_PORT>`.
   - `aiAvailable` is `True` only when an AI key is set; it does not prove the key works.
-  - This request goes through the UI proxy, so it checks both processes.
+  - The health request goes through the UI proxy, so it checks both processes. The probe proves which API the proxy reaches: `vite.config.ts` sends `/api` to `KIWI_API_PORT`, or to 8101 when that is unset, and 8101 may be the human's live API. The probe is a read-only `GET` that answers 404 on any API.
 - **If it fails:**
   - If `version` is missing, an older API answered. Some other v0.5.1 process is on that port; stop and ask.
   - A connection error means a process died; return to §6.7 and read the log lines.
+  - On `FAIL the UI proxy reaches some other API`, the UI was started without the right `KIWI_API_PORT`. Do not run §6.9: its writes would land in that other API's database. Stop this checkout's UI (§9.1 stops both; then start again with §6.6) and re-run this block. If it fails again, stop and ask.
 
 ### 6.9 Smoke test with curl
 
-The key is read into a shell variable and never printed. Sub-step (c) creates one roster entry named `agent-smoke-test`. On an imported database, ask the human before running (c) and (d).
+Run it only after §6.8 printed `PASS the UI proxy reaches this checkout's API`. The key is read into a shell variable and never printed. The key, the demo token and the session token reach `curl` on its standard input (`-H @-`, `--data-binary @-`, curl 7.55 or later), never as command-line arguments, which other users of this computer could read with `ps`; `printf` is a shell builtin, so it does not show up there either. Sub-step (c) creates one roster entry named `agent-smoke-test`. On an imported database, ask the human before running (c) and (d).
 
 ```bash
 . .local/standalone/ports.env
 B="http://127.0.0.1:$UI_PORT/api"; C="classId=local-r-class"
 KEY=$(python3 -c 'import re,pathlib; print(next(m.group(1).strip().strip("\"\x27") for l in pathlib.Path(".env").read_text().splitlines() if (m:=re.match(r"^\s*KIWI_TEACHER_KEY\s*=(.*)$", l))))')
 # (a) teacher key accepted, wrong key refused
-curl -s -X POST -H "X-Teacher-Key: $KEY" "$B/teacher/verify?$C"; echo
+printf 'X-Teacher-Key: %s\n' "$KEY" | curl -s -X POST -H @- "$B/teacher/verify?$C"; echo
 curl -s -o /dev/null -w 'wrong key -> HTTP %{http_code}\n' -X POST -H "X-Teacher-Key: not-the-key" "$B/teacher/verify?$C"
 # (b) course read (public)
 curl -s "$B/course?$C" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("course:", d["title"], "|", len(d["units"]), "chapters")'
 # (c) teacher creates a demo link for a test student
-LINK=$(curl -s -X POST -H "X-Teacher-Key: $KEY" -H 'Content-Type: application/json' -d '{"studentId":"agent-smoke-test"}' "$B/teacher/demo-links?$C" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["url"].split("#demo=",1)[1])')
+LINK=$(printf 'X-Teacher-Key: %s\n' "$KEY" | curl -s -X POST -H @- -H 'Content-Type: application/json' -d '{"studentId":"agent-smoke-test"}' "$B/teacher/demo-links?$C" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["url"].split("#demo=",1)[1])')
 [ -n "$LINK" ] && echo "demo link: created (token not shown)"
 # (d) the student exchanges the link for a session and makes read-only requests
-SESSION=$(curl -s -X POST -H 'Content-Type: application/json' -d "{\"token\":\"$LINK\"}" "$B/demo/session?$C" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
-curl -s -H "X-Demo-Session: $SESSION" "$B/me?$C" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("student me:", d["kind"], d["role"], d["userId"])'
-curl -s -o /dev/null -w 'student work list -> HTTP %{http_code}\n' -H "X-Demo-Session: $SESSION" "$B/work?$C"
+SESSION=$(printf '{"token":"%s"}' "$LINK" | curl -s -X POST -H 'Content-Type: application/json' --data-binary @- "$B/demo/session?$C" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+printf 'X-Demo-Session: %s\n' "$SESSION" | curl -s -H @- "$B/me?$C" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("student me:", d["kind"], d["role"], d["userId"])'
+printf 'X-Demo-Session: %s\n' "$SESSION" | curl -s -o /dev/null -w 'student work list -> HTTP %{http_code}\n' -H @- "$B/work?$C"
 curl -s -o /dev/null -w 'anonymous work list -> HTTP %{http_code}\n' "$B/work?$C"
 ```
 
@@ -674,6 +704,8 @@ npm run demo:start
   - the URLs: Kiwi login `http://localhost:3001/login`, student app `http://localhost:3001/local-css-demo/app/ics-r-lab`, teacher app `http://localhost:3001/admin/app/ics-r-lab/class/local-css-demo`, and `Login accounts: .local/demo-credentials.json`.
 
   The services run detached and keep running after the terminal closes. Logs go to `.local/logs/<name>.log`, and pids go to `.local/services.json`. Each service gets up to 25 s to become ready.
+
+  Then run the *make the data directory private* block from §6.7: the app API creates `data/kiwi-lab.sqlite3` here too.
 - **If it fails:**
   - `<name> is not ready. Private log: .local/logs/<name>.log`: show only the last error lines with `tail -n 30 .local/logs/<name>.log | grep -iE 'error|fail|exception|did not start|warning' | head -20`. The log may contain secrets, so never print it whole.
     - For `app-api`, `Kiwi Lab API did not start: port <port> on 127.0.0.1 is already in use … the database was not opened.` means another process holds the API port. Nothing was migrated. Go back to §5.6; moving the API is described in §7.2.
@@ -768,6 +800,8 @@ node scripts/register-kiwi-app.mjs --kiwi-repo <path-to-kiwi> --class <classId-o
 
 Do this before the first v0.6.0 start on any database that already exists. In the standalone flow, do §8.1–8.3 after §6.5 and before §6.6, then continue with §6.6–6.8, run §8.4, and only then the smoke test (§6.9). In Kiwi mode, do §8.1–8.3 before §7.4 (`demo:setup` does not touch the app database); for an existing demo, §7.6 says where they go.
 
+**Empty run first, import afterwards** (for example when the human wants to see the app on an empty database before importing): run §6 through §6.9 on the empty database, then do §8.1 and §8.2 (your own API on the empty `data/kiwi-lab.sqlite3` is expected in §8.1; it does not serve `<DB>`), then §8.3 **Copy it in**, whose step 1 stops this checkout's API and UI and moves the empty database aside. Then re-run §5.6 (b), start again with §6.6–6.8 (with the §6.7 file-mode block), run §8.4, and only then §6.9. The `agent-smoke-test` entry from the empty run stays in the moved-aside file; on the imported database (c) and (d) of §6.9 need the human's yes.
+
 ### 8.1 Locate the file and make sure no API is serving it
 
 - If Q5 names a file elsewhere, `<DB>` is its absolute path.
@@ -790,7 +824,7 @@ Then re-run §5.6 (b).
 Write `SOURCE_IDLE=1` only when §8.1 showed that no API serves `<DB>`; otherwise write `SOURCE_IDLE=0`.
 
 ```bash
-mkdir -p data/backups .local/standalone && chmod 700 data/backups
+mkdir -p data/backups .local/standalone && chmod 700 data data/backups
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 SOURCE_IDLE=<1|0> python3 - <DB> "data/backups/kiwi-lab.manual-pre-0.6.0-$STAMP.sqlite3" .local/standalone/counts-before.json <<'PY'
 import json, os, sqlite3, sys
@@ -845,18 +879,18 @@ The counts come from the backup, which is exactly what will be migrated.
 - **Default location:** if the database is this checkout's `data/kiwi-lab.sqlite3`, there is nothing to do.
 - **A file from another checkout or machine:** do what the human chose in Q5.
   - **Copy it in (preferred).** Copy the verified backup from §8.2, never the raw `<DB>`: a `<DB>-wal` file next to it can hold committed changes that a plain `cp` would miss. From now on, `<DB>` in §8.4 means `data/kiwi-lab.sqlite3`.
-    1. If `data/kiwi-lab.sqlite3` already exists, stop this checkout's API (§9.1) and move the file aside first. Do that only if **this session** created it (an earlier §6.6–6.7 start on an empty database). Otherwise it is someone's data: stop and ask.
+    1. If `data/kiwi-lab.sqlite3` already exists, stop this checkout's API and UI (§9.1 stops both) and move the file aside first. Do that only if **this session** created it (an earlier §6.6–6.7 start on an empty database). Otherwise it is someone's data: stop and ask.
 
        ```bash
-       mkdir -p data/replaced
-       STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+       mkdir -p data/replaced && chmod 700 data/replaced
+       ASIDE=$(date -u +%Y%m%dT%H%M%SZ)   # names the moved-aside files only; it is not the §8.2 backup stamp
        for f in data/kiwi-lab.sqlite3 data/kiwi-lab.sqlite3-wal data/kiwi-lab.sqlite3-shm; do
-         [ -e "$f" ] && mv -n "$f" "data/replaced/$(basename "$f" | sed "s/^kiwi-lab/kiwi-lab.$STAMP/")" && echo "moved aside: $f"
+         [ -e "$f" ] && mv -n "$f" "data/replaced/$(basename "$f" | sed "s/^kiwi-lab/kiwi-lab.$ASIDE/")" && echo "moved aside: $f"
        done
        ls -l data/replaced/
        ```
 
-    2. Copy the backup in:
+    2. Copy the backup in. `<stamp>` is the one in the backup name that §8.2 printed (`backup: data/backups/kiwi-lab.manual-pre-0.6.0-<stamp>.sqlite3`), not the time of step 1; `ls data/backups/` lists it.
 
        ```bash
        cp -n data/backups/kiwi-lab.manual-pre-0.6.0-<stamp>.sqlite3 data/kiwi-lab.sqlite3 && chmod 600 data/kiwi-lab.sqlite3
@@ -940,15 +974,20 @@ for name in ui api; do
   esac
 done
 rm -f .local/standalone/ui.pid .local/standalone/api.pid
-. .local/standalone/ports.env; for p in "$API_PORT" "$UI_PORT"; do lsof -nP -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1 && echo "$p still busy" || echo "$p free"; done
+. .local/standalone/ports.env
+for p in "$API_PORT" "$UI_PORT"; do   # a stopping process can hold its port for a moment: wait up to 10 s
+  for i in 1 2 3 4 5 6 7 8 9 10; do lsof -nP -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1 || break; sleep 1; done
+  holder=$(lsof -nP -tiTCP:"$p" -sTCP:LISTEN 2>/dev/null | head -1)
+  [ -n "$holder" ] && echo "$p still busy after 10 s (pid $holder)" || echo "$p free"
+done
 ```
 
 - **Expect:**
   - `ui: stopped`, `api: stopped` (or `not running`), then both ports `free`;
   - `-wal`/`-shm` files next to the database are normal (they can remain after a stop, for example after the read-only checks in §8). They hold committed data: never delete them, and never copy the main file without them; use §8.2 to copy a database.
-- **If it fails:**
-  - If a port is still busy, another process holds it. Do not kill it; report it.
-  - If a process ignores SIGTERM for more than 10 s, ask the human before using `kill -9`.
+- **If it fails:** on `still busy after 10 s (pid N)`, compare N with the pids the block printed as `stopped (pid …)`.
+  - The same pid: that process ignores SIGTERM. Ask the human before using `kill -9`.
+  - Another pid: another process holds the port. Do not kill it; report it.
 
 ### 9.2 Kiwi mode
 
@@ -1044,7 +1083,7 @@ Go back to the state before this deployment:
 2. **Restore the database.** This is only needed when an existing database was migrated. Move the current file aside, then copy the backup back:
 
    ```bash
-   mkdir -p data/replaced
+   mkdir -p data/replaced && chmod 700 data/replaced
    STAMP=$(date -u +%Y%m%dT%H%M%SZ)
    for f in data/kiwi-lab.sqlite3 data/kiwi-lab.sqlite3-wal data/kiwi-lab.sqlite3-shm; do
      [ -e "$f" ] && mv -n "$f" "data/replaced/$(basename "$f" | sed "s/^kiwi-lab/kiwi-lab.$STAMP/")" && echo "moved aside: $f"
@@ -1076,7 +1115,7 @@ Run these after the deployment works. The suites use temporary databases and cle
 | V8 | Browser check by the human: teacher sign-in, a student opens R workspace and runs `mean(c(60, 75, 90))` → `[1] 75` | as described | recommended |
 | V9 | `npm run test:scripts` | `# tests 7`, `# pass 7`, `# fail 0` (under a second). Tests the demo script helpers in temporary directories; it never reads this checkout's `.env` or `.local/`. | recommended |
 
-The expected numbers were recorded on the working tree with the known-minors fixes of 2026-10-23 (on top of `e8d819e`). Counts can change with later commits. Report the numbers you actually see. A failing suite is a finding to report; do not edit tests or code to make it pass.
+The expected numbers were recorded on 2026-10-23 on the working tree that became commit `28092f6` (the known-minors fixes on top of `e8d819e`), and a fresh clone of `28092f6` reproduced V1–V5 and V9 the same day. Counts can change with later commits. Report the numbers you actually see. A failing suite is a finding to report; do not edit tests or code to make it pass.
 
 ## 13. Report to give the human at the end
 
