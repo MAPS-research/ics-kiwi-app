@@ -23,8 +23,8 @@ function card(detail: SubmissionDetail, over: Partial<Parameters<typeof GradingC
 describe("GradingCardView (GRADE-07, NM14–NM16, NM25)", () => {
   it("names score inputs after the student, never after the submission id", () => {
     const html = card(detailFixture());
-    expect(html).toContain('aria-label="Score for Ada Chen, attempt 1, question 2"');
-    expect(html).toContain('aria-label="Score for Ada Chen, attempt 1, question 1"');
+    expect(html).toContain('aria-label="Score for Ada Chen, Week 3 Homework, attempt 1, question 2"');   // SB-m06: the card's homework too
+    expect(html).toContain('aria-label="Score for Ada Chen, Week 3 Homework, attempt 1, question 1"');
     const labels = [...html.matchAll(/aria-label="([^"]*)"/g)].map((m) => m[1]);
     expect(labels.length).toBeGreaterThan(3);
     expect(labels.some((l) => l.includes("sub-") || l.includes("23022d71af964c01"))).toBe(false);

@@ -1,6 +1,12 @@
 /* people workstream styles (owned by PEOPLE; imported by src/main.tsx). Use the Kiwi theme tokens from src/theme.css. */
 
 .block { display: block; }
+/* B-m04: a radio never touches its text. Two classes (.radio-label.block) outrank .block alone, so a block-level radio
+   label keeps its flex layout and gap; every other .block user is unchanged. */
+.radio-label { display: inline-flex; align-items: center; gap: 8px; }
+.radio-label.block { display: flex; align-items: flex-start; margin: 6px 0; }
+.radio-label.block > input[type="radio"] { margin-top: 3px; flex: none; }
+.radio-label-text { min-width: 0; overflow-wrap: anywhere; }
 .muted-row td { color: var(--kiwi-text-secondary); }
 
 /* Roster */

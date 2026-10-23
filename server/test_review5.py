@@ -252,7 +252,7 @@ class RosterMissingLineageTests(GradingApiCase):
         with self.db() as db:
             rule = analytics.missing_work(db, CLS, ["s1", "s2", "s3"], dbmod.utcnow())
         self.assertEqual(counts, {sid: len(rule[sid]) for sid in ("s1", "s2", "s3")})
-        self.assertEqual((counts["s1"], counts["s2"], counts["s3"]), (1, 1, 3))   # s3: the original, its revision, Older
+        self.assertEqual((counts["s1"], counts["s2"], counts["s3"]), (1, 1, 2))   # D8: s3 misses the revision (once) and Older
 
 
 class ClosedOriginalPointsToRevisionTests(GradingApiCase):

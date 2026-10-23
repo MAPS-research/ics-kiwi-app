@@ -375,12 +375,6 @@ def _drafts(db: sqlite3.Connection, rec: AssignmentRecord) -> dict[str, tuple[in
         (rec.class_id, rec.id, *ids))}
 
 
-def _due_passed(rec: AssignmentRecord, now: datetime) -> bool:
-    due = _dt(rec.due_at)
-    grace = timedelta(minutes=int(rec.late_policy.get("graceMinutes") or 0))
-    return rec.kind == "homework" and due is not None and now >= due + grace
-
-
 def _first_tries(db: sqlite3.Connection, rec: AssignmentRecord, students: set[str]) -> tuple[int, int | None]:
     """(students who checked a current question, first-try-correct % over (student, current question) pairs).
 
@@ -412,6 +406,8 @@ def _first_tries(db: sqlite3.Connection, rec: AssignmentRecord, students: set[st
 
 def assignment_stats(db: sqlite3.Connection, rec: AssignmentRecord, group_id: str | None = None) -> dict:
     """``AssignmentStats`` (§7.4) over the enrolled audience (preview and staff excluded) [DA01, TH01]."""
+    from server import analytics
+
     now = dbmod.utcnow()
     students = _audience_students(db, rec, group_id)
     population = set(students)
@@ -424,12 +420,14 @@ def assignment_stats(db: sqlite3.Connection, rec: AssignmentRecord, group_id: st
     # S-M01: students who submitted the original of this revision are not missing it
     on_original = {sid for sid in readers.originals_submitted_by(db, rec) if sid in population and sid not in latest} \
         if rec.kind == "homework" else set()
+    # D8: the Missing work rule of every view — a homework and its revisions count once
+    missing = analytics.missing_students(db, rec, [sid for sid in students if sid not in latest], now)
     return {
         "enrolled": len(students), "submitted": len(latest),
         "startedNotSubmitted": sum(1 for sid, (answered, _) in drafts.items() if answered > 0 and sid not in latest),
         "toGrade": int(counts.get("toGrade", 0)), "toRelease": int(counts.get("toRelease", 0)),
         "late": sum(1 for r in latest.values() if r["is_late"]),
-        "missing": sum(1 for sid in students if sid not in latest and sid not in on_original) if _due_passed(rec, now) else 0,
+        "missing": len(missing),
         "submittedOriginal": len(on_original),
         "graded": sum(1 for r in latest.values() if r["grade_status"] in ("draft", "released")),
         "released": sum(1 for r in latest.values() if r["grade_status"] == "released"),
@@ -445,19 +443,23 @@ STUDENT_STATES = ("submitted", "not_submitted", "started", "missing", "late", "t
 def students_status(db: sqlite3.Connection, rec: AssignmentRecord, state: str, group_id: str | None,
                     name_mode: str) -> dict:
     """``{students: AssignmentStudentStatus[], emails}`` for the row popovers [DA01, DA07]."""
+    from server import analytics
+
     now = dbmod.utcnow()
     students = _audience_students(db, rec, group_id)
     latest, attempts = _latest_submissions(db, rec)
     drafts = _drafts(db, rec)
-    due_passed = _due_passed(rec, now)
     on_original = readers.originals_submitted_by(db, rec) if rec.kind == "homework" else set()
+    # D8: the Missing work rule of every view — a homework and its revisions count once
+    missing = analytics.missing_students(db, rec, [sid for sid in students if sid not in latest], now) \
+        if state == "missing" else set()
     selected = []
     for sid in students:
         sub = latest.get(sid)
         answered = drafts.get(sid, (0, None))[0]
         keep = {
             "submitted": sub is not None, "not_submitted": sub is None, "started": sub is None and answered > 0,
-            "missing": sub is None and due_passed and sid not in on_original, "late": sub is not None and bool(sub["is_late"]),
+            "missing": sid in missing, "late": sub is not None and bool(sub["is_late"]),
             "to_grade": sub is not None and sub["grade_status"] == "ungraded",
         }[state]
         if keep:

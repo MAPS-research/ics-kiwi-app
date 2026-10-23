@@ -113,8 +113,8 @@ describe("Released grades (CORRECTNESS-01)", () => {
     expect(html).toContain(RELEASED_LOCKED_NOTE);
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save draft<\/button>/);
     // SB-m03: the inputs are read-only too, so nothing typed is lost to a disabled Save
-    expect(html).toMatch(/<input[^>]*aria-label="Score for Ada Chen, attempt 1, question 1"[^>]*readOnly=""/);
-    expect(html).toMatch(/<textarea[^>]*aria-label="Feedback to Ada Chen, attempt 1 \(visible after release\)"[^>]*readOnly=""/);
+    expect(html).toMatch(/<input[^>]*aria-label="Score for Ada Chen, Week 3 Homework, attempt 1, question 1"[^>]*readOnly=""/);
+    expect(html).toMatch(/<textarea[^>]*aria-label="Feedback to Ada Chen, Week 3 Homework, attempt 1 \(visible after release\)"[^>]*readOnly=""/);
     expect(card(released(), true)).not.toContain('readOnly=""');
   });
   it("an instructor is told that a draft withdraws the grade", () => {

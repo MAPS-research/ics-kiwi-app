@@ -331,6 +331,9 @@ export interface GradebookCell {
   draftAnswered: number; draftTotal: number;                   // from answer_drafts when no submission exists
   label: string;
   onOriginal?: boolean; originalId?: string; originalTitle?: string;   // S-M01: "Submitted the original" (state not_submitted)
+  // D8 (a homework and its revisions count once): "Submitted the new version" / "Replaced by the new version" (not_submitted);
+  // a missing revision names its first version in `revisionOfTitle`
+  onRevision?: boolean; revisionId?: string; revisionTitle?: string; countedOnId?: string; countedOnTitle?: string; revisionOfTitle?: string;
   // label rules (grading_rules.cell_label): released "18/20 · 1 submission" (n submissions pluralized);
   // draft "Draft 16/20"; submitted_ungraded "Submitted · ungraded"; newer_ungraded "16/20 · newer attempt ungraded";
   // missing "Missing" or, with a draft, "Missing · started (2/3 answered)"; not_due "Not due yet" or "Not due yet · started";
@@ -491,7 +494,11 @@ export interface GeneratedItemTeacher {
 
 export interface AttentionRule { id: "no_activity" | "missing_work" | "stuck_question" | "repeated_ai_help" | "low_accuracy" | "late_pattern"; enabled: boolean; params: Record<string, number> }
 export interface AttentionRules { rules: AttentionRule[] }
-export interface AttentionItem { studentId: string; studentName: string; reasons: { rule: AttentionRule["id"]; text: string; href: string; at: ISODate | null }[] }
+export interface AttentionItem {
+  studentId: string; studentName: string;
+  // B-m01: `lastSeenAt` (any student event) on "No learning actions"; D8: `title` names the original of a revision
+  reasons: { rule: AttentionRule["id"]; text: string; href: string; at: ISODate | null; lastSeenAt?: ISODate | null; title?: string }[];
+}
 export interface ReteachCandidate { assignmentId: string; questionId: string; label: string; prompt: string; students: number; firstTryCorrectPct: number | null; meanTriesToCorrect: number | null; meanScorePct: number | null; marked: boolean }
 export interface ReteachMark { id: number; targetKind: "question" | "item_group" | "ai_prompt" | "topic"; assignmentId: string; questionId: string; unitId: string; chatTurnId: number | null; label: string; note: string; createdBy: string; createdAt: ISODate; resolvedAt: ISODate | null }
 export interface HomeData {
@@ -499,7 +506,7 @@ export interface HomeData {
   header: { courseTitle: string; thisWeek: { unitId: string; title: string; index: number; total: number }; freePracticeLabel: string;
             aiRules: { unitId: string; label: string; customized: boolean; updatedAt: ISODate | null }; aiStatus: AiStatus; kiwi: { linked: boolean; lastSynced: ISODate | null } };
   needsAction: { toGrade: number; toRelease: { assignmentId: string; title: string; count: number }[];
-                 missingPastDue: { assignmentId: string; title: string; count: number; started: number }[];   // "Missing · Week 3 HW 5 (2 started)"
+                 missingPastDue: { assignmentId: string; title: string; count: number; started: number; originalTitle?: string | null }[];   // "Missing · Week 3 HW 5 (2 started)"; D8: a revision names its original
                  late: number; flaggedReplies: number | null };
   assignments: AssignmentListItem[];                        // due soon + recently closed (≤ 6)
   attention: { students: AttentionItem[]; total: number; rules?: string[] };   // CR-I1: enabled rule texts for the "rules (i)" popover
@@ -595,13 +602,17 @@ export interface RosterEntry {
   studentId: string; studentName: string; displayName: string; email: string | null; pseudonym: string;
   source: "import" | "kiwi" | "activity"; status: "active" | "dropped"; groups: { kind: GroupKind; groupId: string; name: string }[];
   consent: ConsentState; consentSource: "kiwi" | "teacher" | "none"; excluded: boolean; exclusionReason: string;
-  lastActive: ISODate | null; missingWork: number; activitiesRecorded: number;
+  /** B-m01: `lastActive` is *Last seen* (any event); `lastLearningAction` counts answers, code runs, AI questions, submissions */
+  lastActive: ISODate | null; lastLearningAction: ISODate | null; missingWork: number; activitiesRecorded: number;
+  /** D8: the homework behind `missingWork`, each lineage once (`originalTitle` names the first version of a revision) */
+  missingWorkItems: MissingWorkItem[];
 }
+export interface MissingWorkItem { assignmentId: string; title: string; originalTitle: string | null }
 export interface RosterImportRow { studentId?: string; name?: string; email?: string; section?: string; condition?: string }
 export interface RosterImportResult { mode: "preview" | "apply"; rows: { index: number; action: "add" | "update" | "unchanged" | "error"; studentId: string | null; message: string; diff: Record<string, [unknown, unknown]> }[]; applied: number }
 export interface StudentSearchHit { studentId: string; studentName: string; pseudonym: string; matchedOn: "name" | "id" | "email" | "pseudonym" }
 export interface StudentProfile {
-  student: RosterEntry; header: { lastActive: ISODate | null; missing: number; late: number; avgScorePct: number | null };
+  student: RosterEntry; header: { lastActive: ISODate | null; lastLearningAction: ISODate | null; missing: number; late: number; avgScorePct: number | null };
   fullTimelineUrl: string;                                   // /teacher/students/s/:id/timeline
   canExportConversations: boolean;                           // exportActivity and not viewer-pseudonymized
   assignments: { assignmentId: string; title: string; kind: AssignmentKind; dueAt: ISODate | null; cell: GradebookCell; timelineUrl: string; gradingUrl: string | null; draftAnswered: number | null }[];

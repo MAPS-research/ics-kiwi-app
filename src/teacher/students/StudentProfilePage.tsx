@@ -7,6 +7,7 @@ import { api } from "../../lib/api";
 import { downloadBlob } from "../../lib/csv";
 import { formatDateTime, formatDue, formatPercent, formatRelative } from "../../lib/format";
 import { LABELS } from "../../lib/labels";
+import { cellLineageNote } from "../grading/gradebookCells";
 import { navigate } from "../../lib/navigation";
 import { teacherPaths } from "../../lib/routes";
 import { useTeacher, type TeacherPageProps } from "../shell/TeacherContext";
@@ -14,12 +15,15 @@ import { consentLabel, groupSummary } from "./RosterPage";
 import type { GradebookCell, Permission, StudentProfile } from "../../types";
 
 /*
- * Student profile [F08, PEOPLE-01/22, TH09]: header (Last active · Missing · Avg), assignments with grading and timeline
+ * Student profile [F08, PEOPLE-01/22, TH09]: header (Last seen · Last learning action · Missing · Avg), assignments with grading and timeline
  * links, recent errors, recent AI questions, practice by chapter. Viewers see neither grading links nor the case file.
  */
 
 export function profileHeaderText(header: StudentProfile["header"], now: number = Date.now()): string {
-  const parts = [`Last active ${header.lastActive ? formatRelative(header.lastActive, now) : "never"}`, `Missing ${header.missing}`];
+  // B-m01: last seen (any event) next to the last learning action, the two stamps of the roster and Needs attention
+  const parts = [`${LABELS.lastSeen} ${header.lastActive ? formatRelative(header.lastActive, now) : "never"}`,
+    `${LABELS.lastLearningAction} ${header.lastLearningAction ? formatRelative(header.lastLearningAction, now) : "none yet"}`,
+    `Missing ${header.missing}`];
   if (header.late) parts.push(`Late ${header.late}`);
   parts.push(`Avg ${header.avgScorePct === null ? "—" : formatPercent(header.avgScorePct)}`);
   return parts.join(" · ");
@@ -142,7 +146,7 @@ export function StudentProfileView({
                     <td>{a.title}</td>
                     <td>{a.dueAt ? formatDue(a.dueAt, Date.now(), undefined, { zone: true }) : "No due date"}</td>
                     <td>
-                      <StatusBadge tone={cellTone(a.cell)}>{a.cell.label}</StatusBadge>
+                      <StatusBadge tone={cellTone(a.cell)} title={cellLineageNote(a.cell) || undefined}>{a.cell.label}</StatusBadge>
                     </td>
                     <td>{a.cell.score === null ? "—" : `${a.cell.score}/${a.cell.maxPoints}`}</td>
                     <td>{a.cell.attempts}</td>

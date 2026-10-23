@@ -7,7 +7,7 @@ import { navigate } from "../../lib/navigation";
 import { teacherPaths } from "../../lib/routes";
 import type { ItemResult, SubmissionDetail, WorkQuestion } from "../../types";
 import {
-  adjustmentLine, askKiwiLine, cardActions, cardLabel, cardStatus, commentFieldLabel, commentInputLabel, draftErrors, draftTotal,
+  adjustmentLine, askKiwiLine, cardActions, cardControlLabel, cardLabel, cardStatus, commentFieldLabel, commentInputLabel, draftErrors, draftTotal,
   feedbackInputLabel, firstOpenQuestion, fmtPoints, gradedByLine, historyLine, isSaveAndNextShortcut, isTotalOnly, primaryAction,
   questionBadge, releaseHint, removedPenalty, scoreInputLabel, TOTAL_ONLY_LABEL, type CardDraft,
 } from "./gradingKeys";
@@ -15,6 +15,8 @@ import {
 /*
  * One grading card (GRADE; F04, TH05, NM14–NM16, NM25, LY06). Pure view: the container (ToGradePage) owns loading and
  * saving. Keeps the v0.5.1 answer-vs-reference layout with a link to the work process (KEEP).
+ * SB-m06: every control names its card (student, homework, attempt) after its visible text, so a queue with two cards of
+ * one student never repeats an accessible name.
  */
 
 export interface GradingCardViewProps {
@@ -73,7 +75,7 @@ function QuestionBlock({ question, item, index, detail, draft, error, open, lock
   locked: boolean;
   onChange: (draft: CardDraft) => void;
 }) {
-  const who = { studentLabel: detail.studentLabel, attempt: detail.submission.attempt, questionIndex: index };
+  const who = { studentLabel: detail.studentLabel, assignmentTitle: detail.assignment.title, attempt: detail.submission.attempt, questionIndex: index };
   const value = draft.items[question.id] ?? { score: "", comment: "" };
   const set = (next: Partial<{ score: string; comment: string }>) =>
     onChange({ ...draft, items: { ...draft.items, [question.id]: { ...value, ...next } } });
@@ -81,7 +83,8 @@ function QuestionBlock({ question, item, index, detail, draft, error, open, lock
   const badge = questionBadge(item);
   return (
     <details className="grading-question" open={open}>
-      <summary>
+      <summary aria-label={cardControlLabel(
+        `Q${index} · ${fmtPoints(item.points)} ${item.points === 1 ? "point" : "points"} · ${badge.label}${item.overridden ? " · Overridden" : ""}`, who)}>
         <span className="grading-question-title">
           Q{index} · {fmtPoints(item.points)} {item.points === 1 ? "point" : "points"}
         </span>
@@ -135,7 +138,7 @@ function QuestionBlock({ question, item, index, detail, draft, error, open, lock
 }
 
 export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy, timeZone, error, status, onChange, onSave, onUnrelease }: GradingCardViewProps) {
-  const who = { studentLabel: detail.studentLabel, attempt: detail.submission.attempt };
+  const who = { studentLabel: detail.studentLabel, assignmentTitle: detail.assignment.title, attempt: detail.submission.attempt };
   const state = cardStatus(detail);
   const primary = primaryAction(detail.assignment.gradesVisibility, canRelease);
   const total = draftTotal(draft, detail);
@@ -156,7 +159,7 @@ export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy,
     onSave(primary, true);
   };
   return (
-    <article className="grading-card" aria-label={cardLabel(who, detail.assignment.title)} onKeyDown={onKeyDown}>
+    <article className="grading-card" aria-label={cardLabel(who)} onKeyDown={onKeyDown}>
       <header className="grading-card-header">
         <div>
           <h2 className="grading-card-title">
@@ -171,7 +174,7 @@ export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy,
           <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
           {badgeFlags.map((flag) =>
             flag.href ? (
-              <a key={flag.kind} className="grading-flag-link" href={flag.href} onClick={go(flag.href)}>
+              <a key={flag.kind} className="grading-flag-link" href={flag.href} onClick={go(flag.href)} aria-label={cardControlLabel(flag.text, who)}>
                 <StatusBadge tone="warning">{flag.text}</StatusBadge>
               </a>
             ) : (
@@ -184,7 +187,7 @@ export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy,
       </header>
       <p className="grading-process">
         <span>{askKiwiLine(detail.process)}</span>
-        <a className="text-button" href={detail.process.timelineUrl} onClick={go(detail.process.timelineUrl)}>
+        <a className="text-button" href={detail.process.timelineUrl} onClick={go(detail.process.timelineUrl)} aria-label={cardControlLabel(LABELS.seeWorkProcess, who)}>
           {LABELS.seeWorkProcess} <ArrowRight size={15} aria-hidden="true" />
         </a>
       </p>
@@ -193,7 +196,7 @@ export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy,
           {evidenceFlags.map((flag) => (
             <li key={flag.kind}>
               {flag.href ? (
-                <a href={flag.href} onClick={go(flag.href)}>
+                <a href={flag.href} onClick={go(flag.href)} aria-label={cardControlLabel(flag.text, who)}>
                   {flag.text}
                 </a>
               ) : (
@@ -230,7 +233,8 @@ export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy,
         {adjustment && (
           <p className="grading-adjustment">
             {adjustment}{" "}
-            <button type="button" className="text-button" disabled={busy || locked} onClick={() => onChange({ ...draft, adjustment: removedPenalty() })}>
+            <button type="button" className="text-button" disabled={busy || locked} aria-label={cardControlLabel(`Remove ${adjustment}`, who)}
+              onClick={() => onChange({ ...draft, adjustment: removedPenalty() })}>
               Remove
             </button>
           </p>
@@ -260,12 +264,12 @@ export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy,
           {cardActions(primary, canRelease).map((a) => (
             <button key={a.id} type="button" className={a.primary ? "primary-button" : "outline-button"}
               disabled={busy || invalid || (a.action === "release" ? total === null : locked)}
-              title={a.next ? "Ctrl+Enter or ⌘+Enter" : undefined} onClick={() => onSave(a.action, a.next)}>
+              title={a.next ? "Ctrl+Enter or ⌘+Enter" : undefined} aria-label={cardControlLabel(a.label, who)} onClick={() => onSave(a.action, a.next)}>
               {a.label}
             </button>
           ))}
           {released && canUnrelease && (
-            <button type="button" className="text-button" disabled={busy || !onUnrelease} onClick={() => onUnrelease?.()}>
+            <button type="button" className="text-button" disabled={busy || !onUnrelease} aria-label={cardControlLabel("Unrelease", who)} onClick={() => onUnrelease?.()}>
               Unrelease
             </button>
           )}
@@ -274,14 +278,15 @@ export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy,
       </div>
       {detail.earlierAttempts.length > 0 && (
         <details className="grading-earlier">
-          <summary>Earlier attempts ({detail.earlierAttempts.length})</summary>
+          <summary aria-label={cardControlLabel(`Earlier attempts (${detail.earlierAttempts.length})`, who)}>Earlier attempts ({detail.earlierAttempts.length})</summary>
           <ul>
             {detail.earlierAttempts.map((a) => {
               // S-m06: an earlier attempt opens on its own card
               const href = earlierAttemptHref(detail, a.id);
               return (
                 <li key={a.id}>
-                  <a href={href} onClick={go(href)}>Attempt {a.attempt}</a> · {submittedLine(a.submittedAt, timeZone)} ·{" "}
+                  <a href={href} onClick={go(href)} aria-label={`Attempt ${a.attempt} of ${detail.studentLabel}, ${detail.assignment.title}`}>Attempt {a.attempt}</a> ·{" "}
+                  {submittedLine(a.submittedAt, timeZone)} ·{" "}
                   <StatusBadge tone={gradeStatusTone(a.gradeStatus)}>{gradeStateLabel(a.gradeStatus, a.grade, detail.maxPoints)}</StatusBadge>
                 </li>
               );
@@ -291,7 +296,7 @@ export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy,
       )}
       {graded && (
         <details className="grading-history">
-          <summary>{graded} · History</summary>
+          <summary aria-label={cardControlLabel(`${graded} · History`, who)}>{graded} · History</summary>
           <ol>
             {detail.history.map((entry) => (
               <li key={entry.id}>{historyLine(entry, timeZone)}</li>

@@ -1,20 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
-  adjustmentLine, askKiwiLine, autoCheckLine, cardStatus, commentFieldLabel, commentInputLabel, computeTotal, draftErrors,
+  adjustmentLine, askKiwiLine, autoCheckLine, cardContext, cardControlLabel, cardLabel, cardStatus, commentFieldLabel, commentInputLabel, computeTotal, draftErrors,
   draftFromDetail, draftToInput, draftTotal, feedbackInputLabel, gradingTabCounts, firstOpenQuestion, gradedByLine, historyLine,
   isSaveAndNextShortcut, isTotalOnly, keepUnsavedDrafts, nextUngradedId, pageOf, parseScore, parseShow, primaryAction, primaryActionLabel,
   readyToReleaseLabel, releaseButtonLabel, removedPenalty, scoreInputLabel, SHOW_OPTIONS, toGradeTitle, type CardDraft,
 } from "./gradingKeys";
 import { detailFixture, gradeEvent as event } from "./gradingFixtures";
 
-describe("accessible names (GRADE-07, NM15, NM14)", () => {
-  it("names the score input after the student, attempt and question", () => {
-    expect(scoreInputLabel({ studentLabel: "Ada Chen", attempt: 1, questionIndex: 2 })).toBe("Score for Ada Chen, attempt 1, question 2");
+describe("accessible names (GRADE-07, NM15, NM14, SB-m06)", () => {
+  const who = { studentLabel: "Ada Chen", assignmentTitle: "Week 3 HW", attempt: 1 };
+  it("names the score input after the student, homework, attempt and question", () => {
+    expect(scoreInputLabel({ ...who, questionIndex: 2 })).toBe("Score for Ada Chen, Week 3 HW, attempt 1, question 2");
+    expect(scoreInputLabel({ ...who, assignmentTitle: "Files HW", questionIndex: 2 })).not.toBe(scoreInputLabel({ ...who, questionIndex: 2 }));
   });
-  it("names comments and feedback without ids", () => {
+  it("names comments, feedback and card buttons without ids", () => {
     expect(commentFieldLabel(1)).toBe("Comment on Q1");
-    expect(commentInputLabel({ studentLabel: "Ada Chen", attempt: 2, questionIndex: 1 })).toBe("Comment on Q1 for Ada Chen, attempt 2");
-    expect(feedbackInputLabel({ studentLabel: "Ada Chen", attempt: 1 })).toBe("Feedback to Ada Chen, attempt 1 (visible after release)");
+    expect(commentInputLabel({ ...who, attempt: 2, questionIndex: 1 })).toBe("Comment on Q1 for Ada Chen, Week 3 HW, attempt 2");
+    expect(feedbackInputLabel(who)).toBe("Feedback to Ada Chen, Week 3 HW, attempt 1 (visible after release)");
+    expect(cardContext(who)).toBe("Ada Chen, Week 3 HW, attempt 1");
+    expect(cardControlLabel("Save draft", who)).toBe("Save draft — Ada Chen, Week 3 HW, attempt 1");
+    expect(cardLabel(who)).toBe("Ada Chen · Week 3 HW · attempt 1");
   });
 });
 

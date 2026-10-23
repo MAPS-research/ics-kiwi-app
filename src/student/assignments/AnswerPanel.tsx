@@ -1,3 +1,4 @@
+import { useEffect, useRef, type ReactNode } from "react";
 import { Download } from "lucide-react";
 import { displayTimeZone, zoneLabel } from "../../lib/format";
 import { LABELS, pluralize, questionTypeLabel, STUDENT_LABELS } from "../../lib/labels";
@@ -141,6 +142,8 @@ export function AnswerPanel({
   onSubmit,
   onOpenQuestion,
   onDownload,
+  refusal = "",
+  refusalLink = null,
 }: {
   work: StudentAssignment;
   question: WorkQuestion;
@@ -159,7 +162,16 @@ export function AnswerPanel({
   onSubmit: () => void;
   onOpenQuestion: (questionId: string) => void;
   onDownload: (file: FileMeta) => void;
+  /** B-m03: the server refused the submit (closed, not open, attempts used): an alert next to Submit, focused once */
+  refusal?: string;
+  /** B-m03: where to go instead (the published revision), shown inside the alert */
+  refusalLink?: ReactNode;
 }) {
+  const alertRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // WHY: the refusal answers a click on Submit; moving focus here makes it the next thing read, near the button
+    if (refusal) alertRef.current?.focus();
+  }, [refusal]);
   const value = answers[question.id] || "";
   const files = work.files.filter((f) => !f.questionId || f.questionId === question.id);
   const instructions = (work.instructions || "").trim();
@@ -223,8 +235,14 @@ export function AnswerPanel({
             {busy ? "Submitting…" : "Submit assignment"}
           </button>
         )}
-        <span className="muted" aria-live="polite">{submitBlocked || savedLabel}</span>
+        <span className="muted" aria-live="polite">{refusal ? savedLabel : submitBlocked || savedLabel}</span>
       </div>
+      {refusal && (
+        <div className="assess-submit-alert" role="alert" tabIndex={-1} ref={alertRef}>
+          <p>{refusal}</p>
+          {refusalLink && <p>{refusalLink}</p>}
+        </div>
+      )}
       {lateWarning && !submitBlocked && <p className="assess-late-warning" role="note">{lateWarning}</p>}
       <div className="work-question-navigation">
         {work.questions.map((q, i) => {

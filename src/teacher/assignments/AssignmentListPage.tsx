@@ -91,14 +91,15 @@ function StudentList({ item, states, initial, load }: { item: ListItem; states: 
         <div className="table-scroll">
           <table className="data-table">
             <thead>
-              <tr><th>Student</th><th>ID</th><th>Last active</th><th>Status</th></tr>
+              {/* B-m01: any student event, the roster's "Last seen" */}
+              <tr><th>Student</th><th>ID</th><th title={LABELS.lastSeenHelp}>{LABELS.lastSeen}</th><th>Status</th></tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.studentId}>
                   <td>{row.studentName}</td>
                   <td className="mono">{row.studentId}</td>
-                  <td>{row.lastActive ? formatRelative(row.lastActive) : "No activity"}</td>
+                  <td>{row.lastActive ? formatRelative(row.lastActive) : "Not seen yet"}</td>
                   <td>{studentStatusLabel(row)}</td>
                 </tr>
               ))}

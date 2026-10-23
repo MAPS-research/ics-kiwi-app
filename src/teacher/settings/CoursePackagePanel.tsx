@@ -25,6 +25,22 @@ export function applyConfirmText(result: CoursePackageImportResult): string | nu
   return `This adds ${added} ${added === 1 ? "chapter" : "chapters"} and archives ${archived.length} (hidden from students, nothing is deleted): ${names}.`;
 }
 
+/**
+ * One "Start from a template" choice (B-m04): the radio and one text block (title · chapters, description) side by side
+ * with a gap; `.radio-label.block` keeps the label's flex layout over `.block`.
+ */
+export function TemplateOption({ template, checked, onSelect }: { template: CourseTemplate; checked: boolean; onSelect: () => void }) {
+  return (
+    <label className="radio-label block">
+      <input type="radio" name="package-source" checked={checked} onChange={onSelect} />
+      <span className="radio-label-text">
+        <strong>{template.title}</strong> · {template.chapters} chapters
+        <small className="muted block">{template.description}</small>
+      </span>
+    </label>
+  );
+}
+
 export function actionTone(action: string): BadgeTone {
   return action === "add" ? "success" : action === "archive" ? "warning" : "neutral";
 }
@@ -169,19 +185,11 @@ export function CoursePackagePanel({ classId, setCourse }: { classId: string; se
       <p className="muted">Chapters, assignments, AI tutor rules, group names and course files — no student data.</p>
       <h3>Start from a template</h3>
       {templates.map((t) => (
-        <label key={t.key} className="radio-label block">
-          <input
-            type="radio"
-            name="package-source"
-            checked={source?.kind === "template" && source.key === t.key}
-            onChange={() => {
-              setSource({ kind: "template", key: t.key });
-              setResult(null);
-            }}
-          />
-          <strong>{t.title}</strong> · {t.chapters} chapters
-          <small className="muted block">{t.description}</small>
-        </label>
+        <TemplateOption key={t.key} template={t} checked={source?.kind === "template" && source.key === t.key}
+          onSelect={() => {
+            setSource({ kind: "template", key: t.key });
+            setResult(null);
+          }} />
       ))}
       <h3>Import a course package</h3>
       <label className="outline-button file-picker">

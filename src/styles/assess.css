@@ -386,6 +386,20 @@
 .assess-late-window {
   color: var(--kiwi-warning);
 }
+/* B-m03: a refused submit (closed, not open, attempts used) is stated next to Submit, not at the top of the page */
+.assess-submit-alert {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-left: 4px solid var(--kiwi-error);
+  background: var(--kiwi-error-bg);
+  color: var(--kiwi-text-primary);
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.assess-submit-alert p { margin: 0; overflow-wrap: anywhere; }
+.assess-submit-alert p + p { margin-top: 6px; }
+.assess-submit-alert:focus { outline: 2px solid var(--kiwi-primary); outline-offset: 2px; }
 .assess-late-warning {
   margin: 8px 0 0;
   padding: 6px 10px;

@@ -97,6 +97,9 @@ While a homework is protected, the server checks every reply and generated item 
 - **First try correct %** and **mean tries to correct** (What to re-teach): per question, over students who attempted it; a question needs 3 or more students in the range.
 - **AI tutor questions (incl. hints)**: Lab AI tutor turns + Kiwi lecture AI questions + legacy hint requests.
 - **Logged actions**: answer attempts, code runs, AI questions, submissions, generations, package installs and file loads.
+- **Last seen** (roster, student profile): the newest event of any kind from the student, page views, heartbeats and lecture views included. **Last learning action** (roster tooltip, student profile): the newest answer (submitted, saved or checked, in the Lab or Kiwi's scratchpad), code run, AI question or submission.
+- **No learning actions for N days** (Students needing attention): no learning action, as defined above, for at least N days; the reason also shows when the student was last seen, so a student who only opens pages is listed with "last seen 2 min ago".
+- **Missing work**: published homework in the student's audience, past its due date (after grace), with no submission. A homework and its published revisions count once (decision D8): a submission to any version counts, and a student who submitted none is missing it once, on the newest version they can submit to; the tooltip names the original. The roster, profile, Home, Needs attention, the Activity explorer, the Assignments list, gradebook cells and the status CSV use this one rule (`analytics.missing_work`).
 - **AI requests turned away / failed**: unavailable, busy, rate-limited, blocked by tool policy, provider or validation errors (`ai_calls.status`).
 
 ## Exports and codebook

@@ -20,12 +20,17 @@ import type { AttentionItem, AttentionRule, AttentionRules } from "../../types";
  */
 
 export const RULE_TITLES: Readonly<Record<AttentionRule["id"], string>> = {
-  no_activity: "No activity",
-  missing_work: "Missing work",
+  no_activity: LABELS.noLearningActions,   // B-m01: the rule counts learning actions, not every event
+  missing_work: LABELS.missingWork,
   stuck_question: "Stuck on a question",
   repeated_ai_help: "Repeated AI help",
   low_accuracy: "Low accuracy in this week's chapter",
   late_pattern: "Late submissions",
+};
+/** One line under a rule that says what it counts (B-m01, D8); rules without an entry need none. */
+export const RULE_HELP: Readonly<Partial<Record<AttentionRule["id"], string>>> = {
+  no_activity: "Answers, code runs, AI questions and submissions count; page views and time on a page do not. The reason shows when the student was last seen.",
+  missing_work: LABELS.missingWorkHelp,
 };
 export const PARAM_LABELS: Readonly<Record<string, string>> = {
   days: "Days",
@@ -74,6 +79,7 @@ export function RulesEditor({ rules, editable, saving, onChange, onSave }: {
               />
               {RULE_TITLES[rule.id]}
             </label>
+            {RULE_HELP[rule.id] && <small className="attention-rule-help">{RULE_HELP[rule.id]}</small>}
             {Object.entries(rule.params).map(([param, value]) => (
               <label key={param} className="attention-param">
                 {PARAM_LABELS[param] ?? param}

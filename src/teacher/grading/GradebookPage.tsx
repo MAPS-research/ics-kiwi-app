@@ -13,7 +13,7 @@ import { useTeacher, type TeacherPageProps } from "../shell/TeacherContext";
 import type { Gradebook, Group } from "../../types";
 import { gradingTabCounts } from "./gradingKeys";
 import { useToGradeCount } from "./useToGradeCount";
-import { cellAriaLabel, cellHref, cellMuted, cellText, cellTone, inClassText, parsePolicy, POLICY_OPTIONS, type ScorePolicy } from "./gradebookCells";
+import { cellAriaLabel, cellHref, cellLineageNote, cellMuted, cellText, cellTone, inClassText, parsePolicy, POLICY_OPTIONS, type ScorePolicy } from "./gradebookCells";
 
 /*
  * Gradebook (GRADE; NM17–NM19, TR04, FD04, AU-D4-26). ?policy=latest|highest&search=&groupId=
@@ -164,7 +164,8 @@ export function GradebookView({ book, canGrade, canExport, groups, policy, searc
                   const href = cellHref(cell, row.studentId, canGrade);
                   return (
                     <td key={column.assignmentId} className={cellMuted(cell) ? "gradebook-cell cell-muted" : "gradebook-cell"}>
-                      <a href={href} onClick={follow(href)} aria-label={cellAriaLabel(row.studentName, column.header, cell)}>
+                      <a href={href} onClick={follow(href)} aria-label={cellAriaLabel(row.studentName, column.header, cell)}
+                        title={cellLineageNote(cell) || undefined}>
                         <StatusBadge tone={cellTone(cell.state)}>{cellText(cell)}</StatusBadge>
                         {cell.late && <StatusBadge tone="warning">Late</StatusBadge>}
                       </a>

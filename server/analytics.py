@@ -105,6 +105,39 @@ def enrolled_ids(db: sqlite3.Connection, scope: Scope) -> list[str]:
     return [row[0] for row in db.execute(sql, params)]
 
 
+# ─── Last seen and last learning action (B-m01, §13.9) ─────────────────────────────────────────
+#
+# Two named stamps instead of one "activity": *last seen* is the newest event of any kind the student wrote (page views,
+# heartbeats and lecture views included); *last learning action* is the newest answer, code run, AI question or
+# submission. The roster, the student profile and the "No learning actions" attention rule read both from here.
+LEARNING_ACTION_TYPES = (
+    "answer_submitted", "answer_draft", "work_answer_saved", "kiwi_check_answer",   # answers (Lab and Kiwi scratchpad)
+    "code_run", "code_shared",                                                       # code runs (Lab and Kiwi scratchpad)
+    "ai_question", "hint_requested",                                                 # AI questions (+ legacy hints)
+    "work_submitted",                                                                # submissions
+)
+
+
+@dataclass(frozen=True)
+class ActivityStamps:
+    last_seen: str | None
+    last_learning_action: str | None
+    first_seen: str | None
+
+
+def activity_stamps(db: sqlite3.Connection, class_id: str, student_ids: Iterable[str] | None = None) -> dict[str, ActivityStamps]:
+    """``ActivityStamps`` per student from their own non-preview events (staff actors never count); a student without
+    events gets ``ActivityStamps(None, None, None)``."""
+    marks = ", ".join("?" for _ in LEARNING_ACTION_TYPES)
+    found = {row[0]: ActivityStamps(row[1], row[2], row[3]) for row in db.execute(
+        f"""SELECT student_id, MAX(created_at), MAX(CASE WHEN event_type IN ({marks}) THEN created_at END), MIN(created_at)
+        FROM events WHERE class_id = ? AND is_preview = 0 AND student_id NOT LIKE 'preview-%'
+        AND {identity.STUDENT_ACTOR_SQL} GROUP BY student_id""", (*LEARNING_ACTION_TYPES, class_id))}
+    if student_ids is None:
+        return found
+    return {sid: found.get(sid, ActivityStamps(None, None, None)) for sid in student_ids}
+
+
 def metric(value: float | None, previous: float | None, denominator: dict | None = None) -> dict:
     """``Metric`` (§7.7): ``deltaPct = round((value − previous) / previous × 100)`` when previous > 0."""
     delta = None
@@ -563,21 +596,168 @@ def _past_due(rec: AssignmentRecord, now: datetime) -> bool:
     return due + grace <= now
 
 
-def missing_work(db: sqlite3.Connection, class_id: str, student_ids: list[str], now: datetime) -> dict[str, list[AssignmentRecord]]:
-    """Published homework in each student's audience, past due (after grace), without a non-preview submission."""
-    out: dict[str, list[AssignmentRecord]] = {sid: [] for sid in student_ids}
+# ─── Missing work: one rule for every caller (decision D8, B-m02) ─────────────────────────────
+#
+# A homework and its published revisions are one piece of work. A student who submitted any version is not missing it;
+# a student who submitted none is missing it once, against the newest published version in their audience (the one they
+# can still submit to). Roster, student profile, Home, Needs attention, the Activity explorer, the Assignments list,
+# gradebook cells and the status CSV all use ``missing_verdict`` / ``missing_work`` below.
+
+@dataclass(frozen=True)
+class MissingWork:
+    """One missing homework: the version the student can still submit to, and the older versions it replaces."""
+
+    rec: AssignmentRecord
+    originals: tuple[AssignmentRecord, ...] = ()   # nearest first
+
+    @property
+    def id(self) -> str:
+        return self.rec.id
+
+    @property
+    def title(self) -> str:
+        return self.rec.title
+
+    @property
+    def due_at(self) -> str | None:
+        return self.rec.due_at
+
+    @property
+    def original_title(self) -> str | None:
+        """The first version's title (the tooltip names it), or None for a homework that was never revised."""
+        return self.originals[-1].title if self.originals else None
+
+    def as_dict(self) -> dict:
+        return {"assignmentId": self.id, "title": self.title, "originalTitle": self.original_title}
+
+
+@dataclass(frozen=True)
+class MissingVerdict:
+    """Whether a student with no submission on one homework is missing it (D8), and why not when they are not."""
+
+    missing: bool
+    submitted: AssignmentRecord | None = None       # another version the student submitted
+    submitted_relation: str = ""                    # "original" (an older version) | "revision" (a newer one)
+    counted_on: AssignmentRecord | None = None      # the newer published version that carries this homework
+    originals: tuple[AssignmentRecord, ...] = ()    # older versions this one replaces, nearest first
+
+
+def missing_text(items: list[MissingWork]) -> str:
+    """Tooltip of a Missing work count: ``Files HW — revision (new version of Files HW) · Older homework``."""
+    return " · ".join(f"{m.title} (new version of {m.original_title})" if m.original_title else m.title for m in items)
+
+
+def homework_lineage(db: sqlite3.Connection, rec: AssignmentRecord,
+                     cache: dict[str, tuple[AssignmentRecord, ...]] | None = None) -> tuple[AssignmentRecord, ...]:
+    """Every non-deleted version of a homework, oldest first (the first version, then revisions by depth and creation);
+    just ``(rec,)`` for a homework that was never revised."""
+    if cache is not None and rec.id in cache:
+        return cache[rec.id]
+    if "revision_of" not in dbmod.table_columns(db, "assignments"):
+        return (rec,)
+    row = db.execute("""SELECT revision_of, EXISTS(SELECT 1 FROM assignments c WHERE c.class_id = a.class_id
+        AND c.revision_of = a.id) FROM assignments a WHERE a.class_id = ? AND a.id = ?""", (rec.class_id, rec.id)).fetchone()
+    if row is None or (not row[0] and not row[1]):
+        return (rec,)
+    originals = readers.original_ids(db, rec.class_id, rec.id)
+    root = originals[-1] if originals else rec.id
+    order: list[tuple[int, str, str]] = []
+    created = db.execute("SELECT created_at FROM assignments WHERE class_id = ? AND id = ?", (rec.class_id, root)).fetchone()
+    order.append((0, created[0] if created else "", root))
+    seen, frontier, depth = {root}, [root], 0
+    while frontier and len(seen) <= 2 * readers._LINEAGE_LIMIT:
+        depth += 1
+        marks = ",".join("?" for _ in frontier)
+        found = [(r[0], r[1]) for r in db.execute(
+            f"SELECT id, created_at FROM assignments WHERE class_id = ? AND revision_of IN ({marks})", (rec.class_id, *frontier))
+            if r[0] not in seen]
+        seen.update(i for i, _ in found)
+        order.extend((depth, at or "", i) for i, at in found)
+        frontier = [i for i, _ in found]
+    members = []
+    for _depth, _at, member_id in sorted(order):
+        member = rec if member_id == rec.id else readers.load_assignment(db, rec.class_id, member_id)
+        if member is not None:
+            members.append(member)
+    lineage = tuple(members) or (rec,)
+    if cache is not None:
+        for member in lineage:
+            cache[member.id] = lineage
+    return lineage
+
+
+def _student_version(db: sqlite3.Connection, member: AssignmentRecord, student_id: str) -> bool:
+    """A version the student can work on: published, not archived, homework, in their audience."""
+    return (member.kind == "homework" and member.status == "published" and not member.archived_at
+            and readers.in_audience(db, member, student_id))
+
+
+def missing_verdict(db: sqlite3.Connection, rec: AssignmentRecord, student_id: str, now: datetime, *,
+                    cache: dict[str, tuple[AssignmentRecord, ...]] | None = None,
+                    submitted: set[str] | None = None) -> MissingVerdict:
+    """D8 for a student in the homework's audience who has no (non-preview) submission on ``rec`` itself.
+
+    ``submitted`` (assignment ids the student submitted, non-preview) and ``cache`` (lineages) let a caller that checks
+    many homework share one query.
+    """
+    lineage = homework_lineage(db, rec, cache)
+    if len(lineage) == 1 or rec.id not in {m.id for m in lineage}:
+        return MissingVerdict(missing=_past_due(rec, now))
+    position = next(i for i, m in enumerate(lineage) if m.id == rec.id)
+    if submitted is None:
+        ids = [m.id for m in lineage]
+        submitted = {r[0] for r in db.execute(
+            f"""SELECT DISTINCT assignment_id FROM submissions WHERE class_id = ? AND student_id = ? AND is_preview = 0
+            AND assignment_id IN ({','.join('?' for _ in ids)})""", (rec.class_id, student_id, *ids))}
+    older = lineage[:position][::-1]
+    for member in older:   # S-M01: the nearest original first
+        if member.id in submitted:
+            return MissingVerdict(missing=False, submitted=member, submitted_relation="original")
+    for member in lineage[position + 1:]:
+        if member.id in submitted:
+            return MissingVerdict(missing=False, submitted=member, submitted_relation="revision")
+    versions = [m for m in lineage if _student_version(db, m, student_id)]
+    head = versions[-1] if versions else None
+    if head is not None and head.id != rec.id:
+        return MissingVerdict(missing=False, counted_on=head)
+    return MissingVerdict(missing=_past_due(rec, now), originals=older)
+
+
+def missing_work(db: sqlite3.Connection, class_id: str, student_ids: list[str], now: datetime) -> dict[str, list[MissingWork]]:
+    """Missing work per student (D8): published homework in the student's audience, past due (after grace), with no
+    non-preview submission on any of its versions — each homework once, against the newest version the student has."""
+    out: dict[str, list[MissingWork]] = {sid: [] for sid in student_ids}
+    # WHY: a verdict is "missing" only when its own homework is past due, so homework not yet due is skipped up front
     due = [rec for rec in published_homework(db, class_id) if _past_due(rec, now)]
     if not due or not student_ids:
         return out
-    submitted = {(row[0], row[1]) for row in db.execute(
-        "SELECT DISTINCT student_id, assignment_id FROM submissions WHERE class_id = ? AND is_preview = 0", (class_id,))}
-    # S-M01: submitting the original of a revision counts for the revision
-    on_original = {rec.id: readers.originals_submitted_by(db, rec) for rec in due}
+    submitted: dict[str, set[str]] = {}
+    for row in db.execute("SELECT DISTINCT student_id, assignment_id FROM submissions WHERE class_id = ? AND is_preview = 0",
+                          (class_id,)):
+        submitted.setdefault(row[0], set()).add(row[1])
+    cache: dict[str, tuple[AssignmentRecord, ...]] = {}
     for sid in student_ids:
+        mine = submitted.get(sid, set())
         for rec in due:
-            if (sid, rec.id) not in submitted and sid not in on_original[rec.id] and readers.in_audience(db, rec, sid):
-                out[sid].append(rec)
+            if rec.id in mine or not readers.in_audience(db, rec, sid):
+                continue
+            verdict = missing_verdict(db, rec, sid, now, cache=cache, submitted=mine)
+            if verdict.missing:
+                out[sid].append(MissingWork(rec, verdict.originals))
     return out
+
+
+def missing_students(db: sqlite3.Connection, rec: AssignmentRecord, student_ids: Iterable[str], now: datetime) -> set[str]:
+    """The students (of ``student_ids``) whose Missing work includes this homework (D8; the Assignments list)."""
+    if rec.kind != "homework" or not _past_due(rec, now):
+        return set()
+    ids = [sid for sid in student_ids if readers.in_audience(db, rec, sid)]
+    if not ids:
+        return set()
+    done = {r[0] for r in db.execute("SELECT DISTINCT student_id FROM submissions WHERE class_id = ? AND assignment_id = ? "
+                                     "AND is_preview = 0", (rec.class_id, rec.id))}
+    cache: dict[str, tuple[AssignmentRecord, ...]] = {}
+    return {sid for sid in ids if sid not in done and missing_verdict(db, rec, sid, now, cache=cache).missing}
 
 
 def _add_missing_work(db: sqlite3.Connection, scope: Scope, rows: list[dict]) -> None:
@@ -1531,21 +1711,29 @@ def assignment_list_item(db: sqlite3.Connection, scope: Scope, rec: AssignmentRe
 
 def needs_action(db: sqlite3.Connection, scope: Scope, now: datetime) -> dict:
     """Home › Needs your action: counts shared with Grading (``readers.grading_counts``) and gradebook cell states."""
+    from server import grading_rules
+
     counts = readers.grading_counts(db, scope.class_id, None, scope.group_id)
     to_release, missing = [], []
     enrolled = enrolled_ids(db, unranged(scope))
+    # D8: the Missing work rule of the roster and Needs attention — a homework and its revisions are listed once
+    missing_by_rec: dict[str, list[str]] = {}
+    originals: dict[str, str | None] = {}
+    for sid, items in missing_work(db, scope.class_id, enrolled, now).items():
+        for item in items:
+            missing_by_rec.setdefault(item.id, []).append(sid)
+            originals[item.id] = item.original_title
     for rec in published_homework(db, scope.class_id):
         # WHY (review 2, CORRECTNESS-05/TEACHER-05): drafts wait for release on "Immediately" homework too (a TA without
         # releaseGrades can only save drafts), so every homework with drafts is listed, as Grading counts them.
         count = int(readers.grading_counts(db, scope.class_id, rec.id, scope.group_id).get("toRelease") or 0)
         if count:
             to_release.append({"assignmentId": rec.id, "title": rec.title, "count": count})
-        if _past_due(rec, now):
-            cells = [readers.gradebook_cell(db, rec, sid, "latest", now) for sid in enrolled if readers.in_audience(db, rec, sid)]
-            gone = [c for c in cells if c.get("state") == "missing"]
-            if gone:
-                missing.append({"assignmentId": rec.id, "title": rec.title, "count": len(gone),
-                                "started": sum(1 for c in gone if c.get("draftAnswered"))})
+        gone = missing_by_rec.get(rec.id, [])
+        if gone:
+            missing.append({"assignmentId": rec.id, "title": rec.title, "count": len(gone),
+                            "started": sum(1 for sid in gone if grading_rules.draft_progress(db, rec, sid)[0] > 0),
+                            "originalTitle": originals.get(rec.id)})
     population, params = pop_sql(scope, "s", time_col="submitted_at")
     late = db.execute(f"""SELECT COUNT(*) FROM submissions s WHERE {population} AND s.is_late = 1
         AND s.id IN ({readers.latest_submission_ids_sql()})""", params).fetchone()[0]

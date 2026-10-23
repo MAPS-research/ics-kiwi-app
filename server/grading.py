@@ -915,6 +915,13 @@ STATUS_STATES = {"not_due": "Not due yet", "submitted_ungraded": "Submitted · u
 def status_label(cell: dict) -> str:
     """``state`` column of ``assignment-status.csv`` (§13.6)."""
     started = cell["draftAnswered"] > 0
+    # D8: another version of the homework carries this row (submitted there, or missing there instead of here)
+    if cell.get("onOriginal"):
+        return "Submitted the original"
+    if cell.get("onRevision"):
+        return "Submitted the new version"
+    if cell.get("countedOnId"):
+        return "Replaced by the new version"
     if cell["state"] == "missing":
         return "Missing · started" if started else "Missing"
     if cell["state"] == "not_submitted":

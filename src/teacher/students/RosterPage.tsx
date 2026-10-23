@@ -8,7 +8,7 @@ import { Pager } from "../../components/Pager";
 import { StatusBadge, type BadgeTone } from "../../components/StatusBadge";
 import { api } from "../../lib/api";
 import { displayTimeZone, formatRelative } from "../../lib/format";
-import { LABELS } from "../../lib/labels";
+import { LABELS, lastLearningActionText, missingWorkTooltip } from "../../lib/labels";
 import { navigate } from "../../lib/navigation";
 import { teacherPaths } from "../../lib/routes";
 import { useTeacher, type TeacherPageProps } from "../shell/TeacherContext";
@@ -16,13 +16,20 @@ import { mappingProblem, parseRosterFile, ROSTER_FIELDS, toImportRows, type Pars
 import type { ConsentState, Group, RosterEntry, RosterImportResult } from "../../types";
 
 /*
- * Roster [PEOPLE-04/10/14, NM24]: Student · ID · Group · Last active · Missing work · Research consent · Profile.
+ * Roster [PEOPLE-04/10/14, NM24]: Student · ID · Group · Last seen · Missing work · Research consent · Profile.
+ * B-m01: "Last seen" is any student event; the cell tooltip gives the last learning action (the Needs attention rule).
+ * D8: the Missing work tooltip lists the homework, a revision with its original (a homework and its revisions count once).
  * Instructors import (CSV with header mapping, preview diff, apply), mark students dropped or excluded from
  * analytics, and record consent overrides with a note. Names come from the server in the current name mode.
  */
 
 export const PAGE_SIZE = 50;
-export const ROSTER_COLUMNS = ["Student", "ID", "Group", "Last active", "Missing work", LABELS.researchConsent, "Profile"] as const;
+export const ROSTER_COLUMNS = ["Student", "ID", "Group", LABELS.lastSeen, LABELS.missingWork, LABELS.researchConsent, "Profile"] as const;
+/** Header tooltips that define the activity and missing-work columns (README › Metric definitions). */
+export const ROSTER_COLUMN_HELP: Readonly<Partial<Record<(typeof ROSTER_COLUMNS)[number], string>>> = {
+  [LABELS.lastSeen]: `${LABELS.lastSeenHelp} ${LABELS.learningActionsHelp}`,
+  [LABELS.missingWork]: LABELS.missingWorkHelp,
+};
 
 export function consentLabel(consent: ConsentState): string {
   return consent === "yes" ? "Yes" : consent === "no" ? "No" : "Not asked";
@@ -104,7 +111,7 @@ export function RosterView({
                 </th>
               )}
               {ROSTER_COLUMNS.map((c) => (
-                <th key={c}>{c}</th>
+                <th key={c} title={ROSTER_COLUMN_HELP[c]}>{c}</th>
               ))}
             </tr>
           </thead>
@@ -124,8 +131,10 @@ export function RosterView({
                 </td>
                 <td className="mono">{hideIds ? "hidden" : s.studentId}</td>
                 <td className="roster-wrap-cell">{groupSummary(s.groups)}</td>
-                <td>{s.lastActive ? formatRelative(s.lastActive) : "No activity"}</td>
-                <td>{s.missingWork}</td>
+                <td title={lastLearningActionText(s.lastLearningAction ? formatRelative(s.lastLearningAction) : "")}>
+                  {s.lastActive ? formatRelative(s.lastActive) : "Not seen yet"}
+                </td>
+                <td title={missingWorkTooltip(s.missingWorkItems ?? []) || undefined}>{s.missingWork}</td>
                 <td>
                   <StatusBadge tone={consentTone(s.consent)} title={consentSourceLabel(s)}>
                     {consentLabel(s.consent)}

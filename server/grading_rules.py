@@ -74,6 +74,10 @@ def cell_label(state: str, score: float | None, maximum: float, attempts: int, *
         return f"Started · {draft_answered}/{draft_total} answered" if started else "Not started"
     if state == "on_original":
         return "Submitted the original"
+    if state == "on_revision":
+        return "Submitted the new version"
+    if state == "counted_on":
+        return "Replaced by the new version"
     return state
 
 
@@ -137,14 +141,29 @@ def gradebook_cell(db: sqlite3.Connection, rec: AssignmentRecord, student_id: st
         if not readers.in_audience(db, rec, student_id):
             cell["label"] = NOT_ASSIGNED
             return cell
-        original = readers.submitted_original(db, rec, student_id) if rec.kind == "homework" else None
-        if original is not None:
-            # S-M01: a student who submitted the original of this revision is not missing it (lineage merge is deferred)
-            cell.update(state="not_submitted", onOriginal=True, originalId=original.id, originalTitle=original.title,
-                        label=cell_label("on_original", None, maximum, 0))
+        from server import analytics
+
+        # D8: the Missing work rule of every view (``analytics.missing_verdict``) — a homework and its revisions count once
+        verdict = analytics.missing_verdict(db, rec, student_id, _moment(now)) if rec.kind == "homework" else None
+        if verdict is not None and verdict.submitted is not None:
+            other = verdict.submitted
+            if verdict.submitted_relation == "original":
+                # S-M01: a student who submitted the original of this revision is not missing it (grades stay per version)
+                cell.update(state="not_submitted", onOriginal=True, originalId=other.id, originalTitle=other.title,
+                            label=cell_label("on_original", None, maximum, 0))
+            else:
+                cell.update(state="not_submitted", onRevision=True, revisionId=other.id, revisionTitle=other.title,
+                            label=cell_label("on_revision", None, maximum, 0))
             return cell
-        if past_due(rec, now):
+        if verdict is not None and verdict.counted_on is not None:
+            # D8: the newer version carries this homework for the student (missing there, if anywhere)
+            cell.update(state="not_submitted", countedOnId=verdict.counted_on.id, countedOnTitle=verdict.counted_on.title,
+                        label=cell_label("counted_on", None, maximum, 0))
+            return cell
+        if verdict.missing if verdict is not None else past_due(rec, now):
             cell["state"] = "missing"
+            if verdict is not None and verdict.originals:
+                cell["revisionOfTitle"] = verdict.originals[-1].title
         elif rec.due_at:
             cell["state"] = "not_due"
         else:

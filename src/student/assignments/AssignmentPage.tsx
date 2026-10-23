@@ -77,7 +77,8 @@ export function revisionNote(work: Pick<StudentAssignment, "state" | "revisedAs"
 /** Header lines under the title: "Due Fri 10/24, 11:59 PM" → "Past due" + late rule, or "Closed — …" [F01]. */
 export function dueLines(work: Pick<StudentAssignment, "state" | "dueAt" | "latePolicy" | "closeAt">, timeZone?: string): { headline: string; detail: string | null } {
   const due = work.dueAt ? formatStudentDate(work.dueAt, timeZone) : "";
-  if (work.state === "closed") return { headline: due ? "Past due" : "Closed", detail: "Closed — submissions are no longer accepted." };
+  // B-m03: a closed homework says so in the header (never "Past due" with a late window)
+  if (work.state === "closed") return { headline: due ? `Closed · was due ${due}` : "Closed", detail: "Closed — submissions are no longer accepted." };
   if (work.state === "past_due") {
     const late = work.latePolicy;
     // RV6-M01/M09: the late window and the penalty are stated before the student submits
@@ -106,9 +107,9 @@ export function responseMayBeLost(error: unknown): boolean {
   return !(error instanceof ApiError) || error.status === 0 || error.status >= 500;
 }
 
-/** "Attempt 2 of 3" (homework). */
-export function attemptLabel(work: Pick<StudentAssignment, "kind" | "maxAttempts">, myAttempts: number): string {
-  if (work.kind !== "homework") return "";
+/** "Attempt 2 of 3" (homework); none once the homework is closed (B-m03: no next attempt exists). */
+export function attemptLabel(work: Pick<StudentAssignment, "kind" | "maxAttempts" | "state">, myAttempts: number): string {
+  if (work.kind !== "homework" || work.state === "closed" || work.state === "archived") return "";
   if (work.maxAttempts !== null && myAttempts >= work.maxAttempts) return `All ${pluralize(work.maxAttempts, "attempt")} used`;
   return work.maxAttempts !== null ? `Attempt ${myAttempts + 1} of ${work.maxAttempts}` : `Attempt ${myAttempts + 1}`;
 }
@@ -121,6 +122,47 @@ export function blockedReason(work: Pick<StudentAssignment, "state" | "kind" | "
   if (work.kind === "homework" && work.timeLimit && !work.currentAttempt) return "Start the attempt to answer.";
   return "";
 }
+
+/** B-m03: 409 answers that mean "this page is out of date" — the submit is refused, the draft is kept. */
+export const SUBMIT_REFUSED_CODES: ReadonlySet<string> = new Set(["assignment_closed", "late_not_accepted", "not_open_yet", "max_attempts_reached"]);
+export const DRAFT_KEPT = "Your answers are still saved as a draft.";
+
+/** The alert shown next to Submit for a refused submission ("" for any other error, which keeps the page's error line). */
+export function submitRefusal(error: unknown): string {
+  if (!(error instanceof ApiError) || error.status !== 409 || !SUBMIT_REFUSED_CODES.has(error.code)) return "";
+  return `${error.message.trim()} ${DRAFT_KEPT}`;
+}
+
+/**
+ * B-m03: the assignment's state from a fresh `GET /api/work/:id`, merged into the page without touching its questions or
+ * version (an edited homework keeps the draft-merge path of a full load).
+ */
+export function withFreshState(work: StudentAssignment, fresh: StudentAssignment): StudentAssignment {
+  if (fresh.id !== work.id) return work;
+  return { ...work, state: fresh.state, dueAt: fresh.dueAt, closeAt: fresh.closeAt, latePolicy: fresh.latePolicy, maxAttempts: fresh.maxAttempts,
+    currentAttempt: fresh.currentAttempt, revisedAs: fresh.revisedAs, submittedOriginal: fresh.submittedOriginal };
+}
+
+/** Calls `recheck` when the student comes back to the tab (window focus, page visible), at most once per `minIntervalMs`. */
+export function onReturnToPage(win: Pick<EventTarget, "addEventListener" | "removeEventListener">,
+  doc: Pick<EventTarget, "addEventListener" | "removeEventListener"> & { visibilityState: DocumentVisibilityState },
+  recheck: () => void, minIntervalMs: number, now: () => number = Date.now): () => void {
+  let last = Number.NEGATIVE_INFINITY;
+  const handler = () => {
+    if (doc.visibilityState === "hidden") return;
+    const at = now();
+    if (at - last < minIntervalMs) return;
+    last = at;
+    recheck();
+  };
+  win.addEventListener("focus", handler);
+  doc.addEventListener("visibilitychange", handler);
+  return () => {
+    win.removeEventListener("focus", handler);
+    doc.removeEventListener("visibilitychange", handler);
+  };
+}
+export const RECHECK_INTERVAL_MS = 15_000;
 
 export function timeLimitIntro(minutes: number): string {
   return `This homework has a ${minutes}-minute time limit. The timer starts when you click ${LABELS.startAttempt}.`;
@@ -138,6 +180,8 @@ export interface AssignmentPageViewProps {
   busy: boolean;
   notice: string;
   savedText: string;
+  /** B-m03: why the server refused the last submit (shown as an alert next to Submit; Submit stays disabled) */
+  refusal?: string;
   toolContent?: ReactNode;
   onOpen: (tool: StudentTool, questionId?: string) => void;
   onAnswer: (value: string) => void;
@@ -148,6 +192,26 @@ export interface AssignmentPageViewProps {
   onDownload: (file: FileMeta) => void;
 }
 
+const REFUSED_BLOCK = "Submitting is not possible on this page any more.";
+
+/** R-m01: "This homework was closed when its new version was published: <link>" (nothing without a revision). */
+function RevisionLink({ work }: { work: Pick<StudentAssignment, "state" | "revisedAs"> }) {
+  const target = work.revisedAs;
+  if (!target) return null;
+  return (
+    <>
+      {revisionNote(work)}{" "}
+      <a href={studentHref(studentPaths.assignment(target.id))}
+        onClick={(e) => {
+          e.preventDefault();
+          navigate(studentPaths.assignment(target.id));
+        }}>
+        {target.title}
+      </a>
+    </>
+  );
+}
+
 export function AssignmentPageView(props: AssignmentPageViewProps) {
   const { work, course, tool, question, answers, busy } = props;
   useHostChatPolicy(hostPolicyFor(work));
@@ -156,7 +220,8 @@ export function AssignmentPageView(props: AssignmentPageViewProps) {
   const myAttempts = homework ? props.submissions.length : 0;
   const lines = dueLines(work);
   const attempts = attemptLabel(work, myAttempts);
-  const blocked = blockedReason(work, myAttempts);
+  // B-m03: a refused submit disables Submit even before the refreshed state arrives
+  const blocked = blockedReason(work, myAttempts) || (props.refusal ? REFUSED_BLOCK : "");
   const waitingForStart = homework && Boolean(work.timeLimit) && !work.currentAttempt;
   const answered = work.questions.filter((q) => answers[q.id]?.trim()).length;
   const chapter = course.units.find((u) => u.id === work.unitId)?.title || "Chapter";
@@ -174,14 +239,7 @@ export function AssignmentPageView(props: AssignmentPageViewProps) {
         )}
         {work.revisedAs && (
           <p className="assess-original-note">
-            {revisionNote(work)}{" "}
-            <a href={studentHref(studentPaths.assignment(work.revisedAs.id))}
-              onClick={(e) => {
-                e.preventDefault();
-                if (work.revisedAs) navigate(studentPaths.assignment(work.revisedAs.id));
-              }}>
-              {work.revisedAs.title}
-            </a>
+            <RevisionLink work={work} />
           </p>
         )}
       </div>
@@ -227,7 +285,8 @@ export function AssignmentPageView(props: AssignmentPageViewProps) {
           {tool === "answer" ? (
             <AnswerPanel work={work} question={question} answers={answers} feedback={props.feedback} hints={props.hints} answered={answered} busy={busy}
               submissions={props.submissions} savedLabel={props.savedText} submitBlocked={blocked} onAnswer={props.onAnswer} onCheck={props.onCheck}
-              onSubmit={props.onSubmit} onOpenQuestion={(qid) => props.onOpen("answer", qid)} onDownload={props.onDownload} />
+              onSubmit={props.onSubmit} onOpenQuestion={(qid) => props.onOpen("answer", qid)} onDownload={props.onDownload}
+              refusal={props.refusal} refusalLink={props.refusal && work.revisedAs ? <RevisionLink work={work} /> : null} />
           ) : !tools.includes(tool) ? (
             <section className="panel work-panel empty-state">
               <p>{NOT_AVAILABLE}</p>
@@ -269,6 +328,7 @@ export function AssignmentPage({ classId, course, studentId, studentName, track,
   const [run, setRun] = useState<(RunResultView & { code: string }) | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [refusal, setRefusal] = useState("");   // B-m03
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const mounted = useRef(true);
@@ -397,6 +457,22 @@ export function AssignmentPage({ classId, course, studentId, studentName, track,
     setWork(detail);
     setSubmissions(mine);
   };
+  /** B-m03: the assignment's state and my attempts, without reloading questions or drafts. */
+  const refreshState = useCallback(async () => {
+    const [detail, mine] = await Promise.all([api.workDetail(classId, workId), api.mySubmissions(classId, studentId, workId)]);
+    if (!mounted.current) return;
+    setWork((w) => (w ? withFreshState(w, detail) : w));
+    setSubmissions(mine);
+    // a teacher who reopened the homework makes Submit available again
+    if (!blockedReason(detail, mine.length)) setRefusal("");
+  }, [classId, workId, studentId]);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    return onReturnToPage(window, document, () => {
+      // WHY: a failed background re-check leaves the page as it was; the next submit reports its own error
+      refreshState().catch(() => undefined);
+    }, RECHECK_INTERVAL_MS);
+  }, [refreshState]);
   const submit = async (auto = false) => {
     if (!current || busy) return;
     setBusy(true);
@@ -434,7 +510,12 @@ export function AssignmentPage({ classId, course, studentId, studentName, track,
       }
       await refreshAfterSubmit().catch(() => mounted.current && setError("Your submission was received. Reload the page to update the list."));
     } catch (e) {
-      if (e instanceof ApiError && e.code === "incomplete_submission") setError("Answer every question before submitting.");
+      const refused = submitRefusal(e);
+      if (refused) {
+        // B-m03: the page was out of date — say so next to Submit, keep the draft, and show the current state
+        if (mounted.current) setRefusal(refused);
+        await refreshState().catch(() => mounted.current && setError("Reload the page to see this assignment's current state."));
+      } else if (e instanceof ApiError && e.code === "incomplete_submission") setError("Answer every question before submitting.");
       else setError(e instanceof Error ? e.message : String(e));
     } finally {
       if (mounted.current) setBusy(false);
@@ -512,6 +593,7 @@ export function AssignmentPage({ classId, course, studentId, studentName, track,
       {current && question ? (
         <AssignmentPageView work={current} course={course} tool={tool} question={question} answers={answers} feedback={feedback}
           hints={hints[question.id] ?? []} submissions={submissions} busy={busy} notice={notice} savedText={savedLabel(save)} toolContent={toolContent}
+          refusal={refusal}
           onOpen={open} onAnswer={setAnswer} onCheck={() => void check()} onSubmit={() => void submit()} onStart={() => void start()}
           onExpire={() => void submit(true)} onDownload={(file) => void download(file)} />
       ) : (

@@ -169,6 +169,16 @@ export const LABELS = {
   markToReteach: "Mark to re-teach",
 
   // People (PEOPLE) — NM24, NM46
+  // B-m01 (§13.9): two named stamps instead of one "activity"
+  lastSeen: "Last seen",
+  lastSeenHelp: "Last seen: the newest event of any kind from this student, page views and time on a page included.",
+  lastLearningAction: "Last learning action",
+  learningActionsHelp: "Learning actions are answers, code runs, AI questions and submissions.",
+  noLearningActions: "No learning actions",
+  // D8: a homework and its revisions count once
+  missingWork: "Missing work",
+  missingWorkHelp:
+    "Past-due homework with no submission. A homework and its revisions count once: a submission to any version counts, and an unsubmitted homework is counted on its newest version.",
   activitiesRecorded: "Activities recorded",
   openProfile: "Open profile",
   researchConsent: "Research consent",
@@ -284,6 +294,21 @@ export function activeOfEnrolledLabel(preset: TimePreset, active: number, enroll
 /** "This week's chapter: 03 (2 of 5 completed)" (NM38). */
 export function thisWeeksChapterLabel(chapterNumber: number, completed: number, total: number): string {
   return `${LABELS.thisWeeksChapter}: ${String(chapterNumber).padStart(2, "0")} (${completed} of ${total} completed)`;
+}
+
+/** B-m01: "Last learning action: 11 days ago" — `relative` is a formatted time, "" when there is none. */
+export function lastLearningActionText(relative: string): string {
+  return `${LABELS.lastLearningAction}: ${relative || "none yet"}`;
+}
+
+/** D8 tooltip of a missing revision: "New version of Files HW — the homework and its revisions count once." */
+export function revisionOfNote(originalTitle: string): string {
+  return `New version of ${originalTitle} — the homework and its revisions count once.`;
+}
+
+/** D8 tooltip of a Missing work count: "Files HW — revision (new version of Files HW) · Older homework" ("" when none). */
+export function missingWorkTooltip(items: readonly { title: string; originalTitle: string | null }[]): string {
+  return items.map((m) => (m.originalTitle ? `${m.title} (new version of ${m.originalTitle})` : m.title)).join(" · ");
 }
 
 /** Placeholder text for pages a workstream will build (§16.1 item 12). */

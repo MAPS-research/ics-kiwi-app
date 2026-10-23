@@ -27,7 +27,7 @@ PARAM_LIMITS: dict[str, dict[str, tuple[int, int]]] = {
     "late_pattern": {"count": (1, 20), "days": (1, 180)},
 }
 RULE_WORDS = {
-    "no_activity": "No activity for {days}+ days",
+    "no_activity": "No learning actions (answers, code runs, AI questions, submissions) for {days}+ days",
     "missing_work": "{count}+ past-due homework not submitted",
     "stuck_question": "{errors}+ code errors on one question with no success",
     "repeated_ai_help": "Asked the AI {questions}+ times on one question",
@@ -157,44 +157,44 @@ def evaluate(db: sqlite3.Connection, scope: Scope, *, now: datetime | None = Non
 
 def _no_activity(db: sqlite3.Connection, scope: Scope, students: list[str], params: dict, now: datetime,
                  reasons: dict[str, list[dict]]) -> None:
+    """B-m01: "No learning actions for N days" (answers, code runs, AI questions, submissions), with the time the student
+    was last seen (any event), from ``analytics.activity_stamps`` — the roster's *Last seen* and *Last learning action*."""
     days = params["days"]
-    population, pparams = analytics.pop_sql(analytics.unranged(scope))
-    last, first = {}, {}
-    for row in db.execute(f"""SELECT e.student_id, MAX(CASE WHEN e.category = 'action' THEN e.created_at END), MIN(e.created_at)
-            FROM events e WHERE {population} GROUP BY e.student_id""", pparams):
-        last[row[0]], first[row[0]] = row[1], row[2]
+    stamps = analytics.activity_stamps(db, scope.class_id, students)
     published = db.execute("""SELECT 1 FROM assignments WHERE class_id = ? AND status = 'published' AND deleted_at IS NULL
         LIMIT 1""", (scope.class_id,)).fetchone() is not None
     joined = {row[0]: row[1] for row in db.execute("SELECT student_id, created_at FROM roster WHERE class_id = ?", (scope.class_id,))}
     threshold = timedelta(days=days)
     for sid in students:
-        # "on the roster ≥ days days": the earlier of the roster row and the first recorded activity
-        candidates = [dbmod.parse_iso(v) for v in (joined.get(sid), first.get(sid)) if v]
+        stamp = stamps[sid]
+        # "on the roster ≥ days days": the earlier of the roster row and the first recorded event
+        candidates = [dbmod.parse_iso(v) for v in (joined.get(sid), stamp.first_seen) if v]
         joined_at = min(candidates) if candidates else None
         long_enough = published or joined_at is None or now - joined_at >= threshold
         if not long_enough:
             continue
-        stamp = last.get(sid)
-        moment = dbmod.parse_iso(stamp) if stamp else None
+        moment = dbmod.parse_iso(stamp.last_learning_action) if stamp.last_learning_action else None
         if moment is None:
-            reasons[sid].append({"rule": "no_activity", "text": "No activity recorded yet", "href": _href_profile(sid), "at": None})
+            reasons[sid].append({"rule": "no_activity", "text": "No learning actions recorded yet", "href": _href_profile(sid),
+                                 "at": None, "lastSeenAt": stamp.last_seen})
         elif now - moment >= threshold:
             # rounded like formatRelative ("11 days ago") so Home and the roster agree (TEACHER-14)
             idle = round((now - moment).total_seconds() / 86400)
-            reasons[sid].append({"rule": "no_activity", "text": f"No activity {idle} {'day' if idle == 1 else 'days'}",
-                                 "href": _href_timeline(sid),
-                                 "at": stamp})
+            reasons[sid].append({"rule": "no_activity", "text": f"No learning actions for {idle} {'day' if idle == 1 else 'days'}",
+                                 "href": _href_timeline(sid), "at": stamp.last_learning_action, "lastSeenAt": stamp.last_seen})
 
 
 def _missing(db: sqlite3.Connection, scope: Scope, students: list[str], params: dict, now: datetime,
              reasons: dict[str, list[dict]]) -> None:
+    # D8: a homework and its revisions count once; the tooltip (``title``) names the original of a revision
     missing = analytics.missing_work(db, scope.class_id, students, now)
-    for sid, recs in missing.items():
-        if len(recs) < params["count"] or not recs:
+    for sid, items in missing.items():
+        if len(items) < params["count"] or not items:
             continue
-        text = f"Missing {recs[0].title}" if len(recs) == 1 else f"Missing {len(recs)} assignments"
-        latest = max(recs, key=lambda r: r.due_at or "")
-        reasons[sid].append({"rule": "missing_work", "text": text, "href": _href_timeline(sid, latest.id), "at": latest.due_at})
+        text = f"Missing {items[0].title}" if len(items) == 1 else f"Missing {len(items)} assignments"
+        latest = max(items, key=lambda r: r.due_at or "")
+        reasons[sid].append({"rule": "missing_work", "text": text, "href": _href_timeline(sid, latest.id), "at": latest.due_at,
+                             "title": analytics.missing_text(items)})
 
 
 def _question_key_sql() -> tuple[str, str]:

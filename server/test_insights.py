@@ -409,7 +409,8 @@ class InsightsV06Tests(ApiTestCase):
         else:
             self.assertEqual(action["toRelease"], [])
         self.assertEqual(action["missingPastDue"], [{"assignmentId": hw.id, "title": "Week 3 HW", "count": len(missing),
-                                                     "started": sum(1 for c in missing if c["draftAnswered"])}])
+                                                     "started": sum(1 for c in missing if c["draftAnswered"]),
+                                                     "originalTitle": None}])   # D8: a revision names its original
         self.assertEqual((len(missing), sum(1 for c in missing if c["draftAnswered"])), (3, 1))
         self.assertEqual(action["late"], 2)
         self.assertIsNone(action["flaggedReplies"])  # no guard has run yet: the chip stays hidden

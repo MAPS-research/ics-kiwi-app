@@ -59,12 +59,12 @@ class AttentionTests(ApiTestCase):
             client_event(db, self.cls, "s1", "code_run", {"code": "1", "ok": True}, at="2026-10-14T00:30:00+00:00", surface="workspace")
             client_event(db, self.cls, "s2", "code_run", {"code": "1", "ok": True}, at="2026-10-15T02:00:00+00:00", surface="workspace")
         found = self.reasons()
-        self.assertEqual([r["text"] for r in found["s1"]], ["No activity 8 days"])
+        self.assertEqual([r["text"] for r in found["s1"]], ["No learning actions for 8 days"])   # B-m01
         self.assertNotIn("s2", found)  # 6 days 23 h: just below the threshold
         self.assertNotIn("s3", found)  # joined today and nothing published yet
         with self.db() as db:
             testsupport.publish_work(db, self.cls, title="Week 1 HW")
-        self.assertEqual([r["text"] for r in self.reasons()["s3"]], ["No activity recorded yet"])
+        self.assertEqual([r["text"] for r in self.reasons()["s3"]], ["No learning actions recorded yet"])
 
     def test_missing_work_counts_past_due_homework_in_audience(self):
         self.roster("s1", "s2")

@@ -83,23 +83,21 @@ def _homework(db: sqlite3.Connection, class_id: str) -> list:
     return [readers.record_from_row(r) for r in rows]
 
 
-def missing_counts(db: sqlite3.Connection, class_id: str, student_ids: Iterable[str]) -> dict[str, int]:
-    """Published homework in the student's audience, past due (after grace) without a non-preview submission.
-
-    R-m02: the rule of Home, Needs attention and the student profile (``analytics.missing_work``), so a student who
-    submitted the original of a revision is not missing the revision.
-    """
+def missing_items(db: sqlite3.Connection, class_id: str, student_ids: Iterable[str]) -> dict[str, list]:
+    """Missing work per student (``analytics.missing_work``, decision D8): the rule of Home, Needs attention, the student
+    profile, the Activity explorer and the status CSV — a homework and its revisions count once."""
     from server import analytics
 
     ids = list(student_ids)
     missing = analytics.missing_work(db, class_id, ids, dbmod.utcnow())
-    return {sid: len(missing.get(sid, [])) for sid in ids}
+    return {sid: missing.get(sid, []) for sid in ids}
 
 
-def _last_active(db: sqlite3.Connection, class_id: str) -> dict[str, str]:
-    return {r[0]: r[1] for r in db.execute(
-        f"SELECT student_id, MAX(created_at) FROM events WHERE class_id=? AND is_preview=0 AND {identity.STUDENT_ACTOR_SQL} "
-        "GROUP BY student_id", (class_id,))}
+def _activity(db: sqlite3.Connection, class_id: str) -> dict:
+    """B-m01: ``analytics.activity_stamps`` (last seen and last learning action), shared with Needs attention."""
+    from server import analytics
+
+    return analytics.activity_stamps(db, class_id)
 
 
 def _activities(db: sqlite3.Connection, class_id: str) -> dict[str, int]:
@@ -121,9 +119,9 @@ def entries(db: sqlite3.Connection, class_id: str, rows: list[sqlite3.Row], mode
     names = identity.labels(db, class_id, ids, mode)
     show_emails = bool(readers.settings(db, class_id)["privacy"].get("showEmails", True))
     groups = memberships(db, class_id)
-    last = _last_active(db, class_id)
+    stamps = _activity(db, class_id)
     activities = _activities(db, class_id)
-    missing = missing_counts(db, class_id, ids)
+    missing = missing_items(db, class_id, ids)
     out = []
     for row in rows:
         sid = row["student_id"]
@@ -141,8 +139,11 @@ def entries(db: sqlite3.Connection, class_id: str, rows: list[sqlite3.Row], mode
             "consentSource": consent_source(row),
             "excluded": bool(row["excluded"]),
             "exclusionReason": row["exclusion_reason"],
-            "lastActive": last.get(sid),
-            "missingWork": missing.get(sid, 0),
+            # B-m01: "Last seen" (any event) and "Last learning action" (answers, code runs, AI questions, submissions)
+            "lastActive": stamps[sid].last_seen if sid in stamps else None,
+            "lastLearningAction": stamps[sid].last_learning_action if sid in stamps else None,
+            "missingWork": len(missing.get(sid, [])),
+            "missingWorkItems": [item.as_dict() for item in missing.get(sid, [])],
             "activitiesRecorded": activities.get(sid, 0),
         })
     return out
@@ -506,7 +507,7 @@ def profile(db: sqlite3.Connection, class_id: str, student_id: str, *, mode: str
             "timelineUrl": paths["assignment"](rec.id), "gradingUrl": grading_url,
             "draftAnswered": cell.get("draftAnswered") if not cell.get("attempts") else None,
         })
-    missing = sum(1 for a in assignments if a["cell"].get("state") == "missing")
+    missing = student["missingWork"]   # D8: the shared rule; equals the rows whose cell is "missing"
     titles: dict[str, str] = {}
     positions: dict[str, dict[str, int]] = {}
     for r in db.execute("SELECT id, title, questions_json FROM assignments WHERE class_id=?", (class_id,)):
@@ -576,7 +577,8 @@ def profile(db: sqlite3.Connection, class_id: str, student_id: str, *, mode: str
                          "activeMinutes": round(minutes.get(uid, 0.0), 1)})
     return {
         "student": student,
-        "header": {"lastActive": student["lastActive"], "missing": missing, "late": late,
+        "header": {"lastActive": student["lastActive"], "lastLearningAction": student["lastLearningAction"], "missing": missing,
+                   "late": late,
                    "avgScorePct": round(sum(released_pct) / len(released_pct)) if released_pct else None},
         "fullTimelineUrl": paths["timeline"],
         "canExportConversations": "exportActivity" in permissions and not viewer,

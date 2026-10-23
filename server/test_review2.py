@@ -591,7 +591,7 @@ class IdleDaysTests(ApiTestCase):
                        (moment,))
         status, home = self.request("/api/teacher/home?classId=c1", key=TEACHER_KEY)
         self.assertEqual(status, 200, home)
-        self.assertIn("No activity 11 days", _text(home))
+        self.assertIn("No learning actions for 11 days", _text(home))   # B-m01 wording
 
 
 if __name__ == "__main__":

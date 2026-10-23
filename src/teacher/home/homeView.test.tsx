@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ROLE_PERMISSIONS } from "../shell/TeacherContext";
 import { TimeRangePickerView, dateInputToIso, fallbackNote, fallbackShort, isoToDateInputs, presetOptionLabel } from "../shell/TimeRangePicker";
+import { AttentionRows } from "./AttentionList";
 import { HomeView, type HomeViewData } from "./HomePage";
+import { revisionOfNote } from "../../lib/labels";
 import { askedLine, assignmentLine, deltaText, glanceItems, headerParts, missingChip, reteachLine } from "./homeModel";
 import type { Metric, TimeRange } from "../../types";
 
@@ -31,9 +33,9 @@ function fixture(linked = false): HomeViewData {
     assignments: [{ id: "hw3", title: "Week 3 HW", kind: "homework", unitId: "data-wrangling", status: "published", state: "open", questionCount: 2,
       dueAt: "2026-10-24T15:59:00+00:00", closeAt: null, latePolicy: { mode: "accept_marked", untilAt: null, graceMinutes: 0, penaltyPctPerDay: 0 },
       hasAttempts: true, revisionOf: null, stats, updatedAt: "2026-10-20T00:00:00+00:00" }],
-    attention: { students: [{ studentId: "s1", studentName: "Ada Chen", reasons: [{ rule: "no_activity", text: "No activity 9 days", href: "/teacher/students/s/s1/timeline", at: null },
+    attention: { students: [{ studentId: "s1", studentName: "Ada Chen", reasons: [{ rule: "no_activity", text: "No learning actions for 9 days", href: "/teacher/students/s/s1/timeline", at: null },
       { rule: "late_pattern", text: "2 late submissions in 3 weeks", href: "/teacher/grading?studentId=s1&show=late", at: null }] }], total: 4,
-      rules: ["No activity for 7+ days"] },
+      rules: ["No learning actions (answers, code runs, AI questions, submissions) for 7+ days"] },
     reteach: { candidates: [{ assignmentId: "hw3", questionId: "q2", label: "HW3 Q2", prompt: "left_join()", students: 9, firstTryCorrectPct: 38, meanTriesToCorrect: 2.9, meanScorePct: null, marked: false }], marked: [] },
     askedAi: { repeated: [{ prompt: "why does merge drop rows?", students: 7, occurrences: 9, threadKeys: ["lab:s1:t1"] }], topics: [{ label: "joins", count: 14 }, { label: "NA handling", count: 9 }], flaggedFinalAnswer: 2 },
     glance: { activeStudents: { ...metric(48, 42, 14), denominator: { label: "enrolled", value: 60 } }, enrolled: 60, aiQuestions: metric(132, 112, 18), codeRuns: metric(910, 800, 14),
@@ -151,5 +153,29 @@ describe("S-m03: custom time range in the course time zone", () => {
     expect(dateInputToIso("10/21/2026", false, "Asia/Shanghai")).toBeNull();
     expect(isoToDateInputs("2026-10-11T16:00:00.000Z", "2026-10-21T16:00:00.000Z", "Asia/Shanghai")).toEqual({ from: "2026-10-12", to: "2026-10-21" });
     expect(isoToDateInputs(null, null, "Asia/Shanghai")).toEqual({ from: "", to: "" });
+  });
+});
+
+describe("B-m01 / D8 on Home", () => {
+  const rows = (reasons: HomeViewData["attention"]["students"][number]["reasons"]) => renderToStaticMarkup(
+    <AttentionRows students={[{ studentId: "s2", studentName: "Bo Lin", reasons }]} canGrade studentLabel={(s) => s.studentName} />,
+  );
+  it("B-m01: a No learning actions reason says when the student was last seen", () => {
+    const seen = new Date(Date.now() - 120_000).toISOString();
+    const html = rows([{ rule: "no_activity", text: "No learning actions for 11 days", href: "/teacher/students/s/s2/timeline", at: null, lastSeenAt: seen }]);
+    expect(html).toContain("No learning actions for 11 days</a>");
+    expect(html).toContain('<span class="attention-seen"> · last seen 2 min ago</span>');
+    const never = rows([{ rule: "no_activity", text: "No learning actions recorded yet", href: "/teacher/students/s/s2", at: null, lastSeenAt: null }]);
+    expect(never).not.toContain("last seen");
+  });
+  it("D8: a missing reason and a missing revision chip name the original in their tooltip", () => {
+    const html = rows([{ rule: "missing_work", text: "Missing 2 assignments", href: "/teacher/students/s/s2/timeline", at: null,
+      title: "Files HW — revision (new version of Files HW) · Older homework" }]);
+    expect(html).toContain('title="Files HW — revision (new version of Files HW) · Older homework"');
+    const data = fixture();
+    const home = render(ROLE_PERMISSIONS.instructor, { ...data, needsAction: { ...data.needsAction,
+      missingPastDue: [{ assignmentId: "hw3r", title: "Week 3 HW — revision", count: 1, started: 0, originalTitle: "Week 3 HW" }] } });
+    expect(home).toContain(`title="${revisionOfNote("Week 3 HW")}"`);
+    expect(home).toContain("Missing · Week 3 HW — revision 1");
   });
 });

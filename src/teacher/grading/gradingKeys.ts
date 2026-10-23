@@ -9,26 +9,37 @@ import type {
 
 /*
  * Pure label builders and rules of the grading workbench (GRADE; NM12–NM16, NM25, LY06).
- * Accessible names say what a control is for ("Score for Ada Chen, attempt 1, question 2") and never contain ids.
+ * Accessible names say what a control is for ("Score for Ada Chen, Week 3 HW, attempt 1, question 2") and never contain
+ * ids. SB-m06: every control of a card names its card (student, homework, attempt), so two cards of one student on
+ * different homework never share a name (src/lib/a11y.scan.test.ts checks rendered views).
  */
 
-export interface CardWho { studentLabel: string; attempt: number }
+export interface CardWho { studentLabel: string; assignmentTitle: string; attempt: number }
+
+/** "Ada Chen, Week 3 HW, attempt 1" — the card a control belongs to. */
+export function cardContext({ studentLabel, assignmentTitle, attempt }: CardWho): string {
+  return `${studentLabel}, ${assignmentTitle}, attempt ${attempt}`;
+}
+/** A card control's accessible name: its visible text first (WCAG 2.5.3), then the card — "Save draft — Ada Chen, …". */
+export function cardControlLabel(visible: string, who: CardWho): string {
+  return `${visible} — ${cardContext(who)}`;
+}
 
 /** NM15 / GRADE-07: the score input's accessible name. `questionIndex` is 1-based. */
-export function scoreInputLabel({ studentLabel, attempt, questionIndex }: CardWho & { questionIndex: number }): string {
-  return `Score for ${studentLabel}, attempt ${attempt}, question ${questionIndex}`;
+export function scoreInputLabel({ questionIndex, ...who }: CardWho & { questionIndex: number }): string {
+  return `Score for ${cardContext(who)}, question ${questionIndex}`;
 }
 /** Visible label of a per-question comment (NM14). */
 export function commentFieldLabel(questionIndex: number): string {
   return `Comment on Q${questionIndex}`;
 }
-export function commentInputLabel({ studentLabel, attempt, questionIndex }: CardWho & { questionIndex: number }): string {
-  return `Comment on Q${questionIndex} for ${studentLabel}, attempt ${attempt}`;
+export function commentInputLabel({ questionIndex, ...who }: CardWho & { questionIndex: number }): string {
+  return `Comment on Q${questionIndex} for ${cardContext(who)}`;
 }
-export function feedbackInputLabel({ studentLabel, attempt }: CardWho): string {
-  return `Feedback to ${studentLabel}, attempt ${attempt} (visible after release)`;
+export function feedbackInputLabel(who: CardWho): string {
+  return `Feedback to ${cardContext(who)} (visible after release)`;
 }
-export function cardLabel({ studentLabel, attempt }: CardWho, assignmentTitle: string): string {
+export function cardLabel({ studentLabel, assignmentTitle, attempt }: CardWho): string {
   return `${studentLabel} · ${assignmentTitle} · attempt ${attempt}`;
 }
 

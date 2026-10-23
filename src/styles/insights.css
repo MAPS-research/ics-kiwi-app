@@ -59,6 +59,8 @@ a.home-link:hover { text-decoration: underline; }
 .attention-name { font-weight: 700; color: var(--kiwi-text-primary); text-decoration: none; }
 .attention-reasons { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; }
 .attention-reason::before { content: "•"; color: var(--kiwi-warning); margin-right: 4px; }
+/* B-m01: "· last seen 2 min ago" after "No learning actions…" */
+.attention-seen { color: var(--kiwi-text-secondary); }
 .rules-info { font-size: 12px; position: relative; }
 .rules-info summary { cursor: pointer; color: var(--kiwi-primary); }
 .rules-info ul { position: absolute; right: 0; z-index: 20; min-width: 260px; background: var(--kiwi-bg-paper); border: 1px solid var(--kiwi-border-default); border-radius: 8px; padding: 8px 12px 8px 24px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1); }
@@ -84,6 +86,8 @@ a.home-link:hover { text-decoration: underline; }
 .attention-rules ul { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; }
 .attention-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 13px; }
 .attention-param { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+/* B-m01, D8: what a rule counts, on its own line after the rule's controls */
+.attention-rule-help { order: 1; flex-basis: 100%; color: var(--kiwi-text-secondary); font-size: 12px; line-height: 1.4; }
 .attention-param input { width: 72px; padding: 4px 6px; }
 .attention-group-name { margin: 8px 0; font-size: 13px; }
 .attention-group-name label { display: inline-flex; gap: 8px; align-items: center; }

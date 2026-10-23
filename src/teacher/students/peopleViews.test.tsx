@@ -5,6 +5,7 @@ import { PresentationToggle } from "../shell/PresentationToggle";
 import { roleLabel } from "../shell/AccountMenu";
 import { DEFAULT_EXPORT_OPTIONS, EXPORT_ENTRIES, exportParams, ExportsView, exportUnavailable, filterSummary, researchProblem, UNVERIFIED_ROLE_NOTE, visibleExports, type ExportOptions } from "../insights/ExportsPage";
 import { GroupsView, randomizeProblem } from "./GroupsPage";
+import { RULE_HELP, RULE_TITLES, ruleParamLabel, RulesEditor } from "./NeedsAttentionPage";
 import { cellTone, profileActions, profileHeaderText, StudentProfileView } from "./StudentProfilePage";
 import { consentLabel, DemoLinkView, demoLinkUrl, diffText, editDraftFor, ROSTER_COLUMNS, RosterView, rosterPatch } from "./RosterPage";
 import { KiwiStaffTable, kiwiRoleText, StaffKeyTable } from "../settings/StaffRolesPanel";
@@ -13,12 +14,15 @@ import { privacyProblem, retentionText } from "../settings/PrivacyPanel";
 import { applyConfirmText, importSummary, ImportResultView } from "../settings/CoursePackagePanel";
 import { kiwiConnectionLines } from "../settings/KiwiConnectionPanel";
 import { AuditTable } from "../settings/AuditLogPanel";
-import type { GradebookCell, Group, Me, Permission, RosterEntry, StaffRole, StudentProfile, TeacherContextValue } from "../../types";
+import { LABELS, missingWorkTooltip, revisionOfNote } from "../../lib/labels";
+import type { AttentionRules, GradebookCell, Group, Me, Permission, RosterEntry, StaffRole, StudentProfile, TeacherContextValue } from "../../types";
 
 const entry = (over: Partial<RosterEntry> = {}): RosterEntry => ({
   studentId: "s1", studentName: "Ada Chen", displayName: "Ada Chen", email: "ada@example.edu", pseudonym: "S-001", source: "import",
   status: "active", groups: [{ kind: "section", groupId: "grp-1", name: "Section A" }], consent: "not_asked", consentSource: "none",
-  excluded: false, exclusionReason: "", lastActive: null, missingWork: 2, activitiesRecorded: 7, ...over,
+  excluded: false, exclusionReason: "", lastActive: null, lastLearningAction: null, missingWork: 2, activitiesRecorded: 7,
+  missingWorkItems: [{ assignmentId: "w2", title: "Files HW — revision", originalTitle: "Files HW" }, { assignmentId: "w3", title: "Week 4 HW", originalTitle: null }],
+  ...over,
 });
 
 const me = (role: StaffRole, over: Partial<Me> = {}): Me => ({
@@ -32,7 +36,7 @@ const cell = (over: Partial<GradebookCell> = {}): GradebookCell => ({
 });
 
 const profile = (over: Partial<StudentProfile> = {}): StudentProfile => ({
-  student: entry(), header: { lastActive: null, missing: 1, late: 1, avgScorePct: 82 }, fullTimelineUrl: "/teacher/students/s/s1/timeline",
+  student: entry(), header: { lastActive: null, lastLearningAction: null, missing: 1, late: 1, avgScorePct: 82 }, fullTimelineUrl: "/teacher/students/s/s1/timeline",
   canExportConversations: true,
   assignments: [{ assignmentId: "w1", title: "Week 3 HW", kind: "homework", dueAt: "2026-10-24T15:59:00+00:00", cell: cell(),
                   timelineUrl: "/teacher/students/s/s1/assignments/w1", gradingUrl: "/teacher/grading?assignmentId=w1&studentId=s1", draftAnswered: null }],
@@ -48,8 +52,8 @@ describe("Roster view (PEOPLE-14, NM24)", () => {
       <RosterView students={[entry()]} total={1} page={1} filters={{ search: "", groupId: "", consent: "", status: "" }} groups={[]} canManage={false}
         selected={new Set()} onFilter={() => {}} onPage={() => {}} onEdit={() => {}} onToggle={() => {}} onToggleAll={() => {}} />,
     );
-    expect([...ROSTER_COLUMNS]).toEqual(["Student", "ID", "Group", "Last active", "Missing work", "Research consent", "Profile"]);
-    for (const column of ROSTER_COLUMNS) expect(html).toContain(`<th>${column}</th>`);
+    expect([...ROSTER_COLUMNS]).toEqual(["Student", "ID", "Group", "Last seen", "Missing work", "Research consent", "Profile"]);
+    for (const column of ROSTER_COLUMNS) expect(html).toMatch(new RegExp(`<th( title="[^"]*")?>${column}</th>`));
     expect(html).toContain("Open profile");
     expect(html).toContain("Activities recorded: 7");
     expect(html).toContain("Not asked");
@@ -86,7 +90,8 @@ describe("Roster view (PEOPLE-14, NM24)", () => {
 
 describe("Student profile (PEOPLE-01, PEOPLE-22)", () => {
   it("shows the header and every action for an instructor", () => {
-    expect(profileHeaderText({ lastActive: null, missing: 1, late: 0, avgScorePct: 82 })).toBe("Last active never · Missing 1 · Avg 82%");
+    expect(profileHeaderText({ lastActive: null, lastLearningAction: null, missing: 1, late: 0, avgScorePct: 82 }))
+      .toBe("Last seen never · Last learning action none yet · Missing 1 · Avg 82%");
     const html = renderToStaticMarkup(<StudentProfileView profile={profile()} permissions={ROLE_PERMISSIONS.instructor} onExportConversations={() => {}} onCaseFile={() => {}} />);
     for (const text of ["Full activity timeline", "Export this student&#x27;s AI conversations", "Download case file", "Grade this student&#x27;s submissions",
                         "Week 3 HW", "16/20 · 1 submission", "object &#x27;x&#x27; not found", "Kiwi lecture AI", "Flagged", "03 · Joins", "Due", "Late"])
@@ -103,6 +108,56 @@ describe("Student profile (PEOPLE-01, PEOPLE-22)", () => {
     expect(html).not.toContain("Export this student");
     expect(html).not.toContain(">Grade<");
     expect(cellTone(cell({ state: "missing" }))).toBe("danger");
+  });
+});
+
+describe("B-m01 / D8: last seen, last learning action and Missing work", () => {
+  const now = Date.parse("2026-10-23T13:00:00Z");
+  const roster = (students: RosterEntry[]) => renderToStaticMarkup(
+    <RosterView students={students} total={students.length} page={1} filters={{ search: "", groupId: "", consent: "", status: "" }} groups={[]}
+      canManage={false} selected={new Set()} onFilter={() => {}} onPage={() => {}} onEdit={() => {}} onToggle={() => {}} onToggleAll={() => {}} />,
+  );
+  it("B-m01: the roster says Last seen, explains it, and puts the last learning action in the cell tooltip", () => {
+    const real = Date.now();   // the roster cell formats against the clock
+    const html = roster([entry({ lastActive: new Date(real - 120_000).toISOString(), lastLearningAction: new Date(real - 11 * 86_400_000).toISOString() }),
+      entry({ studentId: "s2" })]);
+    expect(html).toContain(`<th title="${LABELS.lastSeenHelp} ${LABELS.learningActionsHelp}">Last seen</th>`);
+    expect(html).toContain('<td title="Last learning action: 11 days ago">2 min ago</td>');
+    expect(html).toContain('<td title="Last learning action: none yet">Not seen yet</td>');
+    expect(html).not.toContain("Last active");
+  });
+  it("B-m01: the profile header shows both stamps", () => {
+    const header = { lastActive: "2026-10-23T12:58:00Z", lastLearningAction: "2026-10-12T13:00:00Z", missing: 1, late: 0, avgScorePct: null };
+    expect(profileHeaderText(header, now)).toBe("Last seen 2 min ago · Last learning action 11 days ago · Missing 1 · Avg —");
+  });
+  it("B-m01: the attention rules editor names and explains the learning-actions rule", () => {
+    expect(RULE_TITLES.no_activity).toBe("No learning actions");
+    expect(ruleParamLabel("no_activity", "days")).toBe("No learning actions: Days");
+    const rules: AttentionRules = { rules: [{ id: "no_activity", enabled: true, params: { days: 7 } }, { id: "missing_work", enabled: true, params: { count: 1 } }] };
+    const html = renderToStaticMarkup(<RulesEditor rules={rules} editable saving={false} onChange={() => {}} onSave={() => {}} />);
+    expect(html).toContain('aria-label="Use rule No learning actions"');
+    expect(RULE_HELP.no_activity).toBe("Answers, code runs, AI questions and submissions count; page views and time on a page do not. The reason shows when the student was last seen.");
+    expect(RULE_HELP.missing_work).toBe(LABELS.missingWorkHelp);
+    expect(html).toContain(RULE_HELP.no_activity);
+    expect(html).not.toContain("No activity");
+  });
+  it("D8: the Missing work count names the original of a revision in its tooltip", () => {
+    const html = roster([entry()]);
+    expect(html).toContain(`<th title="${LABELS.missingWorkHelp}">Missing work</th>`);
+    expect(html).toContain('<td title="Files HW — revision (new version of Files HW) · Week 4 HW">2</td>');
+    expect(missingWorkTooltip([])).toBe("");
+    expect(roster([entry({ missingWork: 0, missingWorkItems: [] })])).toContain("<td>0</td>");
+  });
+  it("D8: profile rows explain a revision, a replaced original and a submission to the other version", () => {
+    const rows = [
+      { title: "Files HW", cell: cell({ state: "not_submitted", label: "Replaced by the new version", countedOnId: "w2", countedOnTitle: "Files HW — revision" }) },
+      { title: "Files HW — revision", cell: cell({ state: "missing", label: "Missing", revisionOfTitle: "Files HW" }) },
+      { title: "Week 5 HW", cell: cell({ state: "not_submitted", label: "Submitted the new version", onRevision: true, revisionId: "w9", revisionTitle: "Week 5 HW — revision" }) },
+    ].map((r, i) => ({ ...profile().assignments[0], assignmentId: `a${i}`, title: r.title, cell: r.cell }));
+    const html = renderToStaticMarkup(<StudentProfileView profile={profile({ assignments: rows })} permissions={ROLE_PERMISSIONS.instructor} onExportConversations={() => {}} onCaseFile={() => {}} />);
+    expect(html).toContain(`title="${revisionOfNote("Files HW")}"`);
+    expect(html).toContain('title="Counted on Files HW — revision: the homework and its revisions count once."');
+    expect(html).toContain('title="Submitted Week 5 HW — revision."');
   });
 });
 

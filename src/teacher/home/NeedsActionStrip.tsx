@@ -1,4 +1,4 @@
-import { LABELS } from "../../lib/labels";
+import { LABELS, revisionOfNote } from "../../lib/labels";
 import { teacherPaths } from "../../lib/routes";
 import { HomeLink } from "./HomeLink";
 import { flaggedChip, lateChip, missingChip, releaseChip, toGradeChip, type HomeLinks } from "./homeModel";
@@ -37,6 +37,7 @@ export function NeedsActionStrip({ action, links }: { action: HomeData["needsAct
                 className="home-chip tone-danger"
                 href={links.assignments ? teacherPaths.assignments({ search: m.title, open: m.assignmentId, list: "missing" }) : teacherPaths.attention()}
                 allowed={links.insights}
+                title={m.originalTitle ? revisionOfNote(m.originalTitle) : undefined}
               >
                 {missingChip(m)}
                 {links.insights && <span className="chip-action"> › List</span>}

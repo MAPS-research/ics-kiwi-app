@@ -22,10 +22,14 @@ import {
   revisionNote,
   hostPolicyFor,
   NOT_AVAILABLE,
+  onReturnToPage,
   runAllowed,
+  submitRefusal,
   timeLimitIntro,
+  withFreshState,
   type AssignmentPageViewProps,
 } from "./AssignmentPage";
+import { ApiError } from "../../lib/api";
 import { AnswerPanel, adjustmentText, feedbackText, fileButtonLabel, lateDuration, lateSubmitWarning, penaltyText } from "./AnswerPanel";
 import { AssignmentListView, chapterTitle, groupWorks, statusText } from "./AssignmentListPage";
 import { isLowTime, TimeLimitBar, timeLeftText } from "./TimeLimitBar";
@@ -295,5 +299,76 @@ describe("S-m10: per-question files", () => {
     expect(fileButtonLabel({ name: "data.csv", questionId: "q1" }, questions)).toBe("Download data.csv (for Question 1)");
     expect(fileButtonLabel({ name: "notes.md", questionId: "" }, questions)).toBe("Download notes.md");
     expect(fileButtonLabel({ name: "old.csv", questionId: "gone" }, questions)).toBe("Download old.csv");
+  });
+});
+
+
+describe("B-m03: a stale page learns that the homework closed", () => {
+  it("turns closed, not-open and attempt-limit refusals into an alert that keeps the draft", () => {
+    expect(submitRefusal(new ApiError(409, "assignment_closed", "Closed — submissions are no longer accepted.")))
+      .toBe("Closed — submissions are no longer accepted. Your answers are still saved as a draft.");
+    expect(submitRefusal(new ApiError(409, "late_not_accepted", "The due date has passed and late submissions are not accepted.")))
+      .toContain("late submissions are not accepted. Your answers are still saved as a draft.");
+    expect(submitRefusal(new ApiError(409, "not_open_yet", "This assignment is not open yet."))).toContain("not open yet");
+    expect(submitRefusal(new ApiError(409, "max_attempts_reached", "This homework allows 2 attempts."))).toContain("allows 2 attempts");
+    for (const other of [new ApiError(400, "incomplete_submission", "Answer every question"), new ApiError(409, "time_limit_exceeded", "x"),
+      new ApiError(503, "unavailable", "x"), new Error("offline"), "boom"])
+      expect(submitRefusal(other)).toBe("");
+  });
+  it("refreshes only the assignment state, so the questions and the draft stay as they are", () => {
+    const stale = homework({ state: "past_due", latePolicy: { ...late, mode: "accept_until", untilAt: "2026-10-30T12:00:00Z" } });
+    const fresh = homework({ state: "closed", closeAt: "2026-10-23T12:00:00Z", version: 3, questions: [], revisedAs: { id: "w9", title: "HW 3 — revision" } });
+    const merged = withFreshState(stale, fresh);
+    expect(merged.questions).toBe(stale.questions);
+    expect(merged.version).toBe(2);
+    expect([merged.state, merged.closeAt, merged.revisedAs?.id]).toEqual(["closed", "2026-10-23T12:00:00Z", "w9"]);
+    expect(withFreshState(stale, { ...fresh, id: "other" })).toBe(stale);
+  });
+  it("shows the alert next to Submit, disables Submit and links the new version", () => {
+    const work = homework({ state: "closed", revisedAs: { id: "w9", title: "HW 3 — revision" } });
+    const html = view(work, { refusal: "Closed — submissions are no longer accepted. Your answers are still saved as a draft.", answers: { q1: "4", q2: "x" } });
+    const button = html.indexOf("Submit assignment");
+    const alert = html.indexOf('role="alert"');
+    expect(button).toBeGreaterThan(0);
+    expect(alert).toBeGreaterThan(button);
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Submit assignment<\/button>/);
+    expect(html).toMatch(/<div class="assess-submit-alert" role="alert" tabindex="-1">/i);
+    expect(html.slice(alert)).toContain('href="/student/assignments/w9/answer"');
+    // the refusal disables Submit even before the refreshed state arrives
+    const stale = view(homework({ state: "past_due" }), { refusal: "Closed — submissions are no longer accepted. Your answers are still saved as a draft.",
+      answers: { q1: "4", q2: "x" } });
+    expect(stale).toMatch(/<button[^>]*disabled=""[^>]*>Submit assignment<\/button>/);
+    expect(view(homework(), { answers: { q1: "4", q2: "x" } })).not.toContain('role="alert"');
+  });
+  it("a closed homework says Closed in the header, without the late window or an attempt counter", () => {
+    const closed = homework({ state: "closed", latePolicy: { ...late, mode: "accept_until", untilAt: "2026-10-30T12:00:00Z" } });
+    expect(dueLines(closed, "UTC")).toEqual({ headline: "Closed · was due Sat 10/24, 3:59 PM UTC", detail: "Closed — submissions are no longer accepted." });
+    expect(dueLines(homework({ state: "closed", dueAt: null }))).toEqual({ headline: "Closed", detail: "Closed — submissions are no longer accepted." });
+    expect(attemptLabel(closed, 1)).toBe("");
+    expect(attemptLabel(homework({ state: "archived" }), 1)).toBe("");
+    const html = view(closed, { submissions: [sub()] });
+    expect(html).not.toContain("Attempt 2");
+    expect(html).not.toContain("Late submissions accepted");
+  });
+  it("re-checks the state when the student returns to the page, at most once per interval", () => {
+    const win = new EventTarget();
+    const doc = Object.assign(new EventTarget(), { visibilityState: "visible" as DocumentVisibilityState });
+    let clock = 1_000_000;
+    let calls = 0;
+    const stop = onReturnToPage(win, doc, () => { calls += 1; }, 10_000, () => clock);
+    win.dispatchEvent(new Event("focus"));
+    doc.dispatchEvent(new Event("visibilitychange"));   // within the interval
+    expect(calls).toBe(1);
+    clock += 10_001;
+    doc.visibilityState = "hidden";
+    doc.dispatchEvent(new Event("visibilitychange"));   // hidden: nothing to show
+    expect(calls).toBe(1);
+    doc.visibilityState = "visible";
+    doc.dispatchEvent(new Event("visibilitychange"));
+    expect(calls).toBe(2);
+    stop();
+    clock += 20_000;
+    win.dispatchEvent(new Event("focus"));
+    expect(calls).toBe(2);
   });
 });

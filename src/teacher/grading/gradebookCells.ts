@@ -1,6 +1,6 @@
 import type { BadgeTone } from "../../components/StatusBadge";
 import { teacherPaths } from "../../lib/routes";
-import { LABELS } from "../../lib/labels";
+import { LABELS, revisionOfNote } from "../../lib/labels";
 import type { GradebookCell, GradebookCellState } from "../../types";
 
 /*
@@ -42,6 +42,18 @@ export function cellHref(cell: Pick<GradebookCell, "assignmentId" | "latestSubmi
   if (canGrade && submissionId)
     return teacherPaths.grading({ assignmentId: cell.assignmentId, studentId, submissionId, show: "all" });
   return teacherPaths.studentAssignmentTimeline(studentId, cell.assignmentId);
+}
+
+/**
+ * D8 tooltip of a cell whose homework has revisions (a homework and its revisions count once): the missing revision names
+ * its original, a replaced original names the version that carries it, a submission to another version names it.
+ */
+export function cellLineageNote(cell: Pick<GradebookCell, "revisionOfTitle" | "countedOnTitle" | "revisionTitle" | "originalTitle" | "onOriginal" | "onRevision">): string {
+  if (cell.revisionOfTitle) return revisionOfNote(cell.revisionOfTitle);
+  if (cell.countedOnTitle) return `Counted on ${cell.countedOnTitle}: the homework and its revisions count once.`;
+  if (cell.onRevision && cell.revisionTitle) return `Submitted ${cell.revisionTitle}.`;
+  if (cell.onOriginal && cell.originalTitle) return `Submitted ${cell.originalTitle}.`;
+  return "";
 }
 
 /** Accessible name of a cell link: "Ada Chen · Week 3 HW (20 pts) · Due 10/24: Missing". */

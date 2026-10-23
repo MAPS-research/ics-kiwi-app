@@ -1,8 +1,18 @@
+import { formatRelative } from "../../lib/format";
 import { LABELS } from "../../lib/labels";
 import { HomeLink } from "./HomeLink";
 import type { AttentionItem } from "../../types";
 
-/** One row per student with the triggered reasons; each reason links to its evidence (profile, timeline or grading). */
+/** B-m01: " · last seen 2 min ago" after "No learning actions…" (any student event), "" when the student was never seen. */
+export function lastSeenSuffix(reason: AttentionItem["reasons"][number], now: number = Date.now()): string {
+  return reason.rule === "no_activity" && reason.lastSeenAt ? ` · last seen ${formatRelative(reason.lastSeenAt, now)}` : "";
+}
+
+/**
+ * One row per student with the triggered reasons; each reason links to its evidence (profile, timeline or grading).
+ * A "No learning actions" reason adds when the student was last seen (B-m01); a reason's tooltip names the original of a
+ * missing revision (D8).
+ */
 export function AttentionRows({
   students,
   canGrade,
@@ -35,9 +45,10 @@ export function AttentionRows({
           <span className="attention-reasons">
             {s.reasons.map((r, i) => (
               <span key={`${r.rule}-${i}`} className="attention-reason">
-                <HomeLink href={r.href} allowed={canGrade || !r.href.startsWith("/teacher/grading")}>
+                <HomeLink href={r.href} allowed={canGrade || !r.href.startsWith("/teacher/grading")} title={r.title}>
                   {r.text}
                 </HomeLink>
+                {lastSeenSuffix(r) && <span className="attention-seen">{lastSeenSuffix(r)}</span>}
               </span>
             ))}
           </span>
