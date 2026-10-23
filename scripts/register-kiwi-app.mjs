@@ -59,11 +59,12 @@ const die = (msg) => {
 const APP = {
   slug: APP_SLUG,
   name: "Kiwi R Lab",
-  description:
-    "Adaptive R practice with browser-side execution and instructor learning history.",
+  // [AU-D2-24] no "Adaptive" claim; [AU-D2-11] Kiwi's own chat on Lab pages applies its Socratic guardrail.
+  description: "R practice, assignments and teacher analytics.",
+  config: { tutoringMode: "guidance" },
   baseUrl: APP_URL,
   category: "plugin",
-  version: "0.5.0",
+  version: JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version,
   appType: "frontend_only",
   // LLM requests and scoped data ops use the Kiwi host bridge.
   capabilities: ["auth", "frontend-actions"],
@@ -207,6 +208,7 @@ async function registerViaDb(prisma) {
       version: APP.version,
       appType: APP.appType,
       capabilities: APP.capabilities,
+      config: APP.config,
       isActive: true,
     },
     create: {
@@ -218,6 +220,7 @@ async function registerViaDb(prisma) {
       version: APP.version,
       appType: APP.appType,
       capabilities: APP.capabilities,
+      config: APP.config,
       isActive: true,
     },
   })

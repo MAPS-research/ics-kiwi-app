@@ -5,24 +5,32 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const workspace = fileURLToPath(new URL('../../', import.meta.url));
-export const frontendDirectory = path.join(workspace, '.local', 'kiwi-ui');
+// KIWI_UI_DIR points the patcher at another Kiwi UI tree (e.g. a temporary copy used by bridge tests).
+export const frontendDirectory = process.env.KIWI_UI_DIR ? path.resolve(process.env.KIWI_UI_DIR) : path.join(workspace, '.local', 'kiwi-ui');
 
-const embeddedAppChatBar = `import { Box, Button } from '@mui/material';
+const embeddedAppChatBar = `import { Box, Button, Typography } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
 import { useGlobalChat } from '../../context/GlobalChatContext.tsx';
 
-/** A normal-flow chat entry keeps embedded apps free of overlays at every width. */
+/** A normal-flow chat entry keeps embedded apps free of overlays at every width.
+ * While the app page turns Kiwi's chat off (kiwi:setChatAvailability), the open button is hidden. */
 export function EmbeddedAppChatBar() {
-  const { openChat } = useGlobalChat();
+  const { openChat, appChatAvailable, appChatUnavailableReason } = useGlobalChat();
   return <Box component="nav" aria-label="Kiwi App tools" sx={{
     display: 'flex', flexShrink: 0, minHeight: 44,
     px: 1, alignItems: 'center', bgcolor: 'background.paper',
     borderBottom: 1, borderColor: 'divider',
-  }}><Button aria-label="open chat" onClick={openChat} startIcon={<ChatIcon />} sx={{
+  }}>{appChatAvailable ? <Button aria-label="open chat" onClick={openChat} startIcon={<ChatIcon />} sx={{
     minHeight: 44, fontSize: 12, fontWeight: 600, textTransform: 'none',
-  }}>Kiwi Chat</Button></Box>;
+  }}>Kiwi Chat</Button> : <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
+    {appChatUnavailableReason || 'Kiwi Chat is not available on this page.'}</Typography>}</Box>;
 }
 `;
+
+/** Bridge UI files copied into src/components (tests run with `npm run test:bridge`). */
+export const BRIDGE_COMPONENT_FILES = ['CssLabTeacherEntry.tsx', 'CssLabTeacherEntry.test.tsx', 'CssLabTeacherRouting.test.tsx',
+  'CssLabHostPatches.test.tsx'];
+export const BRIDGE_UI_TESTS = BRIDGE_COMPONENT_FILES.filter(name => name.endsWith('.test.tsx'));
 
 // Local compatibility fixes for upstream fbc29be, confined to narrow host
 // navigation, app deep links and a normal-flow app chat entry. The official theme is unchanged.
@@ -303,7 +311,140 @@ export async function applyFrontendPatches({ dryRun = false } = {}) {
     {
       relative: 'src/components/GlobalChat/GlobalChatContainer.tsx',
       before: '      <GlobalChatButton />',
-      after: '      <GlobalChatButton visible={!inlineAppChat} />',
+      previous: '      <GlobalChatButton visible={!inlineAppChat} />',
+      after: '      <GlobalChatButton visible={!inlineAppChat && appChatAvailable} />',
+      count: 1,
+    },
+    // v0.6 host adapter 1 (TELEMETRY-21, AU-D2-11, F02): kiwi:setChatAvailability {available, reason}. While an app page
+    // sends available:false, Kiwi's global chat is closed and its open buttons are hidden; available:true or leaving
+    // the app page restores it. Unpatched hosts ignore the unknown message, so the Lab degrades to guidance mode.
+    {
+      relative: 'src/components/GlobalChat/GlobalChatContainer.tsx',
+      before: "import { GlobalChatModal } from './GlobalChatModal.tsx';",
+      after: "import { GlobalChatModal } from './GlobalChatModal.tsx';\nimport { useGlobalChat } from '../../context/GlobalChatContext.tsx';",
+      count: 1,
+    },
+    {
+      relative: 'src/components/GlobalChat/GlobalChatContainer.tsx',
+      before: "  const inlineAppChat = location.pathname.includes('/app/');",
+      after: "  const inlineAppChat = location.pathname.includes('/app/');\n  const { appChatAvailable } = useGlobalChat();",
+      count: 1,
+    },
+    {
+      relative: 'src/context/GlobalChatContext.tsx',
+      before: '  // Pending prompt from IDE or other sources\n  pendingPrompt?: string;',
+      after: '  // Whether the embedded app allows Kiwi\'s own chat on this page (kiwi:setChatAvailability, CSS Lab host patch)\n  appChatAvailable: boolean;\n  appChatUnavailableReason?: string;\n  // Pending prompt from IDE or other sources\n  pendingPrompt?: string;',
+      count: 1,
+    },
+    {
+      relative: 'src/context/GlobalChatContext.tsx',
+      before: '  // Pending prompt (from IDE export code, etc.)\n  setPendingPrompt: (prompt: string | undefined) => void;',
+      after: '  // App chat availability (from kiwi:setChatAvailability)\n  setAppChatAvailability: (available: boolean, reason?: string) => void;\n\n  // Pending prompt (from IDE export code, etc.)\n  setPendingPrompt: (prompt: string | undefined) => void;',
+      count: 1,
+    },
+    {
+      relative: 'src/context/GlobalChatContext.tsx',
+      before: '  // Pending prompt (from IDE export code, etc.)\n  const [pendingPrompt, setPendingPrompt] = useState<string | undefined>();',
+      after: [
+        '  // App chat availability (CSS Lab host patch): an app page can hide Kiwi\'s own chat, e.g. graded homework.',
+        '  const [appChatAvailable, setAppChatAvailableState] = useState(true);',
+        '  const [appChatUnavailableReason, setAppChatUnavailableReason] = useState<string | undefined>();',
+        '  const appChatAvailableRef = React.useRef(true);',
+        '  const setAppChatAvailability = useCallback((available: boolean, reason?: string) => {',
+        '    appChatAvailableRef.current = available;',
+        '    setAppChatAvailableState(available);',
+        '    setAppChatUnavailableReason(available ? undefined : reason);',
+        '    if (!available) setIsOpen(false);',
+        '  }, []);',
+        '',
+        '  // Pending prompt (from IDE export code, etc.)',
+        '  const [pendingPrompt, setPendingPrompt] = useState<string | undefined>();',
+      ].join('\n'),
+      count: 1,
+    },
+    {
+      relative: 'src/context/GlobalChatContext.tsx',
+      before: '  const openChat = useCallback(() => setIsOpen(true), []);\n  const closeChat = useCallback(() => setIsOpen(false), []);\n  const toggleChat = useCallback(() => setIsOpen((prev) => !prev), []);',
+      after: '  const openChat = useCallback(() => { if (appChatAvailableRef.current) setIsOpen(true); }, []);\n  const closeChat = useCallback(() => setIsOpen(false), []);\n  const toggleChat = useCallback(() => setIsOpen((prev) => (appChatAvailableRef.current ? !prev : false)), []);',
+      count: 1,
+    },
+    {
+      relative: 'src/context/GlobalChatContext.tsx',
+      before: '    appTutoringMode,\n    pendingPrompt,\n    pendingCode,',
+      after: '    appTutoringMode,\n    appChatAvailable,\n    appChatUnavailableReason,\n    pendingPrompt,\n    pendingCode,',
+      count: 1,
+    },
+    {
+      relative: 'src/context/GlobalChatContext.tsx',
+      before: '    // Pending prompt\n    setPendingPrompt,\n    clearPendingPrompt,',
+      after: '    // App chat availability\n    setAppChatAvailability,\n\n    // Pending prompt\n    setPendingPrompt,\n    clearPendingPrompt,',
+      count: 1,
+    },
+    {
+      relative: 'src/pages/ClassAppView.tsx',
+      before: '  const { setAppContext, setAppPreferredMode, setAppTutoringMode, setDisplayMode, openChat } =\n    useGlobalChat();',
+      after: '  const { setAppContext, setAppPreferredMode, setAppTutoringMode, setDisplayMode, openChat, setAppChatAvailability } =\n    useGlobalChat();',
+      count: 1,
+    },
+    {
+      relative: 'src/pages/ClassAppView.tsx',
+      before: '      setAppTutoringMode(undefined);\n    };\n  }, [setAppContext, setAppPreferredMode, setAppTutoringMode]);',
+      after: '      setAppTutoringMode(undefined);\n      setAppChatAvailability(true);\n    };\n  }, [setAppContext, setAppPreferredMode, setAppTutoringMode, setAppChatAvailability]);',
+      count: 1,
+    },
+    {
+      relative: 'src/pages/ClassAppView.tsx',
+      before: "        case 'kiwi:apiRequest':",
+      after: [
+        "        case 'kiwi:setChatAvailability':",
+        '          // CSS Lab host patch: an app page may hide Kiwi\'s own chat (graded homework with Ask Kiwi off).',
+        "          setAppChatAvailability(payload?.available !== false, typeof payload?.reason === 'string' ? payload.reason.slice(0, 300) : undefined);",
+        '          ack(true);',
+        '          break;',
+        '',
+        "        case 'kiwi:apiRequest':",
+      ].join('\n'),
+      count: 1,
+    },
+    // v0.6 host adapter 2 (TELEMETRY-22): return to the requested page after sign-in. returnTo must be a same-origin
+    // path (starts with "/" and not "//" or "/\\"), so the parameter cannot become an open redirect.
+    {
+      relative: 'src/auth/ProtectedRoute.tsx',
+      before: '  if (!user) {\n    return <Navigate to="/login" replace />;\n  }',
+      after: '  if (!user) {\n    const returnTo = location.pathname + location.search;\n    return <Navigate to={returnTo && returnTo !== "/" ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login"} replace />;\n  }',
+      count: 1,
+    },
+    {
+      relative: 'src/pages/Login.tsx',
+      before: 'export const Login: React.FC = () => {',
+      after: [
+        '/** CSS Lab host patch: the page that required sign-in, when it is a same-origin path (no open redirect). */',
+        'export function safeReturnTo(search: string): string | null {',
+        '  const value = new URLSearchParams(search).get("returnTo");',
+        '  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\\\")) return null;',
+        '  return value;',
+        '}',
+        '',
+        'export const Login: React.FC = () => {',
+      ].join('\n'),
+      count: 1,
+    },
+    {
+      relative: 'src/pages/Login.tsx',
+      before: '    try {\n      const tokenResponse = await apiClientWithoutMiddleWare.authControllerLogin({',
+      after: '    const returnTo = safeReturnTo(location.search);\n    try {\n      const tokenResponse = await apiClientWithoutMiddleWare.authControllerLogin({',
+      count: 1,
+    },
+    {
+      relative: 'src/pages/Login.tsx',
+      before: '          navigate("/admin");\n        } else {\n          navigate("/");\n        }',
+      after: '          navigate(returnTo ?? "/admin");\n        } else {\n          navigate(returnTo ?? "/");\n        }',
+      count: 1,
+    },
+    {
+      relative: 'src/pages/Login.tsx',
+      before: '        navigate("/");\n      }\n    } catch (error) {',
+      after: '        navigate(returnTo ?? "/");\n      }\n    } catch (error) {',
       count: 1,
     },
     {
@@ -357,12 +498,13 @@ export async function applyFrontendPatches({ dryRun = false } = {}) {
   if (dryRun) return [...files.keys()];
   for (const name of ['WebR.tsx']) await writeFile(path.join(frontendDirectory, 'src/components/CodeInterpreter', name),
     await readFile(new URL(`./bridge/${name}`, import.meta.url), 'utf8'));
+  // v0.6 rEngine captures plots whenever the browser has an OffscreenCanvas, so it is copied unchanged.
   await writeFile(path.join(frontendDirectory, 'src/components/CodeInterpreter/LabRRuntime.ts'),
-    (await readFile(path.join(workspace, 'src/lib/rEngine.ts'), 'utf8')).replace('captureGraphics: false', 'captureGraphics: true'));
+    await readFile(path.join(workspace, 'src/lib/rEngine.ts'), 'utf8'));
   await cp(path.join(workspace, 'public/webr'), path.join(frontendDirectory, 'public/webr'), { recursive: true });
   await writeFile(path.join(frontendDirectory, 'src/components/CssLabLaunch.tsx'),
     await readFile(new URL('./bridge/CssLabLaunch.tsx', import.meta.url), 'utf8'));
-  for (const name of ['CssLabTeacherEntry.tsx', 'CssLabTeacherEntry.test.tsx', 'CssLabTeacherRouting.test.tsx']) {
+  for (const name of BRIDGE_COMPONENT_FILES) {
     await writeFile(path.join(frontendDirectory, 'src/components', name),
       await readFile(new URL(`./bridge/${name}`, import.meta.url), 'utf8'));
   }

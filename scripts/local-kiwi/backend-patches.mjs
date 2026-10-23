@@ -10,8 +10,15 @@ function replace(relative, original, replacement) {
   fs.writeFileSync(file, content.replace(original, replacement));
 }
 
+/** Copy the bridge controller and its Jest spec into the Kiwi backend (also used by reinstall-bridge.mjs). */
+export function installBridgeController(root = backendRoot) {
+  for (const name of ['lab-bridge.controller.ts', 'lab-bridge.controller.spec.ts']) {
+    fs.copyFileSync(new URL(`./bridge/${name}`, import.meta.url), path.join(root, 'src/kiwi-app', name));
+  }
+}
+
 export function applyBackendPatches() {
-  fs.copyFileSync(new URL('./bridge/lab-bridge.controller.ts', import.meta.url), path.join(backendRoot, 'src/kiwi-app/lab-bridge.controller.ts'));
+  installBridgeController();
   replace('src/kiwi-app/kiwi-app.module.ts',
     "import { AppDataController } from './app-data.controller';",
     "import { AppDataController } from './app-data.controller';\nimport { LabBridgeController } from './lab-bridge.controller';");

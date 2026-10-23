@@ -1,67 +1,112 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  BarChart3,
-  BookOpen,
-  Check,
-  Code2,
-  GraduationCap,
-  LoaderCircle,
-  MessagesSquare,
-  Settings2,
-  Sparkles,
-} from "lucide-react";
-import { TeacherDashboard } from "./TeacherDashboard";
-import { StudentWork } from "./StudentWork";
-import { Practice } from "./Practice";
-import { KiwiBrand, RoleEntry, type AppRole } from "./RoleEntry";
+import { useCallback, useEffect, useState } from "react";
+import { LoaderCircle } from "lucide-react";
+import { RoleEntry } from "./RoleEntry";
 import { KiwiReturn } from "./KiwiReturn";
-import { KiwiChat, RWorkbench } from "./LearningTools";
-import { api, setKiwiTokenProvider } from "./lib/api";
+import { StudentApp } from "./student/StudentApp";
+import { TeacherApp } from "./teacher/TeacherApp";
+import { readStoredTeacherKey } from "./teacher/shell/TeacherContext";
+import { api, ApiError, setDemoSessionHeader, setKiwiTokenProvider, setPreviewHeader, setTeacherKeyHeader } from "./lib/api";
+import { normalizeCourse } from "./lib/course";
+import { setDisplayTimeZone } from "./lib/format";
+import {
+  demoChoices, ensureDemoSession, exchangeDemoToken, parseDemoFragment, readDemoSession, selectDemoStudent, selectedDemoStudent, stripDemoFragment,
+  type DemoSession,
+} from "./lib/demoSession";
 import { getKiwi } from "./lib/kiwi";
-import { browserSession, navigate, useRoute } from "./lib/navigation";
+import { navigate, useRoute } from "./lib/navigation";
+import { isPreviewPath, legacyRedirect, previewPaths, studentPaths, teacherPaths } from "./lib/routes";
 import type { Course, KiwiClient, VerifiedKiwiContext } from "./types";
+import { takePreviewReturn } from "./lib/previewReturn";
 
-const rootPath = {
-  student: "/student/assignments",
-  teacher: "/teacher/work/assignments",
-  entry: "/entry",
-};
+/*
+ * App boot (FOUNDATION, frozen): Kiwi SDK, verified identity, standalone demo sessions (incl. the `#demo=` fragment
+ * exchange), role routing, legacy redirects (§3.3) and preview routing (§3.4). Every staff identity that opens the
+ * student workspace is sent to /preview/student/… — staff never act as students outside preview [TR05].
+ */
+
+type Role = "teacher" | "entry" | "preview" | "student";
+export function roleForPath(path: string): Role {
+  if (path === "/teacher" || path.startsWith("/teacher/")) return "teacher";
+  if (path === "/entry") return "entry";
+  if (isPreviewPath(path)) return "preview";
+  return "student";
+}
+
+/**
+ * R-B01: App loads the course for the entry page, the student app and preview (each with that role's headers, so it is
+ * the student view). The teacher workspace loads the staff course itself once the staff identity is known, because App's
+ * request runs before the teacher key is set (and before a sign-in on the teacher gate).
+ */
+export function courseLoadedByApp(role: Role): boolean {
+  return role !== "teacher";
+}
+
+const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+function BootScreen({ error, kiwi, teacher, action }: { error?: string; kiwi: KiwiClient | null; teacher?: boolean; action?: { label: string; onClick: () => void } }) {
+  return (
+    <div className="boot-screen">
+      <span className="kiwi-wordmark">kiwi</span>
+      {!error && <LoaderCircle className="spin" size={22} />}
+      <p>{error ? "Unable to open your workspace" : "Loading your workspace…"}</p>
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
+      )}
+      {error && (
+        <>
+          <button className="primary-button" onClick={action?.onClick ?? (() => location.reload())}>
+            {action?.label ?? "Try again"}
+          </button>
+          <KiwiReturn kiwi={kiwi} teacher={teacher} />
+        </>
+      )}
+    </div>
+  );
+}
+
 function App() {
   const route = useRoute();
   const path = route.split("?")[0];
-  const role: AppRole = path.startsWith("/teacher")
-    ? "teacher"
-    : path === "/entry"
-      ? "entry"
-      : "student";
+  const search = route.slice(path.length);
+  const redirect = legacyRedirect(path, search);
+  const role = roleForPath(path);
+
   const [kiwi, setKiwi] = useState<KiwiClient | null>(null);
   const [verified, setVerified] = useState<VerifiedKiwiContext | null>(null);
   const [mode, setMode] = useState<"connecting" | "sim" | "live">("connecting");
   const [classId, setClass] = useState("");
   const [course, setCourse] = useState<Course | null>(null);
   const [error, setError] = useState("");
-  const [choice, setChoice] = useState(
-    localStorage.getItem("kiwi-lab-student") || "ada",
-  );
-  const studentId =
-    mode === "live" ? verified?.userId || "" : `demo-${choice}`;
-  const studentName =
-    mode === "live"
-      ? verified?.username || studentId
-      : choice === "ada"
-        ? "Ada Chen"
-        : "Bo Lin";
-  const canTeach =
-    mode === "sim" ||
-    Boolean(mode === "live" && verified?.canTeach);
-  const context = useRef({ classId, studentId });
-  context.current = { classId, studentId };
-  const scratchKey = `kiwi-scratch-${classId}-${studentId}`;
-  const [scratchCode, setScratch] = useState("");
-  const [chatUnit, setChatUnit] = useState("");
+  const [notice, setNotice] = useState("");
+  const [demo, setDemo] = useState<DemoSession | null>(null);
+  const [demoState, setDemoState] = useState<"idle" | "loading" | "ready" | "failed">("idle");
+  const [demoStudent, setDemoStudent] = useState(selectedDemoStudent);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState("");
+  const [demoLinkRevision, setDemoLinkRevision] = useState(0);
+
+  // WHY: opening a `#demo=` link in a tab that already shows the student app is a same-document hash change (no
+  // reload), so the exchange below must also run on `hashchange`.
+  useEffect(() => {
+    const onHash = () => {
+      if (parseDemoFragment(location.hash)) setDemoLinkRevision((n) => n + 1);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  useEffect(() => {
+    if (!redirect) return;
+    history.replaceState(redirect.notice ? { kiwiMovedFrom: path } : history.state, "", `${redirect.to}${location.hash}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, [redirect?.to, redirect?.notice, path]);
+
+  // Boot: Kiwi SDK and verified identity (v0.5.1 behavior; standalone falls back to the local simulator).
   useEffect(() => {
     let active = true;
-    void getKiwi()
+    getKiwi()
       .then(async (client) => {
         if (!active) return;
         setKiwi(client);
@@ -76,407 +121,227 @@ function App() {
         } else setClass("local-r-class");
         setMode(client.mode);
       })
-      .catch((e) => {
-        if (active) {
-          if (window.parent === window) { setMode("sim"); setClass("local-r-class"); }
-          setError(
-            `Kiwi connection unavailable: ${e instanceof Error ? e.message : String(e)}`,
-          );
+      .catch((e: unknown) => {
+        if (!active) return;
+        if (window.parent === window) {
+          setMode("sim");
+          setClass("local-r-class");
         }
+        setError(`Kiwi connection unavailable: ${errorText(e)}`);
       });
     return () => {
       active = false;
     };
   }, []);
+
+  // WHY keyed by role: each role's request carries its own headers (preview, demo session), and coming back from the
+  // teacher workspace (which may have changed chapters) loads the course again.
   useEffect(() => {
     if (!classId) return;
-    let active = true;
     setCourse(null);
-    void api
+    if (!courseLoadedByApp(role)) return;
+    let active = true;
+    api
       .course(classId)
       .then((c) => {
-        if (active) {
-          setCourse(c);
-          setChatUnit(c.currentUnitId);
-        }
+        if (!active) return;
+        const normalized = normalizeCourse(c);
+        setDisplayTimeZone(normalized.timeZone);   // every page shows dates in the course zone (TEACHER-02)
+        setCourse(normalized);
       })
-      .catch((e) => {
-        if (active) setError(e.message);
+      .catch((e: unknown) => {
+        if (active) setError(errorText(e));
       });
     return () => {
       active = false;
     };
-  }, [classId]);
+  }, [classId, role]);
+
+  const teacherKey = mode === "sim" && classId ? readStoredTeacherKey(classId) : null;
+  const isStaffVisitor = mode === "live" ? Boolean(verified?.canTeach) : mode === "sim" ? Boolean(teacherKey) : false;
+
+  // WHY in render: child pages fire requests in their effects, which run before this component's effects.
+  setPreviewHeader(role === "preview");
+  if (role === "student") {
+    setTeacherKeyHeader(null);
+    setDemoSessionHeader(mode === "sim" ? demo?.token ?? null : null);
+  } else {
+    setDemoSessionHeader(null);
+    if (role === "preview") setTeacherKeyHeader(mode === "sim" ? teacherKey : null);
+  }
+
+  // Staff in the student app → preview; non-staff on a preview URL → the student app.
   useEffect(() => {
-    const replacements: Record<string, string> = {
-      "/": "/student/assignments",
-      "/student": "/student/assignments",
-      "/teacher": "/teacher/work/assignments",
-      "/teacher/work": "/teacher/work/assignments",
-      "/teacher/course": "/teacher/course/plan",
-      "/teacher/analytics": "/teacher/analytics/overview",
-      "/student/practice": "/student/practice/settings",
-    };
-    if (replacements[path]) {
-      history.replaceState({}, "", replacements[path]);
-      window.dispatchEvent(new PopStateEvent("popstate"));
+    if (mode === "connecting" || redirect) return;
+    if (role === "student" && isStaffVisitor) navigate(`/preview${route}`, true);
+    else if (role === "preview" && !isStaffVisitor) navigate(route.replace(/^\/preview/, ""), true);
+  }, [mode, role, isStaffVisitor, route, redirect]);
+
+  // Standalone students: `#demo=` exchange, then a session for the selected demo student.
+  useEffect(() => {
+    if (mode !== "sim" || !classId || role !== "student" || isStaffVisitor) return;
+    let active = true;
+    const token = parseDemoFragment(location.hash);
+    const cached = token ? null : readDemoSession(classId, demoStudent);
+    if (cached) {
+      setDemo(cached);
+      setDemoState("ready");
+      return;
     }
-  }, [path]);
-  useEffect(() => {
-    setScratch(
-      localStorage.getItem(scratchKey) ||
-        "scores <- c(72, 85, 91)\nprint(mean(scores))",
-    );
-  }, [scratchKey]);
-  const track = useCallback(
-    async (
-      type: string,
-      payload: Record<string, unknown>,
-      questionId?: string,
-    ) => {
-      try {
-        await api.event({
-          classId,
-          studentId,
-          studentName,
-          sessionId: browserSession,
-          type,
-          questionId,
-          payload,
-        });
-      } catch (e) {
-        if (
-          context.current.classId === classId &&
-          context.current.studentId === studentId
-        )
-          setError(
-            `Activity could not be saved: ${e instanceof Error ? e.message : String(e)}`,
-          );
+    setDemoState("loading");
+    (async () => {
+      if (token) {
+        history.replaceState(history.state, "", `${location.pathname}${location.search}${stripDemoFragment(location.hash)}`);
+        try {
+          const linked = await exchangeDemoToken(classId, token);
+          if (!active) return;
+          setDemoStudent(linked.studentId);
+          setDemo(linked);
+          setDemoState("ready");
+          return;
+        } catch (e) {
+          if (active) setNotice(`This demo link could not be used: ${errorText(e)}`);
+        }
       }
-    },
-    [classId, studentId, studentName],
-  );
-  useEffect(() => {
-    if (!classId || !studentId || role !== "student") return;
-    let last = Date.now();
-    const active = () => {
-      last = Date.now();
-    };
-    addEventListener("pointerdown", active);
-    addEventListener("keydown", active);
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible" && Date.now() - last < 60000)
-        void track("study_heartbeat", { seconds: 30, page: path });
-    }, 30000);
+      try {
+        const session = await ensureDemoSession(classId, demoStudent);
+        if (!active) return;
+        setDemo(session);
+        setDemoState("ready");
+      } catch (e) {
+        if (!active) return;
+        // WHY: a server without demo sessions (v0.5.1) still accepts the student id; a v0.6 server answers 403 visibly.
+        if (!(e instanceof ApiError && e.status === 404)) setNotice(`Demo sign-in failed: ${errorText(e)}`);
+        setDemo(null);
+        setDemoState("failed");
+      }
+    })();
     return () => {
-      clearInterval(timer);
-      removeEventListener("pointerdown", active);
-      removeEventListener("keydown", active);
+      active = false;
     };
-  }, [classId, studentId, role, track, path]);
+  }, [mode, classId, role, isStaffVisitor, demoStudent, demoLinkRevision]);
+
+  // Preview: the server derives the preview student id from the staff identity (`preview-<userId>`).
   useEffect(() => {
-    if (course && role === "student")
-      kiwi?.updateContext(
-        `English-language R course: ${course.title}. Current chapter: ${course.units.find((u) => u.id === course.currentUnitId)?.title}. Page: ${path}. Teacher policy is enforced by the course API.`,
-      );
-  }, [kiwi, course, role, path]);
-  if (!course || mode === "connecting")
-    return (
-      <div className="boot-screen">
-        <span className="kiwi-wordmark">kiwi</span>
-        {!error && <LoaderCircle className="spin" size={22} />}
-        <p>{error ? "Unable to open your workspace" : "Loading your workspace…"}</p>
-        {error && (
-          <p className="error-text" role="alert">
-            {error}
-          </p>
-        )}
-        {error && <><button className="primary-button" onClick={() => location.reload()}>Try again</button><KiwiReturn kiwi={kiwi} teacher={role === "teacher"} /></>}
-      </div>
-    );
+    if (role !== "preview" || !classId || mode === "connecting" || !isStaffVisitor) return;
+    let active = true;
+    setPreviewError("");
+    api
+      .me(classId)
+      .then((me) => {
+        if (!active) return;
+        if (!me.isStaff) {
+          setPreviewError("Preview as student is only available to course staff.");
+          return;
+        }
+        setPreviewId(`preview-${me.userId ?? "instructor"}`);
+      })
+      .catch((e: unknown) => {
+        if (!active) return;
+        if (e instanceof ApiError && e.status === 404) setPreviewId(verified ? `preview-${verified.userId}` : "preview-instructor");
+        else setPreviewError(errorText(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [role, classId, mode, isStaffVisitor, verified]);
+
+  // RV6-m01: back to the page that opened the preview (e.g. the assignment editor), Home otherwise
+  const exitPreview = useCallback(() => navigate(takePreviewReturn(teacherPaths.home())), []);
+
+  if (redirect) return null;
+  // R-B01: the teacher workspace does not wait for App's course (it loads the staff course after sign-in)
+  if (role === "teacher" && classId && mode !== "connecting") return <TeacherApp key={classId} classId={classId} kiwi={kiwi} verified={verified} />;
+  if (!course || mode === "connecting") return <BootScreen error={error} kiwi={kiwi} teacher={role === "teacher"} />;
+
   if (role === "entry")
     return (
       <RoleEntry
         courseTitle={course.title}
-        canTeach={canTeach}
+        canTeach={mode === "sim" || Boolean(verified?.canTeach)}
         kiwi={kiwi}
-        onChoose={(r) => navigate(rootPath[r])}
+        onChoose={(r) =>
+          navigate(r === "teacher" ? teacherPaths.home() : r === "student" ? (isStaffVisitor ? previewPaths.assignments() : studentPaths.assignments()) : studentPaths.entry())
+        }
       />
     );
-  const teacherNav = [
-    ["/teacher/work", "Practice & assignments", BookOpen],
-    ["/teacher/course", "Course management", Settings2],
-    ["/teacher/analytics", "Data analytics", BarChart3],
-  ] as const;
-  const studentNav = [
-    ["/student/assignments", "Assigned work", BookOpen],
-    ["/student/practice", "Guided practice", Sparkles],
-    ["/student/code", "R workspace", Code2],
-    ["/student/kiwi", "Ask Kiwi", MessagesSquare],
-    ["/student/course", "Course outline", GraduationCap],
-  ] as const;
-  const nav = role === "teacher" ? teacherNav.filter(([p]) => mode !== "live" || (p.includes("analytics") ? verified?.canViewAnalytics : verified?.canManageCourse)) : studentNav;
-  const current = nav.find(([p]) => path.startsWith(p));
-  const completed = course.units.filter((u) => u.status === "completed").length;
-  const identity =
-    role === "teacher"
-      ? mode === "live"
-        ? verified?.username || "Teacher"
-        : "Teacher demo"
-      : studentName;
+
+  if (role === "preview") {
+    if (!isStaffVisitor) return <BootScreen kiwi={kiwi} />;
+    if (previewError)
+      return <BootScreen error={previewError} kiwi={kiwi} teacher action={{ label: "Open the teacher workspace", onClick: () => navigate(teacherPaths.home()) }} />;
+    if (!previewId) return <BootScreen kiwi={kiwi} />;
+    return (
+      <StudentApp
+        key={`${classId}-${previewId}`}
+        classId={classId}
+        course={course}
+        kiwi={kiwi}
+        mode={mode}
+        studentId={previewId}
+        studentName="Preview student"
+        preview
+        demo={null}
+        notice=""
+        onDismissNotice={() => undefined}
+        onExitPreview={exitPreview}
+      />
+    );
+  }
+
+  // Student workspace
+  if (isStaffVisitor) return <BootScreen kiwi={kiwi} />;
+  if (mode === "live") {
+    const studentId = verified?.userId || "";
+    return (
+      <StudentApp
+        key={`${classId}-${studentId}`}
+        classId={classId}
+        course={course}
+        kiwi={kiwi}
+        mode={mode}
+        studentId={studentId}
+        studentName={verified?.username || studentId}
+        preview={false}
+        demo={null}
+        notice={notice || error}
+        onDismissNotice={() => {
+          setNotice("");
+          setError("");
+        }}
+        onExitPreview={exitPreview}
+      />
+    );
+  }
+  if (demoState === "idle" || demoState === "loading") return <BootScreen kiwi={kiwi} />;
+  const choices = demoChoices(classId);
+  const studentId = demo?.studentId ?? demoStudent;
+  const studentName = demo?.studentName ?? choices.find((c) => c.studentId === studentId)?.studentName ?? studentId;
   return (
-    <div className={`app-shell role-${role}`}>
-      <aside className="sidebar">
-        <KiwiBrand />
-        <nav
-          className="sidebar-scroll"
-          aria-label={`${role === "teacher" ? "Teacher" : "Student"} navigation`}
-        >
-          <div className="sidebar-section-title">
-            {role === "teacher" ? "TEACHER WORKSPACE" : "STUDENT WORKSPACE"}
-          </div>
-          {nav.map(([p, label, Icon]) => (
-            <a
-              key={p}
-              href={
-                p === "/student/practice"
-                  ? `${p}/settings`
-                  : p.startsWith("/teacher/")
-                    ? `${p}/${p.endsWith("work") ? "assignments" : p.endsWith("course") ? "plan" : "overview"}`
-                    : p
-              }
-              className={`nav-item ${path.startsWith(p) ? "active" : ""}`}
-              aria-current={path.startsWith(p) ? "page" : undefined}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(e.currentTarget.getAttribute("href")!);
-              }}
-            >
-              <Icon size={18} />
-              {label}
-            </a>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          {role === "student" && (
-            <>
-              <div className="progress-label">
-                <span>Chapters completed</span>
-                <strong>
-                  {completed}/{course.units.length}
-                </strong>
-              </div>
-              <div className="progress-track">
-                <span
-                  style={{
-                    width: `${(completed / course.units.length) * 100}%`,
-                  }}
-                />
-              </div>
-            </>
-          )}
-          <div className="sidebar-profile">
-            <span className="avatar">{identity[0]?.toUpperCase()}</span>
-            <span>
-              <strong>{identity}</strong>
-              <small>
-                {role === "teacher"
-                  ? "Teacher workspace"
-                  : mode === "live"
-                    ? "Kiwi student"
-                    : "Local demo student"}
-              </small>
-            </span>
-          </div>
-        </div>
-      </aside>
-      <main className="main-area">
-        <header className="topbar">
-          <div className="breadcrumb">
-            {role === "teacher" ? "Teacher" : "Student"}
-            <span>/</span>
-            {course.title}
-            <span>/</span>
-            <strong>{current?.[1] || "Workspace"}</strong>
-          </div>
-          <div className="topbar-right">
-            <KiwiReturn kiwi={kiwi} teacher={role === "teacher"} />
-            <button
-              className="text-button role-switch"
-              onClick={() => navigate("/entry")}
-            >
-              Switch workspace
-            </button>
-            <span
-              className={`connection-pill ${mode === "live" ? "live" : ""}`}
-            >
-              <span className="connection-dot" />
-              {mode === "live" ? "KIWI LIVE" : "LOCAL DEMO"}
-            </span>
-          </div>
-        </header>
-        {error && (
-          <div className="global-status">
-            <p className="error-text" role="alert">
-              {error}
-            </p>
-            <button className="text-button" onClick={() => setError("")}>
-              Dismiss
-            </button>
-          </div>
-        )}
-        {role === "student" && mode !== "live" && (
-          <div className="demo-identity">
-            <label>
-              Demo student
-              <select
-                value={choice}
-                onChange={(e) => {
-                  setChoice(e.target.value);
-                  localStorage.setItem("kiwi-lab-student", e.target.value);
-                }}
-              >
-                <option value="ada">Ada Chen</option>
-                <option value="bo">Bo Lin</option>
-              </select>
-            </label>
-          </div>
-        )}
-        {role === "teacher" ? (
-          canTeach ? (
-          <TeacherDashboard
-            verified={verified}
-              key={classId}
-              classId={classId}
-              course={course}
-              onCourse={setCourse}
-              route={route}
-            />
-          ) : (
-            <section className="teacher-login-screen">
-              <h1>Teacher access is required</h1>
-              <button
-                className="primary-button"
-                onClick={() => navigate(rootPath.student)}
-              >
-                Return to learning
-              </button>
-            </section>
-          )
-        ) : path.startsWith("/student/practice") ? (
-          <Practice
-            key={`${classId}-${studentId}`}
-            classId={classId}
-            studentId={studentId}
-            course={course}
-            tool={path.split("/")[3] || "settings"}
-            track={track}
-          />
-        ) : path === "/student/code" ? (
-          <div className="student-content">
-            <div className="page-intro">
-              <div>
-                <p className="eyebrow">R WORKSPACE</p>
-                <h1>
-                  Explore with R<span className="accent-dot">.</span>
-                </h1>
-                <p className="muted">
-                  A scratch workspace for your own experiments. Use the R page
-                  inside an assignment to attach code to a specific question.
-                </p>
-              </div>
-            </div>
-            <RWorkbench
-              key={scratchKey}
-              code={scratchCode}
-              onCode={setScratch}
-              track={track}
-              storageKey={scratchKey}
-              metadata={{
-                unitId: course.currentUnitId,
-                title: "Independent R workspace",
-              }}
-            />
-          </div>
-        ) : path === "/student/kiwi" ? (
-          <div className="student-content">
-            <div className="page-intro">
-              <div>
-                <p className="eyebrow">ASK KIWI</p>
-                <h1>
-                  Ask, reflect, connect<span className="accent-dot">.</span>
-                </h1>
-              </div>
-            </div>
-            <label className="chapter-picker">
-              Chapter
-              <select
-                value={chatUnit}
-                onChange={(e) => setChatUnit(e.target.value)}
-              >
-                {course.units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <KiwiChat
-              key={`${studentId}-${chatUnit}`}
-              classId={classId}
-              studentId={studentId}
-              unitId={chatUnit}
-              question={course.units.find((u) => u.id === chatUnit)?.goal || ""}
-              code=""
-              track={track}
-            />
-          </div>
-        ) : path === "/student/course" ? (
-          <div className="student-content">
-            <div className="page-intro">
-              <div>
-                <p className="eyebrow">COURSE OUTLINE</p>
-                <h1>{course.title}</h1>
-                <p className="muted">{course.description}</p>
-              </div>
-            </div>
-            <div className="course-outline">
-              {course.units.map((u, i) => (
-                <section className="panel work-panel" key={u.id}>
-                  <div className="row-between">
-                    <span className="small-pill">Chapter {i + 1}</span>
-                    <span className="chapter-status">
-                      {u.status === "completed" ? (
-                        <>
-                          <Check size={15} />
-                          Completed
-                        </>
-                      ) : u.status === "current" ? (
-                        "In progress"
-                      ) : (
-                        "Upcoming"
-                      )}
-                    </span>
-                  </div>
-                  <h2>{u.title}</h2>
-                  <p className="muted">{u.goal}</p>
-                </section>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <StudentWork
-            key={`${classId}-${studentId}`}
-            classId={classId}
-            course={course}
-            studentId={studentId}
-            studentName={studentName}
-            track={track}
-            route={route}
-          />
-        )}
-      </main>
-    </div>
+    <StudentApp
+      key={`${classId}-${studentId}`}
+      classId={classId}
+      course={course}
+      kiwi={kiwi}
+      mode={mode}
+      studentId={studentId}
+      studentName={studentName}
+      preview={false}
+      demo={{
+        choices,
+        selected: studentId,
+        onSelect: (id) => {
+          selectDemoStudent(id);
+          setDemoStudent(id);
+        },
+      }}
+      notice={notice || error}
+      onDismissNotice={() => {
+        setNotice("");
+        setError("");
+      }}
+      onExitPreview={exitPreview}
+    />
   );
 }
 export default App;

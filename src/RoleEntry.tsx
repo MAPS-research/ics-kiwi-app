@@ -59,7 +59,7 @@ export function RoleEntry({
               <GraduationCap size={26} />
               <strong>Teacher workspace</strong>
               <span>
-                Manage assignments and courses, then explore the evidence behind
+                Manage assignments and courses, then explore the activity behind
                 student learning.
               </span>
               <span className="role-entry-link">

@@ -36,8 +36,15 @@ export function configureLocalDemo() {
   const project = readEnv(path.join(root, '.env'));
   const key = project.OPEN_AI_TEST_KEY || project.OPENAI_API_KEY;
   if (!key) throw new Error('Add OPEN_AI_TEST_KEY to the project .env before running demo:setup.');
-  fs.writeFileSync(path.join(local, 'app-access.json'), JSON.stringify({ teacherKey: project.KIWI_TEACHER_KEY || 'kiwi-local-demo' }) + '\n', { mode: 0o600 });
-  fs.chmodSync(path.join(local, 'app-access.json'), 0o600);
+  // v0.6.0: no fallback teacher key. The standalone teacher workspace stays closed until KIWI_TEACHER_KEY is set.
+  const accessPath = path.join(local, 'app-access.json');
+  if (project.KIWI_TEACHER_KEY) {
+    fs.writeFileSync(accessPath, JSON.stringify({ teacherKey: project.KIWI_TEACHER_KEY }) + '\n', { mode: 0o600 });
+    fs.chmodSync(accessPath, 0o600);
+  } else {
+    console.log('KIWI_TEACHER_KEY is not set: the standalone teacher workspace stays closed (Kiwi-linked courses are not affected).');
+    console.log('To use it, add a long random value to .env, e.g.  KIWI_TEACHER_KEY=$(openssl rand -hex 24)  and restart the app API.');
+  }
   const infraPath = path.join(local, 'infra.env');
   let infra = readEnv(infraPath);
   if (!Object.keys(infra).length) {

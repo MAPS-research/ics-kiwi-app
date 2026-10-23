@@ -3673,3 +3673,606 @@ summary {
   .topbar-right { flex-wrap: wrap; }
 }
 .local-demo-login-title { margin-top: 28px; font-size: 16px; }
+
+/* ─── v0.6.0 shared components and teacher shell (FOUNDATION) ─────────────────────────────────
+   Kiwi purple stays the interaction color; status badges use semantic tokens only (P7). */
+:root {
+  --kiwi-info: #0277bd;
+  --kiwi-success-bg: #e8f5e9;
+  --kiwi-error-bg: #fdecea;
+  --kiwi-warning-bg: #fff3e0;
+  --kiwi-info-bg: #e1f5fe;
+}
+
+/* Page header [LY01]: one line — h1 + count/meta + right-aligned actions. */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin: 0 0 14px;
+  min-width: 0;
+}
+.page-header-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
+}
+.page-header h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.3;
+  color: var(--kiwi-text-primary);
+  overflow-wrap: anywhere;
+}
+.page-header-count {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--kiwi-text-secondary);
+  background: var(--kiwi-bg-subtle);
+  border-radius: 20px;
+  padding: 2px 10px;
+}
+.page-header-meta {
+  font-size: 13px;
+  color: var(--kiwi-text-secondary);
+  overflow-wrap: anywhere;
+}
+.page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.section-tabs {
+  margin-bottom: 18px;
+}
+.page-helper {
+  margin: -6px 0 14px;
+  font-size: 13px;
+}
+.empty-state-title {
+  font-size: 16px;
+  margin: 0 0 8px;
+  color: var(--kiwi-text-primary);
+}
+.empty-state-actions {
+  justify-content: center;
+  margin-top: 14px;
+}
+.link-list {
+  margin: 0;
+  padding: 0 0 8px 20px;
+  line-height: 2;
+}
+
+/* Status badges: semantic tones only. */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 20px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.status-badge.tone-neutral { background: var(--kiwi-bg-subtle); color: var(--kiwi-text-secondary); border-color: var(--kiwi-border-default); }
+.status-badge.tone-info { background: var(--kiwi-info-bg); color: var(--kiwi-info); }
+.status-badge.tone-success { background: var(--kiwi-success-bg); color: var(--kiwi-success); }
+.status-badge.tone-warning { background: var(--kiwi-warning-bg); color: var(--kiwi-warning); }
+.status-badge.tone-danger { background: var(--kiwi-error-bg); color: var(--kiwi-error); }
+
+/* Filter chips [LY02]. */
+.filter-chip-add {
+  border-style: dashed !important;
+  color: var(--kiwi-primary) !important;
+  background: var(--kiwi-bg-paper) !important;
+}
+
+/* Popover, menus, export menu, account menu. */
+.popover {
+  position: relative;
+  display: inline-flex;
+}
+.popover-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  z-index: 40;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 32px));
+  background: var(--kiwi-bg-paper);
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  padding: 8px;
+}
+.popover-panel.align-end { right: 0; }
+.popover-panel.align-start { left: 0; }
+.menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.menu-item {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--kiwi-text-primary);
+}
+.menu-item:hover:not(:disabled) {
+  background: var(--kiwi-bg-hover);
+  color: var(--kiwi-primary);
+}
+.export-menu {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.account-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  padding: 2px;
+  color: var(--kiwi-text-secondary);
+}
+.account-panel {
+  display: grid;
+  gap: 10px;
+  padding: 6px;
+  font-size: 13px;
+}
+.account-panel p {
+  margin: 0;
+}
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Confirm dialog. */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(33, 33, 33, 0.4);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.dialog {
+  width: min(480px, 100%);
+  padding: 24px 24px 0;
+  /* SB-M04: a dialog taller than the window scrolls inside itself; Save/Cancel stay reachable at the bottom */
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+.dialog h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+.dialog-actions {
+  justify-content: flex-end;
+  position: sticky;
+  bottom: 0;
+  margin: 0 -24px;
+  padding: 12px 24px 24px;
+  background: var(--kiwi-bg-paper);
+  border-top: 1px solid var(--kiwi-border-light);
+}
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--kiwi-error);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 10px 15px;
+  min-height: 38px;
+}
+
+/* Multi-select bar. */
+.multi-select-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 16px;
+  margin: 12px 0;
+  background: var(--kiwi-bg-paper);
+  border: 1px solid var(--kiwi-primary);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+.multi-select-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Inline SVG charts. */
+.spark-bars { display: block; max-width: 100%; height: auto; }
+.spark-bar { fill: var(--kiwi-primary-light); }
+.spark-missing { fill: var(--kiwi-border-default); }
+.spark-shade { fill: var(--kiwi-warning-bg); }
+
+/* Teacher shell: top bar tools, drawer, notices. */
+.teacher-topbar {
+  padding: 12px 32px;
+  gap: 12px;
+}
+.topbar-course {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--kiwi-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.teacher-topbar-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.menu-button,
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 8px;
+  background: var(--kiwi-bg-paper);
+  color: var(--kiwi-text-primary);
+  flex-shrink: 0;
+}
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(33, 33, 33, 0.35);
+}
+.teacher-drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 51;
+  width: min(300px, 86vw);
+  background: var(--kiwi-bg-paper);
+  border-right: 1px solid var(--kiwi-border-default);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.teacher-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 12px;
+}
+.teacher-drawer .sidebar-scroll {
+  display: block;
+  padding: 8px 12px;
+}
+.teacher-drawer .nav-item,
+.teacher-drawer .nav-item:not(.active) {
+  display: flex;
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  text-decoration: none;
+  font-size: 14px;
+  min-height: 44px;
+  padding: 10px 14px;
+  white-space: nowrap;
+}
+.teacher-drawer .sidebar-bottom {
+  display: block;
+  margin-top: auto;
+}
+.presentation-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 20px;
+  background: var(--kiwi-bg-paper);
+  color: var(--kiwi-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+.presentation-toggle.pressed {
+  border: 2px solid var(--kiwi-primary);
+  color: var(--kiwi-primary);
+  padding: 5px 11px;
+}
+.preview-button {
+  white-space: nowrap;
+}
+.account-panel .preview-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+/* review 2 (TEACHER-10): below 1440 px the top bar stays one row — the Presentation mode pill shows its icon only (the name
+   stays for assistive tech), the time-range fallback note moves into the picker's tooltip (the option already says
+   "Since last class (last 7 days)") and the search box is narrower. */
+@media (min-width: 768px) {
+  .teacher-topbar .topbar-course {
+    flex: 1 1 0;
+    min-width: 120px;
+  }
+  .teacher-topbar .teacher-topbar-tools {
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
+  }
+}
+@media (max-width: 1439px) {
+  .teacher-topbar-tools .time-range-note {
+    display: none;
+  }
+  .teacher-topbar-tools .student-search input {
+    width: 140px;
+  }
+  .teacher-topbar-tools .time-range-picker select {
+    max-width: 200px;
+  }
+  .presentation-toggle span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .presentation-toggle {
+    padding: 6px 9px;
+  }
+  .presentation-toggle.pressed {
+    padding: 5px 8px;
+  }
+}
+.student-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--kiwi-bg-paper);
+  color: var(--kiwi-text-secondary);
+  min-width: 0;
+}
+.student-search input {
+  border: 0;
+  padding: 8px 0;
+  width: 180px;
+  max-width: 100%;
+  background: transparent;
+  box-shadow: none !important;
+  outline: none;
+}
+/* SB-m04 (WCAG 2.4.7): the search box shows keyboard focus on its frame */
+.student-search:focus-within {
+  border-color: var(--kiwi-primary);
+  outline: 2px solid var(--kiwi-primary);
+  outline-offset: 1px;
+}
+.student-search-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  width: max(100%, 260px);
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  background: var(--kiwi-bg-paper);
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+.student-search-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--kiwi-text-primary);
+}
+.student-search-list li[aria-selected="true"],
+.student-search-list li:hover {
+  background: var(--kiwi-bg-hover);
+}
+.student-search-list .student-search-empty {
+  cursor: default;
+  color: var(--kiwi-text-secondary);
+}
+.time-range-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.time-range-picker label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.time-range-label {
+  font-weight: 700;
+  color: var(--kiwi-text-secondary);
+}
+.time-range-picker select,
+.time-range-custom input {
+  font-size: 12px;
+  padding: 6px 8px;
+  max-width: 220px;
+}
+.time-range-custom {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.kiwi-sync-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--kiwi-primary);
+  background: var(--kiwi-bg-selected);
+  border-radius: 20px;
+  padding: 2px 4px 2px 12px;
+}
+.kiwi-sync-notice .text-button {
+  font-size: 12px;
+  color: var(--kiwi-primary);
+  padding: 4px 8px;
+}
+.kiwi-sync-error {
+  font-size: 12px;
+  color: var(--kiwi-warning);
+  white-space: nowrap;
+}
+.moved-notice p {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* Student preview banner (§3.4) and timed attempts. */
+.preview-banner {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 32px;
+  background: var(--kiwi-warning-bg);
+  border-bottom: 1px solid var(--kiwi-warning);
+  color: var(--kiwi-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+.time-limit-bar {
+  display: inline-flex;
+  /* S-m07: stays on screen while the student scrolls through the questions */
+  position: sticky;
+  top: 8px;
+  z-index: 6;
+  margin: 0 0 12px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: var(--kiwi-info-bg);
+  color: var(--kiwi-info);
+  font-weight: 700;
+  font-size: 13px;
+}
+.time-limit-bar.over {
+  background: var(--kiwi-error-bg);
+  color: var(--kiwi-error);
+}
+/* S-m07: the last 5 minutes */
+.time-limit-bar.low {
+  background: var(--kiwi-error-bg);
+  color: var(--kiwi-error);
+  box-shadow: 0 0 0 2px var(--kiwi-error);
+}
+.telemetry-status p {
+  margin: 0;
+}
+
+/* < 768 px: drawer navigation, compact top bar, no horizontal page scroll [LY05]. */
+@media (max-width: 767px) {
+  .role-teacher.is-narrow .main-area {
+    width: 100%;
+  }
+  .teacher-topbar {
+    padding: 10px 16px;
+    flex-wrap: wrap;
+  }
+  .teacher-topbar .topbar-course {
+    flex: 1 1 0;
+  }
+  .teacher-topbar-tools {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .student-search {
+    flex: 1 1 100%;
+  }
+  .student-search input {
+    width: 100%;
+  }
+  .role-teacher .teacher-content {
+    padding: 16px 16px 48px;
+  }
+  .page-header h1 {
+    font-size: 21px;
+  }
+  .preview-banner {
+    padding: 10px 16px;
+  }
+}
+
+/* SB-m05: "Skip to content" appears on keyboard focus only */
+.skip-link {
+  position: fixed;
+  left: 12px;
+  top: -48px;
+  z-index: 100;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--kiwi-primary);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 12px;
+  outline: 2px solid var(--kiwi-primary-dark);
+  outline-offset: 2px;
+}
+.teacher-content:focus {
+  outline: none;
+}

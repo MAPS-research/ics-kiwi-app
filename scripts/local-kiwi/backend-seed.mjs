@@ -118,9 +118,10 @@ try {
   await database.featureFlag.upsert({ where: { id: 'local-css-demo-r-language' }, update: { feature: 'RLanguageClass', classId }, create: { id: 'local-css-demo-r-language', feature: 'RLanguageClass', classId } });
   await database.kiwiAppWhitelist.upsert({ where: { slug: appSlug }, update: { status: 'approved', baseUrl: appUrl, maxScopes: scopes },
     create: { slug: appSlug, baseUrl: appUrl, registrationSecret: await bcrypt.hash(credentials.registrationSecret, 10), status: 'approved', maxScopes: scopes, approvedBy: teacher.id, description: 'Local CSS demo only' } });
-  const appFields = { name: 'CSS Kiwi R Lab', description: 'Adaptive R practice, assignments and teacher analytics.', baseUrl: appUrl,
+  // [AU-D2-24] no "Adaptive" claim; [AU-D2-11] tutoringMode "guidance": Kiwi's own chat on Lab pages gives hints, not answers.
+  const appFields = { name: 'CSS Kiwi R Lab', description: 'R practice, assignments and teacher analytics.', baseUrl: appUrl,
     version: JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')).version,
-    appType: 'frontend_only', category: 'plugin', isActive: true, capabilities: ['auth', 'frontend-actions'], config: {} };
+    appType: 'frontend_only', category: 'plugin', isActive: true, capabilities: ['auth', 'frontend-actions'], config: { tutoringMode: 'guidance' } };
   const app = await database.kiwiApp.upsert({ where: { slug: appSlug }, update: appFields, create: { slug: appSlug, ...appFields } });
   for (const fields of [
     { uiSlug: 'student', uiName: 'CSS R Practice', uiUrl: `${appUrl}/student`, placement: 'class-tab', allowedRoles: ['student', 'ta', 'instructor', 'professor', 'admin'] },

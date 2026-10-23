@@ -1,0 +1,213 @@
+/* insights workstream styles (owned by INSIGHTS; imported by src/main.tsx). Use the Kiwi theme tokens from src/theme.css.
+   Semantic success/error/warning/info colors stay separate from the purple interaction theme (P7). */
+
+/* ─── shared ─────────────────────────────────────────────────────────────────────────────── */
+.as-text { color: var(--kiwi-text-primary); }
+.segmented { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--kiwi-border-default); border-radius: 8px; overflow: hidden; }
+.segmented button { border: 0; background: var(--kiwi-bg-paper); color: var(--kiwi-text-secondary); font-size: 12px; font-weight: 600; padding: 6px 12px; }
+.segmented button + button { border-left: 1px solid var(--kiwi-border-default); }
+.segmented button[aria-pressed="true"], .segmented button[aria-selected="true"] { background: var(--kiwi-bg-selected); color: var(--kiwi-primary); }
+.timeline-toolbar, .conversation-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; }
+.conversation-toolbar .filter-chips { margin: 0; }
+.add-filter-panel { display: grid; gap: 8px; min-width: 220px; }
+.add-filter-panel label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
+.add-filter-panel select, .add-filter-panel input { font-size: 13px; padding: 6px 8px; max-width: 100%; }
+.purpose-export { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.purpose-export label { display: grid; gap: 2px; font-size: 11px; }
+.purpose-export input { font-size: 12px; padding: 6px 8px; width: 220px; max-width: 60vw; }
+.time-range-note { font-size: 11px; color: var(--kiwi-warning); max-width: 280px; line-height: 1.4; }
+.time-range-note a { color: var(--kiwi-primary); font-weight: 600; }
+.time-range-note .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ─── Home ───────────────────────────────────────────────────────────────────────────────── */
+.home-header-strip { font-size: 13px; line-height: 1.6; margin: -4px 0 12px; color: var(--kiwi-text-secondary); }
+.home-header-strip p { margin: 0; }
+.home-header-strip strong { color: var(--kiwi-text-primary); }
+.home-header-strip .text-button { font-size: 12px; padding: 0 4px; }
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: "needs needs" "attention reteach" "assignments asked" "glance glance";
+  gap: 12px;
+}
+.home-needs { grid-area: needs; }
+.home-attention { grid-area: attention; }
+.home-reteach { grid-area: reteach; }
+.home-assignments { grid-area: assignments; }
+.home-asked { grid-area: asked; }
+.home-glance { grid-area: glance; }
+.home-block { padding: 14px 16px; margin: 0; min-width: 0; }
+.home-block h2 { font-size: 15px; margin: 0 0 8px; }
+.home-block h3 { font-size: 13px; margin: 10px 0 4px; }
+.home-block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.home-block ul, .home-block ol { margin: 0 0 6px; padding-left: 18px; font-size: 13px; line-height: 1.7; }
+.home-block .text-button { font-size: 12px; }
+.home-chips { list-style: none; padding: 0 !important; display: flex; flex-wrap: wrap; gap: 8px; }
+.home-chip { display: inline-flex; align-items: center; gap: 2px; padding: 5px 12px; border-radius: 18px; font-size: 13px; font-weight: 600; border: 1px solid var(--kiwi-border-default); background: var(--kiwi-bg-paper); color: var(--kiwi-text-primary); text-decoration: none; }
+a.home-chip:hover { background: var(--kiwi-bg-hover); }
+.home-chip.tone-warning { border-color: var(--kiwi-warning); }
+.home-chip.tone-danger { border-color: var(--kiwi-error); }
+.home-chip.tone-info { border-color: var(--kiwi-info); }
+.chip-action { color: var(--kiwi-primary); }
+.chip-context { font-weight: 400; color: var(--kiwi-text-secondary); }
+.home-link { color: var(--kiwi-primary); text-decoration: none; }
+a.home-link:hover { text-decoration: underline; }
+.home-link.as-text { color: var(--kiwi-text-primary); }
+.attention-list { list-style: none; padding: 0 !important; }
+.attention-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 4px 0; border-bottom: 1px solid var(--kiwi-border-light); }
+.attention-row:last-child { border-bottom: 0; }
+.attention-name { font-weight: 700; color: var(--kiwi-text-primary); text-decoration: none; }
+.attention-reasons { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; }
+.attention-reason::before { content: "•"; color: var(--kiwi-warning); margin-right: 4px; }
+.rules-info { font-size: 12px; position: relative; }
+.rules-info summary { cursor: pointer; color: var(--kiwi-primary); }
+.rules-info ul { position: absolute; right: 0; z-index: 20; min-width: 260px; background: var(--kiwi-bg-paper); border: 1px solid var(--kiwi-border-default); border-radius: 8px; padding: 8px 12px 8px 24px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1); }
+.reteach-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.reteach-list li::marker { color: var(--kiwi-text-secondary); }
+.reteach-marked ul { padding-left: 18px; }
+.home-assignment-list { list-style: none; padding: 0 !important; }
+.asked-topics, .asked-flagged { margin: 4px 0; font-size: 13px; }
+.asked-flagged a { color: var(--kiwi-error); }
+.home-glance { font-size: 12px; color: var(--kiwi-text-secondary); padding: 2px 4px; }
+.home-glance-title { font-size: 12px; margin: 0; text-transform: none; color: var(--kiwi-text-secondary); }
+.home-glance p { margin: 2px 0 0; line-height: 1.7; }
+.home-kiwi-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 12px; }
+.home-kiwi-banner p { margin: 0; }
+@media (max-width: 767px) {
+  /* mobile order (§13.1): Needs your action → attention → re-teach → asked → assignments → glance */
+  .home-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "needs" "attention" "reteach" "asked" "assignments" "glance"; }
+}
+
+/* ─── Students needing attention ─────────────────────────────────────────────────────────── */
+.attention-rules { padding: 10px 14px; margin: 0 0 12px; }
+.attention-rules summary { cursor: pointer; font-weight: 700; }
+.attention-rules ul { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; }
+.attention-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 13px; }
+.attention-param { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.attention-param input { width: 72px; padding: 4px 6px; }
+.attention-group-name { margin: 8px 0; font-size: 13px; }
+.attention-group-name label { display: inline-flex; gap: 8px; align-items: center; }
+.attention-group-name input { padding: 6px 8px; min-width: 220px; max-width: 70vw; }
+
+/* ─── Activity explorer [LY02, LY05] ─────────────────────────────────────────────────────── */
+.explorer { padding-top: 12px; }
+.explorer-groups { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.explorer-groups button { flex: 0 0 auto; border: 1px solid var(--kiwi-border-default); background: var(--kiwi-bg-paper); color: var(--kiwi-text-secondary); border-radius: 18px; padding: 5px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.explorer-groups button.selected { background: var(--kiwi-bg-selected); color: var(--kiwi-primary); border-color: var(--kiwi-primary); }
+.explorer-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 4px; }
+.explorer-filter-row .filter-chips { margin: 0; }
+.explorer-filter-row .filter-chip-add { font-size: 11px; border: 1px solid var(--kiwi-border-default); border-radius: 20px; padding: 5px 10px; }
+.explorer-population { font-size: 12px; margin: 4px 0 0; }
+.explorer-table { max-height: min(70vh, 720px); overflow: auto; margin-top: 8px; }
+.data-table.sticky-head thead th { position: sticky; top: 0; z-index: 2; background: var(--kiwi-bg-paper); box-shadow: inset 0 -1px 0 var(--kiwi-border-default); }
+.data-table .pinned-col { position: sticky; right: 0; z-index: 1; background: var(--kiwi-bg-paper); box-shadow: inset 1px 0 0 var(--kiwi-border-light); white-space: nowrap; }
+.data-table.sticky-head thead th.pinned-col { z-index: 3; }
+.data-table .select-col { width: 32px; padding-right: 4px; }
+.data-table td.num, .data-table th.num { text-align: right; }
+/* review 2 (TEACHER-08): the Teaching preset fits about 870 px — headers wrap instead of widening the table */
+.explorer-table .data-table.sticky-head { min-width: 0; }
+.explorer-table .data-table.sticky-head th { white-space: normal; max-width: 128px; padding: 10px 12px; vertical-align: bottom; line-height: 1.35;
+  overflow-wrap: normal; word-break: normal; hyphens: manual; }
+.explorer-table .data-table.sticky-head th button { white-space: normal; text-align: inherit; overflow-wrap: normal; word-break: normal; }
+.explorer-table .data-table.sticky-head td { padding: 10px 12px; }
+.explorer-table .data-table.sticky-head th.pinned-col, .explorer-table .data-table.sticky-head td.pinned-col { max-width: none; white-space: nowrap; }
+.data-table.sticky-head td.row-title { min-width: 180px; }
+@media (max-width: 767px) {
+  .explorer { padding: 10px 12px; }
+  .explorer-table { max-height: none; }
+  .data-table.sticky-head, .explorer-table .data-table.sticky-head { min-width: 520px; }
+  .data-table.sticky-head th, .data-table.sticky-head td { padding: 8px 10px; }
+  .data-table.sticky-head td.row-title { min-width: 140px; }
+  .explorer-population { display: none; }
+}
+
+/* ─── timelines ──────────────────────────────────────────────────────────────────────────── */
+.timeline-session + .timeline-session { margin-top: 18px; padding-top: 14px; border-top: 2px dashed var(--kiwi-border-default); }
+.timeline .timeline-session-title { font-size: 13px; font-weight: 700; color: var(--kiwi-text-secondary); margin: 0 0 8px; }
+.timeline-events { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.timeline-event { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--kiwi-border-light); }
+.timeline-event time { font-size: 12px; color: var(--kiwi-text-secondary); }
+.timeline-event-title { margin: 0; font-size: 13px; }
+.timeline-event-context { margin: 2px 0 4px; font-size: 12px; }
+.timeline-detail pre, .timeline-exercise pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; background: var(--kiwi-bg-subtle); padding: 6px 8px; border-radius: 6px; margin: 4px 0; }
+.timeline-exercise summary { cursor: pointer; color: var(--kiwi-primary); font-size: 12px; font-weight: 600; }
+.exercise-meta { font-size: 11px; color: var(--kiwi-text-secondary); margin: 4px 0; }
+.exercise-stem { margin: 4px 0; font-size: 13px; }
+.exercise-choices { margin: 4px 0; padding-left: 22px; font-size: 13px; }
+.kind-grade_released .timeline-event-title strong { color: var(--kiwi-success); }
+@media (max-width: 767px) {
+  .timeline-event { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+
+/* ─── course metrics ─────────────────────────────────────────────────────────────────────── */
+.metric-cards .metric-card { text-decoration: none; }
+.metric-card .metric-label { font-size: 12px; font-weight: 600; color: var(--kiwi-text-secondary); }
+.metric-card.secondary { opacity: 0.85; }
+.metric-card.compact strong { font-size: 18px; line-height: 1.3; }
+.metric-delta { font-size: 12px; font-weight: 600; color: var(--kiwi-text-secondary); }
+.metrics-charts h2 { font-size: 15px; margin: 16px 0 8px; }
+.metrics-charts h2:first-child { margin-top: 0; }
+.trend-grid { display: flex; flex-wrap: wrap; gap: 14px 24px; }
+.trend-chart { margin: 0; }
+.trend-chart figcaption { font-size: 12px; color: var(--kiwi-text-secondary); margin-bottom: 4px; }
+
+/* ─── answers by question ────────────────────────────────────────────────────────────────── */
+.answers-by-question { display: grid; gap: 12px; }
+.answers-table h2 { font-size: 15px; margin: 0; }
+.answers-table .question-prompt { font-size: 13px; margin: 6px 0 0; }
+
+/* ─── AI conversations ───────────────────────────────────────────────────────────────────── */
+.digest { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.digest-block { margin: 0; min-width: 0; }
+.digest-block:last-child { grid-column: 1 / -1; }
+.digest-block h2 { font-size: 15px; margin: 0 0 8px; }
+.digest-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.digest-list p { margin: 2px 0; font-size: 13px; }
+.digest-prompt { font-weight: 600; }
+.data-table td.wrap-cell { white-space: normal; min-width: 240px; max-width: 520px; overflow-wrap: anywhere; }
+/* RT-03: Recent questions fits its box at 1280: long assignment labels wrap (full title in `title`), tighter cells, and the
+   action column stays pinned at the right edge when a narrow screen scrolls the table */
+.data-table.digest-recent-table { min-width: 600px; }
+.data-table.digest-recent-table th, .data-table.digest-recent-table td { padding: 10px 12px; }
+.data-table.digest-recent-table td.wrap-cell { min-width: 200px; }
+.data-table td.digest-assignment-cell { white-space: normal; min-width: 110px; max-width: 190px; overflow-wrap: anywhere; }
+.data-table td.digest-when-cell { white-space: normal; min-width: 92px; }
+.digest-topics { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.8; }
+.topic-rules-editor { margin-top: 10px; font-size: 12px; }
+.topic-rules-editor summary { cursor: pointer; color: var(--kiwi-primary); font-weight: 600; }
+.topic-rules-editor textarea { width: 100%; font-family: var(--kiwi-font-family-mono); font-size: 12px; margin: 6px 0; }
+.coding-columns { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 12px; align-items: start; }
+.coding-list, .coding-thread { margin: 0; min-width: 0; }
+.thread-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; max-height: 60vh; overflow: auto; }
+.thread-item { display: grid; gap: 2px; width: 100%; text-align: left; border: 1px solid var(--kiwi-border-light); background: var(--kiwi-bg-paper); border-radius: 8px; padding: 8px 10px; font-size: 12px; }
+.thread-item.selected { border-color: var(--kiwi-primary); background: var(--kiwi-bg-selected); }
+.thread-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.thread-view h2 { font-size: 16px; margin: 0; }
+.thread-turns { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 14px; }
+.thread-turn { border-bottom: 1px solid var(--kiwi-border-light); padding-bottom: 12px; }
+.thread-turn-meta { font-size: 12px; margin: 0 0 4px; }
+.thread-prompt { margin: 0 0 4px; font-size: 13px; }
+.thread-response { font-size: 13px; background: var(--kiwi-bg-subtle); border-radius: 8px; padding: 6px 10px; }
+.thread-turn-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 6px; font-size: 12px; }
+.native-feedback { margin: 6px 0; padding-left: 18px; font-size: 12px; }
+.ai-call-panel { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
+.ai-call-detail { flex-basis: 100%; }
+.ai-call-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; max-height: 320px; overflow: auto; background: var(--kiwi-bg-subtle); padding: 8px; border-radius: 6px; }
+.guard-matches { font-size: 12px; padding-left: 18px; }
+.turn-codes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.code-chip { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; font-weight: 600; border-radius: 14px; padding: 1px 4px 1px 10px; background: var(--kiwi-info-bg); color: var(--kiwi-info); }
+.code-chip .icon-button { padding: 0 4px; font-size: 11px; }
+.turn-codes select { font-size: 12px; padding: 3px 6px; }
+.codebook-panel { margin-top: 10px; font-size: 12px; }
+.codebook-panel summary { cursor: pointer; font-weight: 700; }
+.codebook-panel ul { padding-left: 0; list-style: none; display: grid; gap: 4px; }
+.codebook-panel li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.codebook-panel .codebook-archive { margin-left: auto; }
+.codebook-form { display: grid; gap: 6px; margin-top: 6px; }
+.codebook-form input, .codebook-form select { font-size: 12px; padding: 5px 7px; }
+.generated-exercise { font-size: 13px; }
+@media (max-width: 900px) {
+  .digest { grid-template-columns: minmax(0, 1fr); }
+  .coding-columns { grid-template-columns: minmax(0, 1fr); }
+  .thread-list { max-height: 40vh; }
+}
