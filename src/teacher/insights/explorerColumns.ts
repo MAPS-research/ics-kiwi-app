@@ -36,7 +36,7 @@ export function explorerGroup(value: string | null | undefined): ExplorerGroup {
 
 export interface CellContext {
   course: Course | null; assignmentTitle: (id: string) => string;
-  /** a time range is applied: an empty "Last activity" means none in this period (review 2, TEACHER-09) */
+  /** a time range is applied: an empty "Last seen" / "Last learning action" means none in this period (review 2, TEACHER-09) */
   ranged?: boolean;
 }
 export interface ExplorerColumn {
@@ -45,6 +45,8 @@ export interface ExplorerColumn {
   /** server sort key (omitted: not sortable) */
   sort?: string;
   numeric?: boolean;
+  /** a date column whose cell may wrap ("Oct 22, 2026, / 1:58 PM"), so seven Students columns fit at 1280 (K-m01) */
+  stamp?: boolean;
   cell: (row: AnalyticsRow, ctx: CellContext) => string;
 }
 
@@ -52,6 +54,11 @@ const pct = (value: number | null | undefined) => (value === null || value === u
 const num = (value: number | null | undefined) => (value === null || value === undefined ? "—" : formatNumber(value));
 const when = (value: string | null | undefined, ranged = false) =>
   value ? formatDateTime(value) : ranged ? "No activity in this period" : "No activity yet";
+/** K-m01 (B-m01): the two named stamps, with empty texts that say which one is missing. */
+const seenAt = (value: string | null | undefined, ranged = false) =>
+  value ? formatDateTime(value) : ranged ? "Not seen in this period" : "Not seen yet";
+const learnedAt = (value: string | null | undefined, ranged = false) =>
+  value ? formatDateTime(value) : ranged ? "None in this period" : "None yet";
 const chapterOf = (row: AnalyticsRow, ctx: CellContext) =>
   ctx.course?.units.find((u) => u.id === row.unitId)?.title || (row.unitId ? row.unitId : "Not linked to a chapter");
 
@@ -72,7 +79,11 @@ export function rowTitle(group: ExplorerGroup, row: AnalyticsRow, ctx: CellConte
 
 const C = {
   student: (label = "Student"): ExplorerColumn => ({ key: "student", label, sort: "label", cell: (r) => r.studentName || r.label || r.studentId || "" }),
-  lastActive: (): ExplorerColumn => ({ key: "lastActive", label: "Last activity", sort: "lastActive", cell: (r, ctx) => when(r.lastActive, ctx.ranged) }),
+  /** K-m01: *Last seen* — the newest event of any kind (the roster's column); the server's `lastActive` */
+  lastSeen: (): ExplorerColumn => ({ key: "lastActive", label: LABELS.lastSeen, sort: "lastActive", stamp: true, cell: (r, ctx) => seenAt(r.lastActive, ctx.ranged) }),
+  /** K-m01: *Last learning action* — answers, code runs, AI questions, submissions (the No learning actions rule) */
+  lastLearningAction: (): ExplorerColumn => ({ key: "lastLearningAction", label: LABELS.lastLearningAction, sort: "lastLearningAction", stamp: true,
+    cell: (r, ctx) => learnedAt(r.lastLearningAction, ctx.ranged) }),
   attempts: (): ExplorerColumn => ({ key: "attempts", label: "Attempts", sort: "attempts", numeric: true, cell: (r) => num(r.attempts) }),
   accuracy: (): ExplorerColumn => ({ key: "serverAccuracy", label: LABELS.autoCheckedAccuracy, sort: "serverAccuracy", numeric: true, cell: (r) => pct(r.serverAccuracy ?? r.accuracy) }),
   similar: (): ExplorerColumn => ({ key: "similarAccuracy", label: LABELS.similarPracticeAccuracy, sort: "similarAccuracy", numeric: true, cell: (r) => pct(r.similarAccuracy) }),
@@ -80,10 +91,13 @@ const C = {
   students: (): ExplorerColumn => ({ key: "students", label: "Students", sort: "students", numeric: true, cell: (r) => num(r.students) }),
 };
 
-/** Teaching preset: exactly the §13.4 table (six columns per group); `See details` is pinned separately. */
+/**
+ * Teaching preset: the §13.4 table (six columns per group; Students has seven since K-m01 split "Last activity" into
+ * Last learning action and Last seen); `See details` is pinned separately. Every other "Last activity" is *Last seen*.
+ */
 export const TEACHING_COLUMNS: Readonly<Record<ExplorerGroup, readonly ExplorerColumn[]>> = {
   students: [
-    C.student(), C.lastActive(), C.attempts(), C.accuracy(), C.ai(),
+    C.student(), C.lastLearningAction(), C.lastSeen(), C.attempts(), C.accuracy(), C.ai(),
     { key: "missingWork", label: "Missing work", sort: "missingWork", numeric: true, cell: (r) => num(r.missingWork) },
   ],
   chapters: [
@@ -94,7 +108,7 @@ export const TEACHING_COLUMNS: Readonly<Record<ExplorerGroup, readonly ExplorerC
     { key: "assignment", label: "Assignment", sort: "label", cell: (r) => r.label || r.title || "" },
     { key: "submitted", label: "Submitted (whole term)", sort: "submitted", numeric: true, cell: (r) => (r.kind === "practice" ? "In-class" : num((r as AnalyticsRow & { submitted?: number | null }).submitted)) },
     { key: "homeworkAvgScorePct", label: "Homework avg score", sort: "homeworkAvgScorePct", numeric: true, cell: (r) => pct(r.homeworkAvgScorePct) },
-    C.accuracy(), C.similar(), C.lastActive(),
+    C.accuracy(), C.similar(), C.lastSeen(),
   ],
   questions: [
     { key: "question", label: "Question", sort: "label", cell: (r, ctx) => rowTitle("questions", r, ctx) },
@@ -109,7 +123,7 @@ export const TEACHING_COLUMNS: Readonly<Record<ExplorerGroup, readonly ExplorerC
     C.students(),
     { key: "views", label: "Views", sort: "views", numeric: true, cell: (r) => num(r.views) },
     { key: "kiwiAiQuestions", label: `${LABELS.kiwiLectureAi} questions`, sort: "kiwiAiQuestions", numeric: true, cell: (r) => num((r as AnalyticsRow & { kiwiAiQuestions?: number }).kiwiAiQuestions ?? r.aiQuestions) },
-    C.lastActive(),
+    C.lastSeen(),
   ],
   "question-activities": [
     C.student(),
@@ -123,7 +137,7 @@ export const TEACHING_COLUMNS: Readonly<Record<ExplorerGroup, readonly ExplorerC
     C.student(),
     { key: "session", label: "Study session", cell: (r) => r.label || "" },
     { key: "startedAt", label: "Started", sort: "startedAt", cell: (r) => when(r.startedAt) },
-    C.lastActive(),
+    C.lastSeen(),
     { key: "actions", label: "Logged actions", sort: "actions", numeric: true, cell: (r) => num(r.actions) },
     C.ai(),
   ],

@@ -76,8 +76,9 @@ describe("label builders", () => {
     expect(homeworkSubmissionTitle(1)).toBe("Homework submission · Attempt 1");
     expect(publishedHomeworkLabel(3)).toBe("Published homework (+3 in-class exercises)");
     expect(publishedHomeworkLabel(1)).toBe("Published homework (+1 in-class exercise)");
-    expect(activeOfEnrolledLabel("this_week", 1, 2)).toBe("Active this week: 1 of 2 enrolled");
-    expect(activeOfEnrolledLabel("since_last_class", 1, 2)).toBe("Active since last class: 1 of 2 enrolled");
+    expect(activeOfEnrolledLabel("this_week", 1, 2)).toBe("Active this week: 1 of 2 (learning actions)");
+    expect(activeOfEnrolledLabel("since_last_class", 1, 2)).toBe("Active since last class: 1 of 2 (learning actions)");
+    expect(activeOfEnrolledLabel("whole_term", 3, 4, "+1 vs last wk")).toBe("Active this term: 3 of 4 (learning actions; +1 vs last wk)");
     expect(thisWeeksChapterLabel(3, 2, 5)).toBe("This week's chapter: 03 (2 of 5 completed)");
   });
 });

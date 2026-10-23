@@ -116,6 +116,8 @@ a.home-link:hover { text-decoration: underline; }
 .explorer-table .data-table.sticky-head td { padding: 10px 12px; }
 .explorer-table .data-table.sticky-head th.pinned-col, .explorer-table .data-table.sticky-head td.pinned-col { max-width: none; white-space: nowrap; }
 .data-table.sticky-head td.row-title { min-width: 180px; }
+/* K-m01: Last learning action / Last seen dates wrap to two lines, so the seven Students columns fit at 1280 */
+.explorer-table .data-table.sticky-head td.stamp-cell { white-space: normal; min-width: 92px; max-width: 120px; }
 @media (max-width: 767px) {
   .explorer { padding: 10px 12px; }
   .explorer-table { max-height: none; }

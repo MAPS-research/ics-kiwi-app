@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:server": "python3 -m unittest discover -s server -p 'test_*.py'",
     "test:bridge": "node scripts/local-kiwi/run-bridge-tests.mjs",
+    "test:scripts": "node --test scripts/local-kiwi/config.test.mjs",
     "postinstall": "npm run prepare:webr",
     "prepare:webr": "node scripts/copy-webr.mjs",
     "demo:setup": "node scripts/local-kiwi/setup.mjs",

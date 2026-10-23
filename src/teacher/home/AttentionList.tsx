@@ -45,7 +45,8 @@ export function AttentionRows({
           <span className="attention-reasons">
             {s.reasons.map((r, i) => (
               <span key={`${r.rule}-${i}`} className="attention-reason">
-                <HomeLink href={r.href} allowed={canGrade || !r.href.startsWith("/teacher/grading")} title={r.title}>
+                <HomeLink href={r.href} allowed={canGrade || !r.href.startsWith("/teacher/grading")} title={r.title}
+                  ariaLabel={`${r.text} — ${studentLabel(s)}`}>
                   {r.text}
                 </HomeLink>
                 {lastSeenSuffix(r) && <span className="attention-seen">{lastSeenSuffix(r)}</span>}

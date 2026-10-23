@@ -67,7 +67,9 @@ class LoggingTests(unittest.TestCase):
 class MainTests(unittest.TestCase):
     def test_migration_failure_exits_with_status_1(self) -> None:
         err = io.StringIO()
-        with patch.object(app, "init_db", side_effect=migrations.MigrationError("snapshot is newer")), redirect_stderr(err), \
+        # WHY the fake server: main() binds the port before migrating; a test must never bind the live API port
+        with patch.object(app, "ThreadingHTTPServer"), \
+                patch.object(app, "init_db", side_effect=migrations.MigrationError("snapshot is newer")), redirect_stderr(err), \
                 self.assertRaises(SystemExit) as caught:
             app.main()
         self.assertEqual(caught.exception.code, 1)

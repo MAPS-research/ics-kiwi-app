@@ -16,6 +16,12 @@
 /* RV6-m15: group names and "Activities recorded" wrap instead of being clipped at the table edge */
 .data-table td.roster-wrap-cell { white-space: normal; min-width: 110px; }
 .data-table td.roster-profile-cell { min-width: 130px; }
+/* K-m05: the activity and missing-work explanations are visible text, not hover-only tooltips */
+.roster-column-help { margin: 12px 0 0; max-width: 100ch; font-size: 12px; line-height: 1.5; }
+@media (max-width: 767px) { .data-table td.roster-seen-cell { min-width: 150px; } }   /* two lines on phones, no overflow at 1280 */
+.data-table th .th-note { display: block; font-size: 11px; font-weight: 400; color: var(--kiwi-text-secondary); white-space: normal; }
+.roster-missing summary { cursor: pointer; width: max-content; }
+.roster-missing ul { margin: 4px 0 0; padding-left: 16px; font-size: 12px; line-height: 1.45; white-space: normal; overflow-wrap: anywhere; }
 .roster-import summary { cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .roster-import textarea { width: 100%; box-sizing: border-box; font-family: var(--kiwi-font-family-mono); }
 .mapping-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 12px 0; }
@@ -67,6 +73,12 @@
 .key-notice code { font-size: 1rem; }
 .warning-list { color: var(--kiwi-warning); margin: 8px 0; padding-left: 20px; }
 .package-result { margin-top: 12px; }
+/* K-m06: Course package import options — one column; the checkbox label matches the 13 px form labels and lines up with
+   its box. `.checkbox-label.form-check` (two classes) outranks the 16 px default of a bare .checkbox-label. */
+.package-import-options { display: grid; gap: 10px; justify-items: start; margin: 13px 0 16px; }
+.package-import-options > .work-label { margin: 0; width: min(220px, 100%); }
+.checkbox-label.form-check { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; line-height: 1.4; color: var(--kiwi-text-secondary); }
+.checkbox-label.form-check > input[type="checkbox"] { margin: 0; flex: none; }
 /* Decision D4: template notes under each chapter in the import preview. */
 .package-notes { margin: 4px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.45; max-width: 60ch; overflow-wrap: anywhere; }
 /* S-m11: the chapter column carries the template notes, so it gets most of the width */

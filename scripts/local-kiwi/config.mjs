@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 export const root = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
 export const local = path.join(root, '.local');
+const projectRoot = root;
+const localRoot = local;
 export const nodeVersion = '24.21.0';
 export const manifest = {
   kiwi: { url: 'https://github.com/NYUSH-ML/kiwi.git', commit: '2fe8d2d331dc619a1e22fe2fa61df2758ba7b353' },
@@ -13,17 +15,82 @@ export const manifest = {
 export const runtimeName = `node-v${nodeVersion}-darwin-${process.arch}`;
 export const nodeBinary = path.join(local, 'runtime', runtimeName, 'bin/node');
 
-export function readEnv(file) {
+/** The ports of the App: the API port follows KIWI_API_PORT; the UI stays on 8100 (the Kiwi app registration uses it). */
+export const defaultApiPort = '8101';
+export const appUiPort = '8100';
+
+const warnedDuplicates = new Set();
+
+/**
+ * Parse a dotenv file. The first line of a name wins, as in `server/app.py` (`load_dotenv`), so the API and these
+ * scripts agree on which line counts; a name set on several lines gets one warning per file naming it (never its value).
+ * `warn` is injectable for tests.
+ */
+export function readEnv(file, { warn = message => console.warn(message) } = {}) {
   if (!fs.existsSync(file)) return {};
-  return Object.fromEntries(fs.readFileSync(file, 'utf8').split(/\r?\n/).flatMap(line => {
+  const values = {};
+  const repeated = [];
+  for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
     const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
-    if (!match) return [];
+    if (!match) continue;
+    const name = match[1];
+    if (Object.hasOwn(values, name)) {
+      if (!repeated.includes(name)) repeated.push(name);
+      continue; // WHY: first line wins (a later duplicate never replaces it)
+    }
     let value = match[2].trim();
     if (value.startsWith('"') && value.endsWith('"')) {
       try { value = JSON.parse(value); } catch { value = value.slice(1, -1); }
     } else if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
-    return [[match[1], value]];
-  }));
+    values[name] = value;
+  }
+  const key = `${path.resolve(file)}:${repeated.join(',')}`;
+  if (repeated.length && !warnedDuplicates.has(key)) {
+    warnedDuplicates.add(key);
+    warn(`Warning: ${path.basename(file)} sets ${repeated.join(', ')} on more than one line; the first line of each is used.`);
+  }
+  return values;
+}
+
+/**
+ * The App API port, resolved like `server/app.py`: the environment first, then the project `.env`, then 8101.
+ * Throws for a value that is not a port number (the same check as `vite.config.ts`).
+ */
+export function apiPort(env = process.env, projectEnv = readEnv(path.join(root, '.env'))) {
+  const value = env.KIWI_API_PORT !== undefined ? env.KIWI_API_PORT : projectEnv.KIWI_API_PORT ?? defaultApiPort;
+  if (!/^\d{2,5}$/.test(String(value))) throw new Error(`KIWI_API_PORT must be a port number, got "${value}"`);
+  return String(value);
+}
+
+/**
+ * The services `npm run demo:start` launches and polls (start.mjs). The app API's URL follows `apiPort()`, and the API
+ * and Vite both get that KIWI_API_PORT (Vite reads it from its environment only, never from .env).
+ */
+export function demoServices(node = nodeBinary, port = apiPort()) {
+  const appEnv = { KIWI_API_PORT: port };
+  return [
+    { name: 'kiwi-api', url: 'http://localhost:3000/health', command: node, args: ['scripts/local-kiwi/backend-start.mjs'] },
+    { name: 'kiwi-ui', url: 'http://localhost:3001/', command: node, args: ['scripts/local-kiwi/frontend.mjs', 'start'] },
+    { name: 'app-api', url: `http://127.0.0.1:${port}/api/health`, command: 'python3', args: ['server/app.py'], env: appEnv },
+    { name: 'app-ui', url: `http://127.0.0.1:${appUiPort}/api/health`, command: node,
+      args: ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', appUiPort, '--strictPort'], env: appEnv },
+  ];
+}
+
+/** Environment for git: never wait for a password prompt (a private repository without access fails at once). */
+export function gitEnv(env = process.env) {
+  // WHY GCM_INTERACTIVE: Git Credential Manager would otherwise open a sign-in window and wait just the same
+  return { ...env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' };
+}
+
+/** What to say when `git clone` fails; exit code 128 is git's "fatal" (no access, repository not found, no network). */
+export function cloneFailureMessage(url, code) {
+  const repository = String(url).replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '');
+  if (code === 128) {
+    return `cannot access ${repository} — check GitHub access (sign in with \`gh auth login\` or add an SSH key, `
+      + `and make sure your account can open https://github.com/${repository}), then run npm run demo:setup again.`;
+  }
+  return `git clone of ${repository} failed (exit ${code}).`;
 }
 
 function privateEnv(file, values) {
@@ -31,19 +98,20 @@ function privateEnv(file, values) {
   fs.chmodSync(file, 0o600);
 }
 
-export function configureLocalDemo() {
+/** `root` and `local` are parameters only so tests can run this in a temporary directory. */
+export function configureLocalDemo({ root = projectRoot, local = localRoot } = {}) {
   fs.mkdirSync(local, { recursive: true });
   const project = readEnv(path.join(root, '.env'));
   const key = project.OPEN_AI_TEST_KEY || project.OPENAI_API_KEY;
   if (!key) throw new Error('Add OPEN_AI_TEST_KEY to the project .env before running demo:setup.');
   // v0.6.0: no fallback teacher key. The standalone teacher workspace stays closed until KIWI_TEACHER_KEY is set.
-  const accessPath = path.join(local, 'app-access.json');
-  if (project.KIWI_TEACHER_KEY) {
-    fs.writeFileSync(accessPath, JSON.stringify({ teacherKey: project.KIWI_TEACHER_KEY }) + '\n', { mode: 0o600 });
-    fs.chmodSync(accessPath, 0o600);
-  } else {
+  // The API reads the key from .env; nothing reads a copy, so none is written (.local/app-access.json is retired).
+  if (!project.KIWI_TEACHER_KEY) {
     console.log('KIWI_TEACHER_KEY is not set: the standalone teacher workspace stays closed (Kiwi-linked courses are not affected).');
     console.log('To use it, add a long random value to .env, e.g.  KIWI_TEACHER_KEY=$(openssl rand -hex 24)  and restart the app API.');
+  }
+  if (fs.existsSync(path.join(local, 'app-access.json'))) {
+    console.log('.local/app-access.json is no longer used and may hold an old copy of the teacher key; you can delete it (rm .local/app-access.json).');
   }
   const infraPath = path.join(local, 'infra.env');
   let infra = readEnv(infraPath);

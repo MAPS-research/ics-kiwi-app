@@ -9,7 +9,7 @@ import { Popover } from "../../components/Popover";
 import { StatusBadge, assignmentStateBadge } from "../../components/StatusBadge";
 import { api } from "../../lib/api";
 import { formatRelative } from "../../lib/format";
-import { LABELS } from "../../lib/labels";
+import { LABELS, rowActionLabel } from "../../lib/labels";
 import { navigate } from "../../lib/navigation";
 import { rememberPreviewReturn } from "../../lib/previewReturn";
 import { previewPaths, teacherPaths } from "../../lib/routes";
@@ -187,18 +187,21 @@ export function AssignmentRow({ item, course, permissions, busy, timeZone, load,
         </div>
         {protection && <small className="muted assess-protection">{protection}</small>}
       </div>
+      {/* K-m04: every row has the same buttons, so each one names its assignment (visible text first) */}
       <div className="assess-row-actions">
         {homework ? (
           published && canGrade && button.href ? (
             <button type="button" className={button.kind === "done" || (button.kind === "grade" && item.stats.toGrade === 0) ? "outline-button" : "primary-button"} disabled={busy}
-              onClick={() => onAction("open", item, button.href ?? undefined)}>
+              aria-label={`${button.label} — ${item.title}`} onClick={() => onAction("open", item, button.href ?? undefined)}>
               {button.label}
             </button>
           ) : published ? <span className="muted">{button.label}</span> : null
         ) : (
-          published && <button type="button" className="outline-button" onClick={() => onAction("open", item, teacherPaths.exerciseResults(item.id))}>{LABELS.results}</button>
+          published && <button type="button" className="outline-button" aria-label={rowActionLabel(LABELS.results, item.title)}
+            onClick={() => onAction("open", item, teacherPaths.exerciseResults(item.id))}>{LABELS.results}</button>
         )}
-        <button type="button" className="outline-button" onClick={() => onAction("edit", item)}>
+        <button type="button" className="outline-button" aria-label={`${permissions.includes("editAssignments") ? "Edit" : "View"} ${item.title}`}
+          onClick={() => onAction("edit", item)}>
           {permissions.includes("editAssignments") ? "Edit" : "View"}
         </button>
         <AssignmentRowMenu item={item} permissions={permissions} busy={busy} onAction={onAction} />

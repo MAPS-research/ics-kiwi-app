@@ -2,10 +2,12 @@ import type { ReactNode } from "react";
 import { navigate } from "../../lib/navigation";
 
 /** A link when the role can open the target, plain text otherwise (viewers see `To grade 12` as text [F15, INSIGHTS-25]). */
-export function HomeLink({ href, allowed, children, className = "home-link", title }: {
+export function HomeLink({ href, allowed, children, className = "home-link", title, ariaLabel }: {
   href: string; allowed: boolean; children: ReactNode; className?: string;
   /** Tooltip, e.g. the original of a missing revision (D8) */
   title?: string;
+  /** K-m04: the accessible name of a link whose text repeats on other rows (starts with the visible text) */
+  ariaLabel?: string;
 }) {
   if (!allowed) return <span className={`${className} as-text`} title={title}>{children}</span>;
   return (
@@ -13,6 +15,7 @@ export function HomeLink({ href, allowed, children, className = "home-link", tit
       className={className}
       href={href}
       title={title}
+      aria-label={ariaLabel}
       onClick={(e) => {
         e.preventDefault();
         navigate(href);

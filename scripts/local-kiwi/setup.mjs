@@ -3,13 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { root, local, manifest, nodeVersion, runtimeName, nodeBinary, configureLocalDemo, redact } from './config.mjs';
+import { root, local, manifest, nodeVersion, runtimeName, nodeBinary, configureLocalDemo, redact, gitEnv, cloneFailureMessage } from './config.mjs';
 
 async function run(command, args, cwd = root, env = process.env) {
   await new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, env, stdio: 'inherit' });
     child.once('error', reject);
-    child.once('exit', code => code === 0 ? resolve() : reject(new Error(`${path.basename(command)} exited ${code}`)));
+    child.once('exit', code => code === 0 ? resolve()
+      : reject(Object.assign(new Error(`${path.basename(command)} exited ${code}`), { exitCode: code })));
   });
 }
 
@@ -35,8 +36,14 @@ try {
   for (const [name, repository] of Object.entries(manifest)) {
     const checkout = path.join(local, name);
     if (!fs.existsSync(path.join(checkout, '.git'))) {
-      await run('git', ['clone', '--no-checkout', repository.url, checkout]);
-      await run('git', ['checkout', '--detach', repository.commit], checkout);
+      // Private repositories: git must fail instead of waiting for a password nobody sees (GIT_TERMINAL_PROMPT=0)
+      try {
+        await run('git', ['clone', '--no-checkout', repository.url, checkout], root, gitEnv());
+      } catch (error) {
+        if (error.exitCode === undefined) throw error;   // git itself did not start (not installed)
+        throw new Error(cloneFailureMessage(repository.url, error.exitCode), { cause: error });
+      }
+      await run('git', ['checkout', '--detach', repository.commit], checkout, gitEnv());
     }
     const revision = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: checkout, encoding: 'utf8' });
     if (revision.status !== 0 || revision.stdout.trim() !== repository.commit) {

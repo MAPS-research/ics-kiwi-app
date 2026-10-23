@@ -98,9 +98,10 @@ export function GradebookView({ book, canGrade, canExport, groups, policy, searc
             </button>
           ))}
         </div>
+        {/* K-m04: not "Find a student" — that is the top bar's search, and two fields must not share one name */}
         <label>
-          Find a student
-          <input type="search" value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search name or ID" />
+          Filter students
+          <input type="search" value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Name or ID" />
         </label>
         {groups.length > 0 && (
           <label>

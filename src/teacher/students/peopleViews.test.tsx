@@ -53,8 +53,8 @@ describe("Roster view (PEOPLE-14, NM24)", () => {
         selected={new Set()} onFilter={() => {}} onPage={() => {}} onEdit={() => {}} onToggle={() => {}} onToggleAll={() => {}} />,
     );
     expect([...ROSTER_COLUMNS]).toEqual(["Student", "ID", "Group", "Last seen", "Missing work", "Research consent", "Profile"]);
-    for (const column of ROSTER_COLUMNS) expect(html).toMatch(new RegExp(`<th( title="[^"]*")?>${column}</th>`));
-    expect(html).toContain("Open profile");
+    for (const column of ROSTER_COLUMNS) expect(html).toMatch(new RegExp(`<th( title="[^"]*")?>${column}(<small[^>]*>[^<]*</small>)?</th>`));
+    expect(html).toContain('aria-label="Open profile for Ada Chen">Open profile</button>');   // K-m04
     expect(html).toContain("Activities recorded: 7");
     expect(html).toContain("Not asked");
     expect(html).toContain("Section A");
@@ -121,10 +121,17 @@ describe("B-m01 / D8: last seen, last learning action and Missing work", () => {
     const real = Date.now();   // the roster cell formats against the clock
     const html = roster([entry({ lastActive: new Date(real - 120_000).toISOString(), lastLearningAction: new Date(real - 11 * 86_400_000).toISOString() }),
       entry({ studentId: "s2" })]);
-    expect(html).toContain(`<th title="${LABELS.lastSeenHelp} ${LABELS.learningActionsHelp}">Last seen</th>`);
-    expect(html).toContain('<td title="Last learning action: 11 days ago">2 min ago</td>');
-    expect(html).toContain('<td title="Last learning action: none yet">Not seen yet</td>');
+    expect(html).toContain(`<th title="${LABELS.lastSeenHelp} ${LABELS.learningActionsHelp}">Last seen<small class="th-note" aria-hidden="true">any event</small></th>`);
+    // K-m05: the last learning action is printed in the cell (the tooltip stays as a second copy)
+    expect(html).toContain('<td class="roster-wrap-cell roster-seen-cell" title="Last learning action: 11 days ago">2 min ago<small class="muted block">Last learning action: 11 days ago</small></td>');
+    expect(html).toContain('<td class="roster-wrap-cell roster-seen-cell" title="Last learning action: none yet">Not seen yet<small class="muted block">Last learning action: none yet</small></td>');
     expect(html).not.toContain("Last active");
+  });
+  it("K-m05: the column definitions are visible above the table and describe it", () => {
+    const html = roster([entry()]);
+    expect(html).toContain(`<p class="muted roster-column-help" id="roster-column-help">${LABELS.lastSeenHelp} ${LABELS.learningActionsHelp} Missing work: ${LABELS.missingWorkHelp}</p>`);
+    expect(html).toContain('<table class="data-table roster-table" aria-describedby="roster-column-help">');
+    expect(html).toContain('<small class="th-note" aria-hidden="true">revisions count once</small>');
   });
   it("B-m01: the profile header shows both stamps", () => {
     const header = { lastActive: "2026-10-23T12:58:00Z", lastLearningAction: "2026-10-12T13:00:00Z", missing: 1, late: 0, avgScorePct: null };
@@ -143,10 +150,13 @@ describe("B-m01 / D8: last seen, last learning action and Missing work", () => {
   });
   it("D8: the Missing work count names the original of a revision in its tooltip", () => {
     const html = roster([entry()]);
-    expect(html).toContain(`<th title="${LABELS.missingWorkHelp}">Missing work</th>`);
-    expect(html).toContain('<td title="Files HW — revision (new version of Files HW) · Week 4 HW">2</td>');
+    expect(html).toContain(`<th title="${LABELS.missingWorkHelp}">Missing work<small class="th-note" aria-hidden="true">revisions count once</small></th>`);
+    // K-m05: the list opens from the count (a disclosure: keyboard and touch), and the tooltip stays
+    expect(html).toContain('<td class="roster-wrap-cell" title="Files HW — revision (new version of Files HW) · Week 4 HW"><details class="roster-missing">'
+      + '<summary aria-label="Missing work for Ada Chen: 2">2</summary><ul><li>Files HW — revision (new version of Files HW)</li><li>Week 4 HW</li></ul></details></td>');
     expect(missingWorkTooltip([])).toBe("");
-    expect(roster([entry({ missingWork: 0, missingWorkItems: [] })])).toContain("<td>0</td>");
+    expect(roster([entry({ missingWork: 0, missingWorkItems: [] })])).toContain('<td class="roster-wrap-cell">0</td>');
+    expect(roster([entry({ missingWork: 1, missingWorkItems: undefined })])).toContain('<td class="roster-wrap-cell">1</td>');   // an older server sends no list
   });
   it("D8: profile rows explain a revision, a replaced original and a submission to the other version", () => {
     const rows = [

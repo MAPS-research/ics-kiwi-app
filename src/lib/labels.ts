@@ -142,7 +142,7 @@ export const LABELS = {
   autoCheckedAccuracy: "Auto-checked accuracy (your questions)",
   similarPracticeAccuracy: "Similar practice accuracy (AI)",
   runResultNotRecorded: "Run result not recorded",
-  avgLoggedActions: "Avg. logged actions per active student",
+  avgLoggedActions: "Avg. learning actions per active student",
   answerAttemptsPerActive: "Answer attempts per active student",
   codeRuns: "Code runs",
   workLabel: "Work",
@@ -174,6 +174,7 @@ export const LABELS = {
   lastSeenHelp: "Last seen: the newest event of any kind from this student, page views and time on a page included.",
   lastLearningAction: "Last learning action",
   learningActionsHelp: "Learning actions are answers, code runs, AI questions and submissions.",
+  activeHelp: "Active: enrolled students with at least one learning action (an answer, code run, AI question or submission) in this period.",
   noLearningActions: "No learning actions",
   // D8: a homework and its revisions count once
   missingWork: "Missing work",
@@ -181,6 +182,9 @@ export const LABELS = {
     "Past-due homework with no submission. A homework and its revisions count once: a submission to any version counts, and an unsubmitted homework is counted on its newest version.",
   activitiesRecorded: "Activities recorded",
   openProfile: "Open profile",
+  // K-m05: short notes printed under the roster headers (the full definitions sit above the table)
+  lastSeenNote: "any event",
+  missingWorkNote: "revisions count once",
   researchConsent: "Research consent",
   excludeFromAnalytics: "Exclude from analytics",
   exportStudentConversations: "Export this student's AI conversations",
@@ -286,9 +290,14 @@ const ACTIVE_LABELS: Readonly<Record<TimePreset, string>> = {
   whole_term: "Active this term",
   custom: "Active in this period",
 };
-/** "Active this week: 1 of 2 enrolled" — the label follows the time range (NM39). */
-export function activeOfEnrolledLabel(preset: TimePreset, active: number, enrolled: number): string {
-  return `${ACTIVE_LABELS[preset]}: ${active} of ${enrolled} enrolled`;
+/**
+ * "Active this week: 1 of 2 (learning actions)" — the label follows the time range (NM39). K-m01: active means at least
+ * one learning action (answer, code run, AI question, submission), the definition of *Last learning action* and the
+ * *No learning actions* rule; Home's glance and Course metrics share this one label. `note` joins the parentheses
+ * ("learning actions; +6 vs last wk").
+ */
+export function activeOfEnrolledLabel(preset: TimePreset, active: number, enrolled: number, note = ""): string {
+  return `${ACTIVE_LABELS[preset]}: ${active} of ${enrolled} (learning actions${note ? `; ${note}` : ""})`;
 }
 
 /** "This week's chapter: 03 (2 of 5 completed)" (NM38). */
@@ -308,7 +317,17 @@ export function revisionOfNote(originalTitle: string): string {
 
 /** D8 tooltip of a Missing work count: "Files HW — revision (new version of Files HW) · Older homework" ("" when none). */
 export function missingWorkTooltip(items: readonly { title: string; originalTitle: string | null }[]): string {
-  return items.map((m) => (m.originalTitle ? `${m.title} (new version of ${m.originalTitle})` : m.title)).join(" · ");
+  return items.map(missingItemText).join(" · ");
+}
+
+/** One missing homework as listed under the roster count (K-m05): "Files HW — revision (new version of Files HW)". */
+export function missingItemText(item: { title: string; originalTitle: string | null }): string {
+  return item.originalTitle ? `${item.title} (new version of ${item.originalTitle})` : item.title;
+}
+
+/** K-m04: a repeated row action names its row ("Open profile for Ada Chen"); the visible text stays first (label in name). */
+export function rowActionLabel(action: string, row: string): string {
+  return `${action} for ${row}`;
 }
 
 /** Placeholder text for pages a workstream will build (§16.1 item 12). */

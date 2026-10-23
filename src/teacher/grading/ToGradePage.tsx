@@ -91,7 +91,7 @@ export function QueueFiltersView({ show, view, assignmentId, assignments, questi
         )}
         <label>
           Student
-          <input type="search" placeholder="Search name or ID" value={search} onChange={(e) => onSearch(e.target.value)} />
+          <input type="search" placeholder="Name or ID" value={search} onChange={(e) => onSearch(e.target.value)} />
         </label>
       </div>
     </div>

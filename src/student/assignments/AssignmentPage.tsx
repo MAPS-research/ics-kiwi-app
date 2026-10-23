@@ -74,11 +74,22 @@ export function revisionNote(work: Pick<StudentAssignment, "state" | "revisedAs"
     : "A new version of this homework is available:";
 }
 
+/** K-m02: closed before its due date (the teacher closed it, or a revision replaced it) — the due date has not passed. */
+export function closedEarly(work: Pick<StudentAssignment, "dueAt" | "closeAt">): boolean {
+  const due = work.dueAt ? Date.parse(work.dueAt) : Number.NaN;
+  const closed = work.closeAt ? Date.parse(work.closeAt) : Number.NaN;
+  return Number.isFinite(due) && Number.isFinite(closed) && closed < due;
+}
+
 /** Header lines under the title: "Due Fri 10/24, 11:59 PM" → "Past due" + late rule, or "Closed — …" [F01]. */
 export function dueLines(work: Pick<StudentAssignment, "state" | "dueAt" | "latePolicy" | "closeAt">, timeZone?: string): { headline: string; detail: string | null } {
   const due = work.dueAt ? formatStudentDate(work.dueAt, timeZone) : "";
-  // B-m03: a closed homework says so in the header (never "Past due" with a late window)
-  if (work.state === "closed") return { headline: due ? `Closed · was due ${due}` : "Closed", detail: "Closed — submissions are no longer accepted." };
+  // B-m03: a closed homework says so in the header (never "Past due" with a late window); K-m02: "was due" only once
+  // the due date has passed — a homework closed before it reads "Closed early · due …"
+  if (work.state === "closed") {
+    const headline = !due ? "Closed" : closedEarly(work) ? `Closed early · due ${due}` : `Closed · was due ${due}`;
+    return { headline, detail: "Closed — submissions are no longer accepted." };
+  }
   if (work.state === "past_due") {
     const late = work.latePolicy;
     // RV6-M01/M09: the late window and the penalty are stated before the student submits
@@ -336,6 +347,7 @@ export function AssignmentPage({ classId, course, studentId, studentName, track,
   const local = useRef<LocalDraft>({});
   const viewedFeedback = useRef(new Set<string>());
   const pendingCheck = useRef<PendingCheck | null>(null);
+  const copiedFor = useRef<string | null>(null);
   const current = work?.id === workId ? work : null;
   const question = current?.questions.find((q) => q.id === query.get("q")) || current?.questions[0];
   const localKey = `kiwi-work-${classId}-${studentId}-${workId}`;
@@ -352,6 +364,9 @@ export function AssignmentPage({ classId, course, studentId, studentName, track,
       api.mySubmissions(classId, studentId, workId).catch(() => [] as StudentSubmission[]),
       api.getDraft(classId, workId, studentId).catch(() => null),
     ]);
+    // P-m01: the server reports copiedFrom only on the load that copied the draft; a repeated load (React StrictMode,
+    // a refresh) must keep showing the notice for this assignment, so remember it before the mounted check.
+    if (draft?.copiedFrom) copiedFor.current = workId;
     if (!mounted.current) return;
     const ids = detail.questions.map((q) => q.id);
     local.current = readLocalDraft(localKey);
@@ -361,7 +376,7 @@ export function AssignmentPage({ classId, course, studentId, studentName, track,
     setSubmissions(mine);
     setAnswers(pruned.answers);
     setHints(Object.fromEntries(detail.questions.map((q) => [q.id, q.hints ?? []])));
-    setNotice(draftNotice(draft?.assignmentVersion ?? null, detail.version, pruned.removed, detail.state));
+    setNotice(draftNotice(draft?.assignmentVersion ?? null, detail.version, pruned.removed, detail.state, copiedFor.current === workId));
     sync.current?.dispose();
     sync.current = createDraftSync({
       save: (values, clientTs) => api.saveDraft(classId, workId, { studentId, answers: values, clientTs, assignmentVersion: detail.version }),

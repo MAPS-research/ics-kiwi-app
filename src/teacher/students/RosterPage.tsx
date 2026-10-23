@@ -8,7 +8,7 @@ import { Pager } from "../../components/Pager";
 import { StatusBadge, type BadgeTone } from "../../components/StatusBadge";
 import { api } from "../../lib/api";
 import { displayTimeZone, formatRelative } from "../../lib/format";
-import { LABELS, lastLearningActionText, missingWorkTooltip } from "../../lib/labels";
+import { LABELS, lastLearningActionText, missingItemText, missingWorkTooltip, rowActionLabel } from "../../lib/labels";
 import { navigate } from "../../lib/navigation";
 import { teacherPaths } from "../../lib/routes";
 import { useTeacher, type TeacherPageProps } from "../shell/TeacherContext";
@@ -17,8 +17,11 @@ import type { ConsentState, Group, RosterEntry, RosterImportResult } from "../..
 
 /*
  * Roster [PEOPLE-04/10/14, NM24]: Student · ID · Group · Last seen · Missing work · Research consent · Profile.
- * B-m01: "Last seen" is any student event; the cell tooltip gives the last learning action (the Needs attention rule).
- * D8: the Missing work tooltip lists the homework, a revision with its original (a homework and its revisions count once).
+ * B-m01: "Last seen" is any student event; the cell also shows the last learning action (the Needs attention rule).
+ * D8: the Missing work count opens the list of homework, a revision with its original (a homework and its revisions count
+ * once). K-m05: these explanations are visible text (definitions above the table, notes under the headers, the last
+ * learning action under each time, a disclosure for the missing list) — the `title` tooltips stay as a second copy, but
+ * keyboard and touch users never depend on them.
  * Instructors import (CSV with header mapping, preview diff, apply), mark students dropped or excluded from
  * analytics, and record consent overrides with a note. Names come from the server in the current name mode.
  */
@@ -30,6 +33,26 @@ export const ROSTER_COLUMN_HELP: Readonly<Partial<Record<(typeof ROSTER_COLUMNS)
   [LABELS.lastSeen]: `${LABELS.lastSeenHelp} ${LABELS.learningActionsHelp}`,
   [LABELS.missingWork]: LABELS.missingWorkHelp,
 };
+/** K-m05: the short note printed under a header (the definition itself is printed above the table). */
+export const ROSTER_COLUMN_NOTES: Readonly<Partial<Record<(typeof ROSTER_COLUMNS)[number], string>>> = {
+  [LABELS.lastSeen]: LABELS.lastSeenNote,
+  [LABELS.missingWork]: LABELS.missingWorkNote,
+};
+export const ROSTER_HELP_ID = "roster-column-help";
+
+/** K-m05: the Missing work cell — the count, and a disclosure that lists the homework (keyboard and touch reachable). */
+export function MissingWorkCell({ entry }: { entry: Pick<RosterEntry, "studentName" | "missingWork" | "missingWorkItems"> }) {
+  const items = entry.missingWorkItems ?? [];
+  if (!entry.missingWork || !items.length) return <>{entry.missingWork}</>;
+  return (
+    <details className="roster-missing">
+      <summary aria-label={`${LABELS.missingWork} for ${entry.studentName}: ${entry.missingWork}`}>{entry.missingWork}</summary>
+      <ul>
+        {items.map((item) => <li key={item.assignmentId}>{missingItemText(item)}</li>)}
+      </ul>
+    </details>
+  );
+}
 
 export function consentLabel(consent: ConsentState): string {
   return consent === "yes" ? "Yes" : consent === "no" ? "No" : "Not asked";
@@ -101,8 +124,11 @@ export function RosterView({
           </select>
         </label>
       </div>
+      <p className="muted roster-column-help" id={ROSTER_HELP_ID}>
+        {ROSTER_COLUMN_HELP[LABELS.lastSeen]} {LABELS.missingWork}: {LABELS.missingWorkHelp}
+      </p>
       <div className="table-scroll">
-        <table className="data-table roster-table">
+        <table className="data-table roster-table" aria-describedby={ROSTER_HELP_ID}>
           <thead>
             <tr>
               {canManage && (
@@ -111,7 +137,11 @@ export function RosterView({
                 </th>
               )}
               {ROSTER_COLUMNS.map((c) => (
-                <th key={c} title={ROSTER_COLUMN_HELP[c]}>{c}</th>
+                <th key={c} title={ROSTER_COLUMN_HELP[c]}>
+                  {c}
+                  {/* aria-hidden: screen readers get the full definition through the table's description */}
+                  {ROSTER_COLUMN_NOTES[c] && <small className="th-note" aria-hidden="true">{ROSTER_COLUMN_NOTES[c]}</small>}
+                </th>
               ))}
             </tr>
           </thead>
@@ -131,17 +161,21 @@ export function RosterView({
                 </td>
                 <td className="mono">{hideIds ? "hidden" : s.studentId}</td>
                 <td className="roster-wrap-cell">{groupSummary(s.groups)}</td>
-                <td title={lastLearningActionText(s.lastLearningAction ? formatRelative(s.lastLearningAction) : "")}>
+                <td className="roster-wrap-cell roster-seen-cell" title={lastLearningActionText(s.lastLearningAction ? formatRelative(s.lastLearningAction) : "")}>
                   {s.lastActive ? formatRelative(s.lastActive) : "Not seen yet"}
+                  <small className="muted block">{lastLearningActionText(s.lastLearningAction ? formatRelative(s.lastLearningAction) : "")}</small>
                 </td>
-                <td title={missingWorkTooltip(s.missingWorkItems ?? []) || undefined}>{s.missingWork}</td>
+                <td className="roster-wrap-cell" title={missingWorkTooltip(s.missingWorkItems ?? []) || undefined}>
+                  <MissingWorkCell entry={s} />
+                </td>
                 <td>
                   <StatusBadge tone={consentTone(s.consent)} title={consentSourceLabel(s)}>
                     {consentLabel(s.consent)}
                   </StatusBadge>
                 </td>
                 <td className="roster-wrap-cell roster-profile-cell">
-                  <button className="text-button" onClick={() => navigate(teacherPaths.studentProfile(s.studentId))}>
+                  <button className="text-button" aria-label={rowActionLabel(LABELS.openProfile, s.studentName)}
+                    onClick={() => navigate(teacherPaths.studentProfile(s.studentId))}>
                     {LABELS.openProfile}
                   </button>
                   {canManage && (

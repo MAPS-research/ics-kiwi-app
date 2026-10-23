@@ -71,8 +71,8 @@ const METRICS: CourseMetrics = {
 describe("Course metrics markup (INSIGHTS-07/09/14)", () => {
   it("states denominators, deltas and the fixed card names", () => {
     const html = renderToStaticMarkup(<CourseMetricsView metrics={METRICS} range={RANGE} trends={{ buckets: [], outages: [] }} curve={[]} timeOnTask={[]} onOpen={() => {}} />);
-    for (const text of ["Active this week: 2 of 5 enrolled", "Published homework", "4 (+3 in-class exercises)", "Answer attempts per active student",
-      "per active student · 2 of 5 enrolled", "↑ 18% vs last week", "Avg. logged actions per active student", "Kiwi · Not linked to this course",
+    for (const text of ["Active this week: 2 of 5 (learning actions)", "of 5 enrolled (never-active students included). Learning actions are", "Published homework", "4 (+3 in-class exercises)", "Answer attempts per active student",
+      "per active student · 2 of 5 enrolled", "↑ 18% vs last week", "Avg. learning actions per active student", "Kiwi · Not linked to this course",
       "CSS Lab (assignments &amp; practice)", "Which chapters do students ask the AI about most?", "Which questions need more attempts?", "See details",
       "Auto-checked accuracy (your questions)", "Similar practice accuracy (AI)"])
       expect(html).toContain(text);

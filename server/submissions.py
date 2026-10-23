@@ -229,6 +229,63 @@ def get_draft(db: sqlite3.Connection, class_id: str, work_id: str, student_id: s
             "assignmentVersion": max(versions) if versions else None}
 
 
+def has_draft(db: sqlite3.Connection, class_id: str, work_id: str, student_id: str) -> bool:
+    """Whether the student has any server draft row (an emptied answer included) on this assignment."""
+    return db.execute("SELECT 1 FROM answer_drafts WHERE class_id=? AND student_id=? AND assignment_id=? LIMIT 1",
+                      (class_id, student_id, work_id)).fetchone() is not None
+
+
+def carry_revision_draft(db: sqlite3.Connection, class_id: str, row: sqlite3.Row, student_id: str, *,
+                         preview: bool) -> dict | None:
+    """K-m03: copy the student's draft from the closed original to this revision the first time they open it.
+
+    Runs inside a write transaction. Walks the ``revision_of`` chain (nearest original first), mapping question ids
+    through each revision's ``question_id_map_json`` (revision id → original id). It copies the non-empty answers of the
+    nearest version that has any, only when that version is closed (or archived) and the student never submitted an
+    earlier version (their work then stays with that submission). A revision that already has a draft row is never
+    touched, and the copy writes no ``answer_draft`` event (copying is not a learning action). Returns
+    ``{"assignmentId", "title"}`` of the version copied from, or None.
+    """
+    if "revision_of" not in row.keys() or not row["revision_of"] or has_draft(db, class_id, row["id"], student_id):
+        return None
+    rec = readers.record_from_row(row)
+    mapping = {q["id"]: q["id"] for q in rec.questions if isinstance(q.get("id"), str) and q["id"]}
+    child, now = row, dbmod.utcnow()
+    for original_id in readers.original_ids(db, class_id, row["id"]):
+        hop = _loads(child["question_id_map_json"], {})
+        hop = hop if isinstance(hop, dict) else {}
+        mapping = {qid: hop[via] for qid, via in mapping.items() if isinstance(hop.get(via), str)}
+        parent = db.execute("SELECT * FROM assignments WHERE class_id=? AND id=?", (class_id, original_id)).fetchone()
+        if parent is None or not mapping:
+            return None
+        if db.execute("SELECT 1 FROM submissions WHERE class_id=? AND assignment_id=? AND student_id=? LIMIT 1",
+                      (class_id, original_id, student_id)).fetchone():
+            return None   # the student submitted an earlier version: that submission holds their work
+        wanted = {old: new for new, old in mapping.items()}
+        marks = ",".join("?" for _ in wanted)
+        found = db.execute(
+            f"""SELECT question_id, value, client_ts_ms, updated_at FROM answer_drafts WHERE class_id=? AND student_id=?
+            AND assignment_id=? AND value_length > 0 AND question_id IN ({marks})""",
+            (class_id, student_id, original_id, *wanted)).fetchall()
+        if not found:
+            child = parent
+            continue
+        if readers.assignment_state(readers.record_from_row(parent), now) not in ("closed", "archived"):
+            return None   # the student can still work on that version
+        section, condition = readers.group_stamp(db, class_id, student_id)
+        for draft in found:
+            # WHY: keep the student's own time stamps — the copy is not a new edit (Missing · started, draft times)
+            db.execute(
+                """INSERT OR IGNORE INTO answer_drafts (class_id, student_id, assignment_id, question_id, value, value_length,
+                assignment_version, is_preview, client_ts_ms, updated_at, section_group_id, condition_group_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (class_id, student_id, rec.id, wanted[draft["question_id"]], draft["value"],
+                 grading_rules.answered_length(draft["value"]), rec.version, int(bool(preview)), draft["client_ts_ms"],
+                 draft["updated_at"], section, condition))
+        return {"assignmentId": parent["id"], "title": parent["title"]}
+    return None
+
+
 def save_draft(db: sqlite3.Connection, class_id: str, work_id: str, data: dict, identity: Any) -> dict:
     """Upsert answers per question; a write older than the stored ``clientTs`` is ignored [DA07, AU-D3-08]."""
     student_id = identity.student_id
@@ -497,5 +554,6 @@ def students_status(db: sqlite3.Connection, rec: AssignmentRecord, state: str, g
     return {"students": rows, "emails": emails}
 
 
-__all__ = ["submit", "list_submissions", "student_submissions", "start_attempt", "get_draft", "save_draft", "assignment_stats",
+__all__ = ["submit", "list_submissions", "student_submissions", "start_attempt", "get_draft", "save_draft", "has_draft",
+           "carry_revision_draft", "assignment_stats",
            "students_status", "submit_result", "get_work", "load_row"]

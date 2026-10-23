@@ -14,7 +14,7 @@ export function GlanceRow({ glance, range }: { glance: HomeData["glance"]; range
         {items.map((item, i) => (
           <span key={item.key}>
             {i > 0 && " · "}
-            <HomeLink href={item.href} allowed>
+            <HomeLink href={item.href} allowed title={item.title}>
               {item.text}
             </HomeLink>
           </span>

@@ -105,7 +105,11 @@ describe("Home texts", () => {
   it("formats chips, glance, assignment rows, re-teach and asked lines", () => {
     expect(missingChip({ assignmentId: "a", title: "Week 3 HW", count: 5, started: 0 })).toBe("Missing · Week 3 HW 5");
     const items = glanceItems(fixture().glance, RANGE).map((i) => i.text);
-    expect(items[0]).toBe("Active 48/60 (+6 vs last wk)");
+    // K-m01: the glance names its definition, with the label Course metrics uses
+    expect(items[0]).toBe("Active since last class: 48 of 60 (learning actions; +6 vs last wk)");
+    expect(glanceItems(fixture().glance, RANGE)[0].title).toMatch(/^Active: enrolled students with at least one learning action/);
+    expect(glanceItems({ ...fixture().glance, activeStudents: metric(1, null, null) }, { ...RANGE, compareLabel: null })[0].text)
+      .toBe("Active since last class: 1 of 60 (learning actions)");
     expect(items[1]).toBe("AI questions 132 (+18%)");
     expect(items).toContain("AI requests turned away 3");
     expect(deltaText(metric(10, null, null), "pct", null)).toBe("");

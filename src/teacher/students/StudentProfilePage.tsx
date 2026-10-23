@@ -6,7 +6,7 @@ import { StatusBadge, type BadgeTone } from "../../components/StatusBadge";
 import { api } from "../../lib/api";
 import { downloadBlob } from "../../lib/csv";
 import { formatDateTime, formatDue, formatPercent, formatRelative } from "../../lib/format";
-import { LABELS } from "../../lib/labels";
+import { rowActionLabel, LABELS } from "../../lib/labels";
 import { cellLineageNote } from "../grading/gradebookCells";
 import { navigate } from "../../lib/navigation";
 import { teacherPaths } from "../../lib/routes";
@@ -152,11 +152,12 @@ export function StudentProfileView({
                     <td>{a.cell.attempts}</td>
                     <td>{a.cell.late ? "Late" : "—"}</td>
                     <td className="row-actions">
-                      <a href={a.timelineUrl} onClick={(e) => (e.preventDefault(), navigate(a.timelineUrl))}>
+                      {/* K-m04: each row's links name their homework */}
+                      <a href={a.timelineUrl} aria-label={rowActionLabel("Timeline", a.title)} onClick={(e) => (e.preventDefault(), navigate(a.timelineUrl))}>
                         Timeline
                       </a>
                       {a.gradingUrl && (
-                        <a href={a.gradingUrl} onClick={(e) => (e.preventDefault(), navigate(a.gradingUrl as string))}>
+                        <a href={a.gradingUrl} aria-label={`Grade ${a.title}`} onClick={(e) => (e.preventDefault(), navigate(a.gradingUrl as string))}>
                           Grade
                         </a>
                       )}

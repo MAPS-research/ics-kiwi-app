@@ -8,7 +8,7 @@ import { PageHeader, SectionTabs } from "../../components/PageHeader";
 import { Pager } from "../../components/Pager";
 import { Popover } from "../../components/Popover";
 import { api } from "../../lib/api";
-import { LABELS } from "../../lib/labels";
+import { LABELS, rowActionLabel } from "../../lib/labels";
 import { navigate } from "../../lib/navigation";
 import { teacherPaths } from "../../lib/routes";
 import { rangeQuery } from "../../lib/timeRange";
@@ -140,7 +140,7 @@ export function ActivityExplorerView({ course, group, values, preset, data, load
       </div>
       {data?.population && (
         <p className="muted explorer-population">
-          {data.population.active} active of {data.population.enrolled} enrolled · auto-checked accuracy counts server checks on your questions only
+          {data.population.active} active of {data.population.enrolled} enrolled (learning actions) · auto-checked accuracy counts server checks on your questions only
         </p>
       )}
       <div className="table-scroll explorer-table" tabIndex={0} role="region" aria-label={`${LABELS.activityExplorer} table`}>
@@ -177,7 +177,7 @@ export function ActivityExplorerView({ course, group, values, preset, data, load
                     </td>
                   )}
                   {columns.map((c, ci) => (
-                    <td key={c.key} className={c.numeric ? "num" : ci === 0 ? "row-title" : undefined}>
+                    <td key={c.key} className={c.numeric ? "num" : ci === 0 ? "row-title" : c.stamp ? "stamp-cell" : undefined}>
                       {ci === 0 ? (
                         <>
                           {rowTitle(group, row, ctx)}
@@ -189,11 +189,12 @@ export function ActivityExplorerView({ course, group, values, preset, data, load
                     </td>
                   ))}
                   <td className="pinned-col">
-                    <button type="button" className="text-button" onClick={() => onDetails(row)}>
+                    {/* K-m04: one See details per row — each names its row */}
+                    <button type="button" className="text-button" aria-label={rowActionLabel(LABELS.seeDetails, rowTitle(group, row, ctx))} onClick={() => onDetails(row)}>
                       {LABELS.seeDetails}
                     </button>
                     {answers && (
-                      <button type="button" className="text-button" onClick={() => onAnswers(row)}>
+                      <button type="button" className="text-button" aria-label={rowActionLabel("Answers", rowTitle(group, row, ctx))} onClick={() => onAnswers(row)}>
                         Answers
                       </button>
                     )}

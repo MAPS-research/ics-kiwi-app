@@ -35,7 +35,7 @@ npm run demo:start
 
 密码在 `.local/demo-credentials.json` 的 `student.password`、`teacher.password` 中；不要在录像或共享屏幕上展示该文件。从 Kiwi 打开时，Lab 服务端用 Kiwi App token 验证课程身份和角色，教师**不需要**第二个 key。Kiwi 中的助教（assistant）在 Lab 中是 TA（可以批改，不能改作业题目、设置和 AI 规则；决定 D1）。研究员（researcher，决定 D3）不由任何 Kiwi 角色自动映射：在 Course settings › Staff & roles 中给某位 Kiwi 课程成员设置 researcher 覆盖，或在独立模式下创建 researcher staff key。研究员只看到化名，导出总是化名、按研究同意过滤，且不能下载单个学生的案例文件。各项决定见 [v0.6.0 decisions](handoff/v0.6.0-decisions.md)。
 
-直接访问 `127.0.0.1:8100` 是独立模式：学生用内置演示学生（`demo-ada`、`demo-bo`）或教师生成的 `#demo=` 链接；教师用 `.env` 中的 `KIWI_TEACHER_KEY` 或 Course settings › Staff & roles 中创建的 staff key。未设置 `KIWI_TEACHER_KEY` 时独立教师工作区不可用（`503 teacher_key_not_configured`）。`demo:setup` 只在设置了该变量时把它写入 `.local/app-access.json`。
+直接访问 `127.0.0.1:8100` 是独立模式：学生用内置演示学生（`demo-ada`、`demo-bo`）或教师生成的 `#demo=` 链接；教师用 `.env` 中的 `KIWI_TEACHER_KEY` 或 Course settings › Staff & roles 中创建的 staff key。未设置 `KIWI_TEACHER_KEY` 时独立教师工作区不可用（`503 teacher_key_not_configured`）。API 直接从 `.env` 读取该变量；`demo:setup` 不再把它复制到 `.local/app-access.json`（没有程序读取这个文件；旧版本留下的副本可以删除）。
 
 ## 建议演示顺序
 

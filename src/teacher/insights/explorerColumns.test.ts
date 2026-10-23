@@ -14,15 +14,31 @@ const row = (extra: Partial<AnalyticsRow>): AnalyticsRow => ({
 
 describe("Teaching column preset (§13.4 table)", () => {
   it.each([
-    ["students", ["Student", "Last activity", "Attempts", "Auto-checked accuracy (your questions)", "AI tutor questions (incl. hints)", "Missing work"]],
+    ["students", ["Student", "Last learning action", "Last seen", "Attempts", "Auto-checked accuracy (your questions)", "AI tutor questions (incl. hints)", "Missing work"]],
     ["chapters", ["Chapter", "Students", "Attempts", "Auto-checked accuracy (your questions)", "Similar practice accuracy (AI)", "AI tutor questions (incl. hints)"]],
-    ["assignments", ["Assignment", "Submitted (whole term)", "Homework avg score", "Auto-checked accuracy (your questions)", "Similar practice accuracy (AI)", "Last activity"]],
+    ["assignments", ["Assignment", "Submitted (whole term)", "Homework avg score", "Auto-checked accuracy (your questions)", "Similar practice accuracy (AI)", "Last seen"]],
     ["questions", ["Question", "Origin", "Students", "First try correct %", "Attempts", "AI tutor questions (incl. hints)"]],
-    ["reading", ["Material", "Chapter", "Students", "Views", "Kiwi lecture AI questions", "Last activity"]],
+    ["reading", ["Material", "Chapter", "Students", "Views", "Kiwi lecture AI questions", "Last seen"]],
     ["question-activities", ["Student", "Question", "Started", "Active minutes", "Attempts", "Result"]],
-  ] as const)("%s has exactly the six teaching columns", (group, labels) => {
+  ] as const)("%s has exactly its teaching columns", (group, labels) => {
     expect(columnLabels(group, "teaching")).toEqual(labels);
-    expect(TEACHING_COLUMNS[group]).toHaveLength(6);
+    // K-m01: Students shows both named stamps (Last learning action and Last seen); every other group keeps six
+    expect(TEACHING_COLUMNS[group]).toHaveLength(group === "students" ? 7 : 6);
+  });
+  it("K-m01: no column is called 'Last activity'; each names its definition and sorts by it", () => {
+    for (const group of ["students", "chapters", "assignments", "questions", "reading", "question-activities", "study-sessions"] as const) {
+      expect(columnLabels(group, "teaching")).not.toContain("Last activity");
+      expect(columnLabels(group, "research")).not.toContain("Last activity");
+    }
+    const [learned, seen] = ["lastLearningAction", "lastActive"].map((key) => TEACHING_COLUMNS.students.find((c) => c.key === key)!);
+    expect([learned.label, learned.sort, seen.label, seen.sort]).toEqual(["Last learning action", "lastLearningAction", "Last seen", "lastActive"]);
+    expect([learned.stamp, seen.stamp]).toEqual([true, true]);   // date cells wrap so seven columns fit at 1280
+    const ctx = { course: null, assignmentTitle: (id: string) => id };
+    expect(learned.cell(row({ lastActive: "2026-10-23T12:58:00Z", lastLearningAction: null }), ctx)).toBe("None yet");
+    expect(learned.cell(row({ lastLearningAction: null }), { ...ctx, ranged: true })).toBe("None in this period");
+    expect(seen.cell(row({ lastActive: null }), ctx)).toBe("Not seen yet");
+    expect(seen.cell(row({ lastActive: null }), { ...ctx, ranged: true })).toBe("Not seen in this period");
+    expect(learned.cell(row({ lastLearningAction: "2026-10-12T13:00:00Z" }), ctx)).not.toMatch(/None/);
   });
   it("hides Run result not recorded in Teaching and shows it in Research", () => {
     expect(columnLabels("students", "teaching")).not.toContain("Run result not recorded");

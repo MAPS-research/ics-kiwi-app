@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TemplateOption } from "./CoursePackagePanel";
+import { ImportOptions, TemplateOption } from "./CoursePackagePanel";
 
 /*
  * B-m04: the template radio on Course settings › Course package never touches its label. `.block { display: block }`
@@ -78,5 +78,28 @@ describe("B-m04: template radio spacing on the Course package panel", () => {
     expect(cascaded("small", "muted block", "display")).toBe("block");
     expect(cascaded("code", "block", "display")).toBe("block");
     expect(cascaded("label", "radio-label", "display")).toBe("inline-flex");
+  });
+});
+
+describe("K-m06: the Archive checkbox on the Course package panel matches the form", () => {
+  const html = renderToStaticMarkup(<ImportOptions shiftWeeks={0} archiveDefaults onShiftWeeks={() => {}} onArchiveDefaults={() => {}} />);
+  const labelClass = (text: string) => new RegExp(`<label class="([^"]+)">(?:(?!</label>).)*${text}`).exec(html)?.[1] ?? "";
+  it("uses the 13 px label size of the field next to it and centers the text on its box", () => {
+    const checkbox = labelClass("Archive current chapters that nothing refers to");
+    const field = labelClass("Shift dates by weeks");
+    expect(checkbox.split(" ")).toEqual(["checkbox-label", "form-check"]);
+    expect(cascaded("label", field, "font-size")).toBe("13px");
+    expect(cascaded("label", checkbox, "font-size")).toBe(cascaded("label", field, "font-size"));
+    expect(cascaded("label", checkbox, "font-weight")).toBe(cascaded("label", field, "font-weight"));
+    expect(cascaded("label", checkbox, "align-items")).toBe("center");
+    expect(cascaded("label", checkbox, "display")).toBe("flex");
+    // the checkbox comes first, then its text, inside one label
+    expect(html).toMatch(/<label class="checkbox-label form-check"><input type="checkbox"[^>]*\/>Archive current chapters that nothing refers to<\/label>/);
+  });
+  it("stacks the options in one column instead of pushing the checkbox to the far right", () => {
+    expect(html.startsWith('<div class="package-import-options">')).toBe(true);
+    expect(cascaded("div", "package-import-options", "display")).toBe("grid");
+    expect(cascaded("div", "package-import-options", "justify-items")).toBe("start");
+    expect(cascaded("label", "checkbox-label", "font-size")).toBeUndefined();   // other checkbox labels are unchanged
   });
 });

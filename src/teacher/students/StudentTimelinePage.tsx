@@ -22,6 +22,11 @@ import type { AiQuestionType, Difficulty, StudentTimeline, TimelineEvent, WorkQu
  */
 
 const str = (v: unknown) => (typeof v === "string" ? v : v === null || v === undefined ? "" : String(v));
+/** One line of at most `max` characters (accessible names of repeated controls, K-m04). */
+const clipText = (text: string, max: number) => {
+  const line = text.replace(/\s+/g, " ").trim();
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+};
 
 export function TimelineDetail({ event, canGrade }: { event: TimelineEvent; canGrade: boolean }) {
   const d = event.detail as Record<string, unknown>;
@@ -31,7 +36,9 @@ export function TimelineDetail({ event, canGrade }: { event: TimelineEvent; canG
     const type = str(d.questionType);
     return (
       <details className="timeline-exercise">
-        <summary>{LABELS.openExercise}</summary>
+        {/* K-m04: several generated exercises on one timeline — the summary names its exercise and time */}
+        {/* P-m03: two exercises can share a stem and a minute, so the name also carries the exercise's short id */}
+        <summary aria-label={`${LABELS.openExercise} — ${clipText(str(d.stem), 60) || event.title}, ${formatDateTime(event.at)} (#${(event.questionId || event.id).slice(-6)})`}>{LABELS.openExercise}</summary>
         <p className="exercise-meta">
           {[type ? questionTypeLabel(type as WorkQuestionType | AiQuestionType) : "", level].filter(Boolean).join(" · ")}
         </p>
@@ -58,6 +65,7 @@ export function TimelineDetail({ event, canGrade }: { event: TimelineEvent; canG
           <a
             className="text-button"
             href={teacherPaths.grading({ assignmentId: event.context.assignmentId })}
+            aria-label={`Open in grading — ${event.title}, ${formatDateTime(event.at)}`}
             onClick={(e) => {
               e.preventDefault();
               navigate(teacherPaths.grading({ assignmentId: event.context.assignmentId ?? undefined }));

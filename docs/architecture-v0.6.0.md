@@ -2185,7 +2185,7 @@ Home (§13.1), attention (§13.2), re-teach (§13.3), explorer (§13.4), AI conv
 | INSIGHTS-09 | TR10, NM35 | Course metrics card `Published homework` shows `4 (+3 in-class exercises)`. |
 | INSIGHTS-10 | FD01, DA10 | Changing the top-bar time range re-queries Home and Insights pages with the `from/to/compareFrom/compareTo` of `GET /api/teacher/time-range`; cards show `↑ 18% vs last week` (`vs previous period` for custom ranges; no delta for Whole term); the AI conversations Digest uses the same global range. |
 | INSIGHTS-11 | FD02, TH10, NM33, NM40, AU-D4-M1, AU-D4-08 | Explorer Questions view has `Origin` (Your questions / Free practice (AI) / Similar practice (AI)), folds AI items into rows `Free practice (AI) · Ch 03 · Multiple choice (12)` / `Similar practice (AI) · HW3 Q2 · Predict output (4)`, disambiguates duplicate titles with `· HW3 Q2`; `Work: Free practice only` works; filters by type/difficulty/policy version/tag exist in the Research preset (fixtures via `testsupport.make_free_item_attempt`/`make_similar_attempt`). |
-| INSIGHTS-12 | FD06, LY02, TH04, TH10, TR01 | Filters render as one chip row; `Columns ▾` Teaching / Research; the Teaching preset per group is exactly the §13.4 table (asserted in `explorerColumns.test.ts`, e.g. Assignments = `Assignment · Submitted · Homework avg score · Auto-checked accuracy (your questions) · Similar practice accuracy (AI) · Last activity` + pinned `See details`); header sticky; action column pinned. |
+| INSIGHTS-12 | FD06, LY02, TH04, TH10, TR01 | Filters render as one chip row; `Columns ▾` Teaching / Research; the Teaching preset per group is exactly the §13.4 table (asserted in `explorerColumns.test.ts`, e.g. Assignments = `Assignment · Submitted · Homework avg score · Auto-checked accuracy (your questions) · Similar practice accuracy (AI) · Last seen` + pinned `See details`); header sticky; action column pinned. |
 | INSIGHTS-13 | AU-D4-18 | When Kiwi sync imports new records, pages show `New activity · Refresh` and do not clear loaded "Load more" content. |
 | INSIGHTS-14 | NM21–NM24, NM29–NM34, NM36, NM38, NM41 | Labels per §10: `labels.test.ts` (FOUNDATION) snapshots the constants; INSIGHTS adds `src/teacher/insights/insightsLabels.test.tsx` and `src/teacher/home/homeView.test.tsx`, which render the pure views with `renderToStaticMarkup` and assert the visible strings (e.g. `Activity explorer`, `See details`, `Question activities`, `Auto-checked accuracy (your questions)`, `Run result not recorded` absent from Teaching, `Which chapters do students ask the AI about most?`) and the absence of `class="eyebrow"`. |
 | INSIGHTS-15 | AU-D4-24, DA10 | Trends and learning curves render as inline SVG with week buckets; time-on-task per question shows median/p75 minutes. |
@@ -2306,7 +2306,7 @@ Core rules: platform = **Kiwi**; this app's AI on the teacher side = **Lab AI tu
 | NM33 | Checked accuracy | **Auto-checked accuracy (your questions)**; separate **Similar practice accuracy (AI)** | INSIGHTS |
 | NM34 | Unknown outcomes | **Run result not recorded** (hidden in Teaching preset) | INSIGHTS |
 | NM35 | Published assignments | **Published homework (+3 in-class exercises)** | metrics (INSIGHTS) |
-| NM36 | Average interactions | **Avg. logged actions per active student** (secondary, Course metrics only) | INSIGHTS |
+| NM36 | Average interactions | **Avg. learning actions per active student** (P-m02: learning actions, same definition as the denominator) (secondary, Course metrics only) | INSIGHTS |
 | NM37 | Average answer attempts | **Answer attempts per active student** | INSIGHTS |
 | NM38 | Course progress 2 / 5 | **This week's chapter: 03 (2 of 5 completed)** | INSIGHTS |
 | NM39 | Active students 1 | **Active this week: 1 of 2 enrolled** (label follows the range: "Active since last class") | INSIGHTS |
@@ -2603,15 +2603,17 @@ Candidates = teacher-authored questions (practice mode `homework`/`in-class`) wi
 
 - Groups: Students · Chapters · Assignments · Questions · Lecture reading · Question activities; the Research preset adds **Study sessions** (per student, a new session after ≥ 30 min without events, computed on the fly with SQL window functions over `events.created_at`; persona ruling: the teaching default stays the assignment timeline).
 - Filters as chips: `Where`, `Chapter`, `Work` (All work / Free practice only / Assigned work only / each assignment), `Origin` (Your questions / Free practice (AI) / Similar practice (AI); default Your questions in the Questions group), `Group`, `Student`, `Activity` (Answer attempts, Code runs, Code errors, Successful runs, AI tutor questions, Lecture reading, Run result not recorded), Research preset only: `Question type`, `Difficulty`, `Policy version`, `Include teaching staff`.
-- Columns: **Teaching** preset = six columns per group (exact, `explorerColumns.ts`), plus the pinned `See details`:
+- Columns: **Teaching** preset = six columns per group (exact, `explorerColumns.ts`; Students has seven since K-m01), plus the pinned `See details`:
 
   | Group | Teaching columns |
   |---|---|
-  | Students | Student · Last activity · Attempts · Auto-checked accuracy (your questions) · AI tutor questions (incl. hints) · Missing work |
+  | Students | Student · Last learning action · Last seen · Attempts · Auto-checked accuracy (your questions) · AI tutor questions (incl. hints) · Missing work |
   | Chapters | Chapter · Students · Attempts · Auto-checked accuracy (your questions) · Similar practice accuracy (AI) · AI tutor questions (incl. hints) |
-  | Assignments | Assignment · Submitted · Homework avg score · Auto-checked accuracy (your questions) · Similar practice accuracy (AI) · Last activity `[TR01, TH04]` |
+  | Assignments | Assignment · Submitted · Homework avg score · Auto-checked accuracy (your questions) · Similar practice accuracy (AI) · Last seen `[TR01, TH04]` |
   | Questions | Question · Origin · Students · First try correct % · Attempts · AI tutor questions (incl. hints) |
-  | Lecture reading | Material · Chapter · Students · Views · Kiwi lecture AI questions · Last activity |
+  | Lecture reading | Material · Chapter · Students · Views · Kiwi lecture AI questions · Last seen |
+
+  K-m01 (2026-10-23): *Last activity* (the newest non-telemetry event) is replaced by the two §13.9 stamps: *Last seen* (any event, telemetry included) and *Last learning action*.
   | Question activities | Student · Question · Started · Active minutes · Attempts · Result |
 
   **Research** preset adds Logged actions · Code runs · Successes · Errors · Run result not recorded · Similar practice accuracy (AI) · Client-reported accuracy · Legacy auto-check (v0.5 rules) · Active minutes · Homework avg score · Question type · Difficulty · Policy version · Tags · Group. Choice persisted in `localStorage` and the URL (`columns=`).
@@ -2675,7 +2677,7 @@ Defaults: `pseudonymize=1`, `consent=yes`, `allowUnverified=0`, `includeRaw=0`. 
 
 ### 13.7 Course metrics (`/teacher/insights/metrics`) `[TR06, TR10, NM35–NM39, DA10, AU-D4-24, AU-D2-19]`
 
-Cards (each `See details`; each with denominator and `vs previous` delta): `Active this week: 1 of 2 enrolled`; `This week's chapter: 03 (2 of 5 completed)`; `Published homework 4 (+3 in-class exercises)`; `Answer attempts per active student 20 (2 active of 5 enrolled)`; `Auto-checked accuracy (your questions)`; `Similar practice accuracy (AI)`; `AI tutor questions (incl. hints)`; `Code runs`; secondary `Avg. logged actions per active student`. Source cards: `CSS Lab (assignments & practice)` and `Kiwi lectures & scratchpad` / `Kiwi · Not linked to this course`. Charts (inline SVG, `SparkBars`): weekly trends (active students, AI questions, attempts, accuracy), learning curve (accuracy by attempt index per chapter/group), time on task per question (median/p75 active minutes), nominal vs observed difficulty (AI items by requested difficulty: n, observed correct %). Learning-question shortcuts: `Which questions need more attempts?`, `Which chapters do students ask the AI about most?` `[NM41]`.
+Cards (each `See details`; each with denominator and `vs previous` delta): `Active this week: 1 of 2 enrolled`; `This week's chapter: 03 (2 of 5 completed)`; `Published homework 4 (+3 in-class exercises)`; `Answer attempts per active student 20 (2 active of 5 enrolled)`; `Auto-checked accuracy (your questions)`; `Similar practice accuracy (AI)`; `AI tutor questions (incl. hints)`; `Code runs`; secondary `Avg. learning actions per active student`. Source cards: `CSS Lab (assignments & practice)` and `Kiwi lectures & scratchpad` / `Kiwi · Not linked to this course`. Charts (inline SVG, `SparkBars`): weekly trends (active students, AI questions, attempts, accuracy), learning curve (accuracy by attempt index per chapter/group), time on task per question (median/p75 active minutes), nominal vs observed difficulty (AI items by requested difficulty: n, observed correct %). Learning-question shortcuts: `Which questions need more attempts?`, `Which chapters do students ask the AI about most?` `[NM41]`.
 
 ### 13.8 Codebook (`codebook.md`, generated by PEOPLE from `event_schema` + table dictionaries) `[DA12, AU-D4-25, AU-D3-22]`
 
@@ -2684,7 +2686,7 @@ Sections: 1 Overview & data provenance (server-written vs client-written, `check
 ### 13.9 Metric definitions (also shown in UI help popovers)
 
 - **Enrolled**: active, non-excluded roster students (population rules).
-- **Active (range)**: enrolled students with ≥ 1 action-category event in the range.
+- **Active (range)**: enrolled students with ≥ 1 learning action (see *Last learning action* below) in the range — Home's glance, Course metrics, the explorer's population and trend buckets (`analytics.learning_action_sql`; K-m01, 2026-10-23; it was any action-category event).
 - **Active minutes**: counted heartbeats × 0.5 (one per 30 s bucket per student, visible + recent input).
 - **Auto-checked accuracy (your questions)**: server-checked correct ÷ server-checked attempts on teacher-authored questions (homework autocheck + in-class checks); legacy v0.5 checks count only with their re-judged value (`rejudged_correct`), others are excluded and shown as `Legacy auto-check (v0.5 rules)` in the Research preset.
 - **Similar practice accuracy (AI)**: server-checked correct ÷ checked on similar items.

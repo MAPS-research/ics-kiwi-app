@@ -118,6 +118,18 @@ LEARNING_ACTION_TYPES = (
 )
 
 
+def learning_action_sql(alias: str = "e") -> str:
+    """SQL condition: the event is a learning action (``LEARNING_ACTION_TYPES``).
+
+    K-m01: the one definition behind *Last learning action*, the ``no_activity`` rule, Home's glance *Active N of M*,
+    Course metrics *Active*, the explorer's population and trend buckets (the types are constants, never user input).
+    """
+    return f"{alias}.event_type IN ({', '.join(repr(t) for t in LEARNING_ACTION_TYPES)})"
+
+
+LEARNING_ACTION_SQL = learning_action_sql()
+
+
 @dataclass(frozen=True)
 class ActivityStamps:
     last_seen: str | None
@@ -128,11 +140,10 @@ class ActivityStamps:
 def activity_stamps(db: sqlite3.Connection, class_id: str, student_ids: Iterable[str] | None = None) -> dict[str, ActivityStamps]:
     """``ActivityStamps`` per student from their own non-preview events (staff actors never count); a student without
     events gets ``ActivityStamps(None, None, None)``."""
-    marks = ", ".join("?" for _ in LEARNING_ACTION_TYPES)
     found = {row[0]: ActivityStamps(row[1], row[2], row[3]) for row in db.execute(
-        f"""SELECT student_id, MAX(created_at), MAX(CASE WHEN event_type IN ({marks}) THEN created_at END), MIN(created_at)
+        f"""SELECT student_id, MAX(created_at), MAX(CASE WHEN {learning_action_sql("events")} THEN created_at END), MIN(created_at)
         FROM events WHERE class_id = ? AND is_preview = 0 AND student_id NOT LIKE 'preview-%'
-        AND {identity.STUDENT_ACTOR_SQL} GROUP BY student_id""", (*LEARNING_ACTION_TYPES, class_id))}
+        AND {identity.STUDENT_ACTOR_SQL} GROUP BY student_id""", (class_id,))}
     if student_ids is None:
         return found
     return {sid: found.get(sid, ActivityStamps(None, None, None)) for sid in student_ids}
@@ -206,9 +217,11 @@ AGGREGATES = {
     "views": "SUM(e.event_type = 'material_viewed')",
     "students": "COUNT(DISTINCT e.student_id)",
     "lastActive": "MAX(e.created_at)",
+    "lastLearningAction": f"MAX(CASE WHEN {LEARNING_ACTION_SQL} THEN e.created_at END)",
     "firstAt": "MIN(e.created_at)",
 }
-_AGG_SELECT = ", ".join(f"COALESCE({sql}, 0) AS {name}" if name not in ("lastActive", "firstAt") else f"{sql} AS {name}"
+_STAMPS = ("lastActive", "lastLearningAction", "firstAt")
+_AGG_SELECT = ", ".join(f"COALESCE({sql}, 0) AS {name}" if name not in _STAMPS else f"{sql} AS {name}"
                         for name, sql in AGGREGATES.items())
 
 
@@ -421,19 +434,38 @@ def _search_clause(q: ExplorerQuery, alias: str, student_col: str, class_id: str
 
 
 def _aggregate(db: sqlite3.Connection, scope: Scope, q: ExplorerQuery, key_expr: str, *, extra: Iterable[str] = (),
-               extra_params: Iterable[object] = (), skip_telemetry: bool = True) -> dict[str, dict]:
+               extra_params: Iterable[object] = (), skip_telemetry: bool = True,
+               seen_out: dict[str, str] | None = None) -> dict[str, dict]:
+    """Explorer aggregates per key. Counts leave telemetry out; ``lastActive`` is *Last seen* (K-m01, B-m01): the newest
+    event of any kind, telemetry included, under the same population, filters and search. ``seen_out`` receives that
+    stamp for every key, also keys whose only events are telemetry (the Students group lists them)."""
     population, params = pop_sql(scope)
     filters, fparams = _event_filters(q, for_group=q.group)
     search, sparams = _search_clause(q, "e", "student_id", scope.class_id)
+    extra = list(extra)
+    extra_params = list(extra_params)
     clauses = [population, *filters, *extra]
     if search:
         clauses.append(search)
+    every = list(clauses)
     if skip_telemetry:
         clauses.append("e.event_type NOT IN (" + ", ".join(f"'{t}'" for t in TELEMETRY_TYPES) + ")")
+    bound = [*params, *fparams, *extra_params, *sparams]
     sql = f"""SELECT {key_expr} AS k, {_AGG_SELECT} FROM events e {EV_JOINS}
         WHERE {' AND '.join(clauses)} GROUP BY k"""
-    rows = db.execute(sql, [*params, *fparams, *extra_params, *sparams]).fetchall()
-    return {str(row["k"] if row["k"] is not None else ""): dict(row) for row in rows}
+    rows = db.execute(sql, bound).fetchall()
+    out = {str(row["k"] if row["k"] is not None else ""): dict(row) for row in rows}
+    if skip_telemetry:
+        seen = {str(row["k"] if row["k"] is not None else ""): row["seen"] for row in db.execute(
+            f"""SELECT {key_expr} AS k, MAX(e.created_at) AS seen FROM events e {EV_JOINS}
+            WHERE {' AND '.join(every)} GROUP BY k""", bound)}
+        for key, row in out.items():
+            row["lastActive"] = seen.get(key, row["lastActive"])
+    else:
+        seen = {key: row["lastActive"] for key, row in out.items()}
+    if seen_out is not None:
+        seen_out.update(seen)
+    return out
 
 
 def _first_try(db: sqlite3.Connection, scope: Scope, q: ExplorerQuery, key_expr: str, unit_expr: str,
@@ -457,7 +489,7 @@ def _base_row(agg: dict | None) -> dict:
     row = {name: get(name) for name in ("interactions", "actions", "attempts", "checked", "correct", "codeRuns", "codeErrors",
                                         "codeSuccesses", "aiQuestions", "views", "students", "clientChecked", "clientCorrect")}
     row.update(
-        lastActive=a.get("lastActive"), startedAt=a.get("firstAt"), sessions=0,
+        lastActive=a.get("lastActive"), lastLearningAction=a.get("lastLearningAction"), startedAt=a.get("firstAt"), sessions=0,
         accuracy=_pct(get("correct"), get("checked")), serverAccuracy=_pct(get("correct"), get("checked")),
         similarAccuracy=_pct(get("simCorrect"), get("simChecked")), clientAccuracy=_pct(get("clientCorrect"), get("clientChecked")),
         legacyAccuracy=_pct(get("legacyCorrect"), get("legacyChecked")),
@@ -485,7 +517,7 @@ def _activity_ok(row: dict, activity: str) -> bool:
     }.get(activity, True)
 
 
-SORTABLE = {"label", "studentName", "lastActive", "startedAt", "attempts", "actions", "interactions", "codeRuns", "codeErrors",
+SORTABLE = {"label", "studentName", "lastActive", "lastLearningAction", "startedAt", "attempts", "actions", "interactions", "codeRuns", "codeErrors",
             "codeSuccesses", "aiQuestions", "accuracy", "serverAccuracy", "similarAccuracy", "clientAccuracy",
             "legacyAccuracy", "students", "views", "missingWork", "homeworkAvgScorePct", "firstTryCorrectPct", "activeMinutes",
             "submitted", "runResultNotRecorded", "averageAttempts", "averageQuestions", "kiwiAiQuestions"}
@@ -535,14 +567,15 @@ def explore(db: sqlite3.Connection, scope: Scope, q: ExplorerQuery) -> dict:
 
 
 def active_count(db: sqlite3.Connection, scope: Scope) -> int:
-    """Enrolled (population) students with ≥ 1 action-category event in the window (§13.9)."""
+    """Enrolled (population) students with ≥ 1 learning action in the window (§13.9, K-m01: ``learning_action_sql``)."""
     population, params = pop_sql(scope)
-    return int(db.execute(f"SELECT COUNT(DISTINCT e.student_id) FROM events e WHERE {population} AND e.category = 'action'",
+    return int(db.execute(f"SELECT COUNT(DISTINCT e.student_id) FROM events e WHERE {population} AND {LEARNING_ACTION_SQL}",
                           params).fetchone()[0])
 
 
 def _students_rows(db: sqlite3.Connection, scope: Scope, q: ExplorerQuery, course: dict) -> tuple[list[dict], str]:
-    agg = _aggregate(db, scope, q, "e.student_id")
+    seen: dict[str, str] = {}
+    agg = _aggregate(db, scope, q, "e.student_id", seen_out=seen)
     minutes = _active_minutes(db, scope)
     base = enrolled_ids(db, unranged(scope))
     if q.student_id:
@@ -562,8 +595,9 @@ def _students_rows(db: sqlite3.Connection, scope: Scope, q: ExplorerQuery, cours
         if not sid:
             continue
         row = _base_row(agg.get(sid))
+        # K-m01: Last seen counts page views and heartbeats too, so a student with only those events has one
         row.update(id=sid, studentId=sid, studentName=sid, label=sid, activeMinutes=minutes.get(sid, 0.0),
-                   groupNames=groups.get(sid, []), missingWork=None)
+                   groupNames=groups.get(sid, []), missingWork=None, lastActive=seen.get(sid))
         row["students"] = 1
         rows.append(row)
     if q.activity:
@@ -1480,7 +1514,10 @@ def _scalar(db: sqlite3.Connection, scope: Scope, expr: str, *, where: str = "1 
 
 def _window_values(db: sqlite3.Connection, scope: Scope) -> dict[str, float | None]:
     population, params = pop_sql(scope)
-    row = db.execute(f"""SELECT COUNT(DISTINCT CASE WHEN e.category = 'action' THEN e.student_id END) AS active,
+    # K-m01: Active = students with a learning action (Home's glance and Course metrics; the no_activity rule's definition)
+    # P-m02: the per-active average counts learning actions too, so its numerator and denominator use one definition.
+    row = db.execute(f"""SELECT COUNT(DISTINCT CASE WHEN {LEARNING_ACTION_SQL} THEN e.student_id END) AS active,
+        SUM(CASE WHEN {LEARNING_ACTION_SQL} THEN 1 ELSE 0 END) AS learning_actions,
         {_AGG_SELECT} FROM events e {EV_JOINS} WHERE {population}""", params).fetchone()
     data = dict(row)
     active = data["active"] or 0
@@ -1489,7 +1526,7 @@ def _window_values(db: sqlite3.Connection, scope: Scope) -> dict[str, float | No
         "aiQuestions": data["aiQuestions"], "accuracy": _pct(data["correct"], data["checked"]),
         "similar": _pct(data["simCorrect"], data["simChecked"]),
         "attemptsPerActive": round(data["attempts"] / active, 1) if active else None,
-        "actionsPerActive": round(data["actions"] / active, 1) if active else None,
+        "actionsPerActive": round((data["learning_actions"] or 0) / active, 1) if active else None,
     }
 
 
@@ -1597,7 +1634,7 @@ def trends(db: sqlite3.Connection, scope: Scope, *, unit_id: str = "") -> dict:
     for begin, end in week_buckets(db, scope):
         window = ranged(scope, dbmod.iso_seconds(begin), dbmod.iso_seconds(end))
         population, params = pop_sql(window)
-        row = db.execute(f"""SELECT COUNT(DISTINCT CASE WHEN e.category = 'action' THEN e.student_id END) AS active,
+        row = db.execute(f"""SELECT COUNT(DISTINCT CASE WHEN {LEARNING_ACTION_SQL} THEN e.student_id END) AS active,
             {_AGG_SELECT} FROM events e {EV_JOINS} WHERE {population} {''.join(' AND ' + c for c in extra)}""",
                          [*params, *extra_params]).fetchone()
         minutes = sum(_active_minutes(db, window).values())

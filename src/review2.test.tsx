@@ -192,10 +192,10 @@ describe("Copy (TEACHER-14, TEACHER-09)", () => {
     expect(LAB_AI_LABEL).toBe("Ask Kiwi");
     expect(itemSourceLabel("ai")).not.toMatch(/\bKiwi AI\b/);
   });
-  it("an empty last activity under a time range reads 'No activity in this period'", () => {
+  it("an empty last seen under a time range reads 'Not seen in this period' (K-m01 renamed Last activity)", () => {
     const column = columnsFor("students", "teaching").find((c) => c.key === "lastActive")!;
     const row = { lastActive: null } as unknown as AnalyticsRow;
-    expect(column.cell(row, { course: null, assignmentTitle: (id) => id, ranged: true })).toBe("No activity in this period");
-    expect(column.cell(row, { course: null, assignmentTitle: (id) => id })).toBe("No activity yet");
+    expect(column.cell(row, { course: null, assignmentTitle: (id) => id, ranged: true })).toBe("Not seen in this period");
+    expect(column.cell(row, { course: null, assignmentTitle: (id) => id })).toBe("Not seen yet");
   });
 });

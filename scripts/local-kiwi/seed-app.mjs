@@ -2,14 +2,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { local, redact } from './config.mjs';
+import { apiPort, local, redact } from './config.mjs';
 import { getDemoAppToken } from './app-session.mjs';
 
 export async function seedDemoApp() {
   const credentials = JSON.parse(fs.readFileSync(path.join(local, 'demo-credentials.json'), 'utf8'));
   const { accessToken } = await getDemoAppToken('teacher');
   const classId = credentials.classId;
-  const base = `http://127.0.0.1:8101/api`;
+  const base = `http://127.0.0.1:${apiPort()}/api`;
   async function request(route, body) {
     const response = await fetch(`${base}${route}${route.includes('?') ? '&' : '?'}classId=${encodeURIComponent(classId)}`, {
       method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${accessToken}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}),

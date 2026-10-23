@@ -272,7 +272,11 @@ export interface StudentSubmission {
   adjustment?: { points: number; reason: string } | null;
   lateSeconds?: number;
 }
-export interface AnswerDraft { assignmentId: string; answers: Record<string, { value: string; updatedAt: ISODate }>; updatedAt: ISODate | null; assignmentVersion: number | null }
+export interface AnswerDraft {
+  assignmentId: string; answers: Record<string, { value: string; updatedAt: ISODate }>; updatedAt: ISODate | null; assignmentVersion: number | null;
+  /** K-m03: set on the load that copied the student's answers from the closed earlier version */
+  copiedFrom?: { assignmentId: string; title: string } | null;
+}
 export interface AssignmentStudentStatus {
   studentId: string; studentName: string; section: string | null; condition: string | null;
   lastActive: ISODate | null; submittedAt: ISODate | null; late: boolean; attempts: number; gradeStatus: GradeStatus | null;
@@ -526,7 +530,9 @@ export interface CourseMetrics {
 export interface TrendBucket { start: ISODate; active: number; aiQuestions: number; attempts: number; autoCheckedAccuracy: number | null; activeMinutes: number }
 export interface AnalyticsRow {   // v0.5.1 fields kept; v0.6.0 additions
   source?: "lab" | "kiwi"; materialId?: string; id?: string; label?: string; title?: string; studentId?: string; studentName?: string;
-  unitId?: string; assignmentId?: string; questionId?: string; kind?: string; startedAt?: string; lastActive: string | null;
+  unitId?: string; assignmentId?: string; questionId?: string; kind?: string; startedAt?: string;
+  /** K-m01 (B-m01): *Last seen* — the newest event of any kind; `lastLearningAction` — the newest learning action */
+  lastActive: string | null; lastLearningAction?: string | null;
   interactions: number; attempts: number; checked: number; correct: number; codeRuns: number; codeErrors: number; codeSuccesses: number;
   aiQuestions: number; students: number; sessions: number; accuracy: number | null; averageAttempts: number; averageQuestions: number;
   practiceMode?: PracticeMode; origin?: QuestionOrigin; actions?: number; activeMinutes?: number;

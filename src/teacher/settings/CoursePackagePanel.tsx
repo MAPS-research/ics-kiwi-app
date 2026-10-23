@@ -16,6 +16,27 @@ import type { Course, CoursePackageImportResult, CourseTemplate } from "../../ty
 
 type Chapter = CoursePackageImportResult["chapters"][number] & { packages?: string[]; week?: number | null };
 
+/**
+ * K-m06: the import options stack under each other; the checkbox label uses the 13 px form-label size and sits on the
+ * line of its box (it used to be 16 px, at the far right, bottom-aligned with the number field).
+ */
+export function ImportOptions({ shiftWeeks, archiveDefaults, onShiftWeeks, onArchiveDefaults }: {
+  shiftWeeks: number; archiveDefaults: boolean; onShiftWeeks: (weeks: number) => void; onArchiveDefaults: (on: boolean) => void;
+}) {
+  return (
+    <div className="package-import-options">
+      <label className="work-label">
+        Shift dates by weeks
+        <input type="number" min={-52} max={52} value={shiftWeeks} onChange={(e) => onShiftWeeks(Number(e.target.value) || 0)} />
+      </label>
+      <label className="checkbox-label form-check">
+        <input type="checkbox" checked={archiveDefaults} onChange={(e) => onArchiveDefaults(e.target.checked)} />
+        Archive current chapters that nothing refers to
+      </label>
+    </div>
+  );
+}
+
 /** S-m11: Apply asks first when it would archive chapters. */
 export function applyConfirmText(result: CoursePackageImportResult): string | null {
   const archived = result.chapters.filter((c) => c.action === "archive");
@@ -212,16 +233,7 @@ export function CoursePackagePanel({ classId, setCourse }: { classId: string; se
         />
       </label>
       {source?.kind === "file" && <p className="muted">Selected: {source.name}</p>}
-      <div className="inline-form">
-        <label className="work-label">
-          Shift dates by weeks
-          <input type="number" min={-52} max={52} value={shiftWeeks} onChange={(e) => setShiftWeeks(Number(e.target.value) || 0)} />
-        </label>
-        <label className="checkbox-label">
-          <input type="checkbox" checked={archiveDefaults} onChange={(e) => setArchiveDefaults(e.target.checked)} />
-          Archive current chapters that nothing refers to
-        </label>
-      </div>
+      <ImportOptions shiftWeeks={shiftWeeks} archiveDefaults={archiveDefaults} onShiftWeeks={setShiftWeeks} onArchiveDefaults={setArchiveDefaults} />
       {error && (
         <p className="error-text" role="alert">
           {error}

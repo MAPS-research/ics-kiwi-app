@@ -2,16 +2,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { root, local, nodeBinary, redact } from './config.mjs';
+import { root, local, nodeBinary, redact, demoServices } from './config.mjs';
 import { seedDemoApp } from './seed-app.mjs';
 
 const registry = path.join(local, 'services.json');
-const services = [
-  { name: 'kiwi-api', url: 'http://localhost:3000/health', command: nodeBinary, args: ['scripts/local-kiwi/backend-start.mjs'] },
-  { name: 'kiwi-ui', url: 'http://localhost:3001/', command: nodeBinary, args: ['scripts/local-kiwi/frontend.mjs', 'start'] },
-  { name: 'app-api', url: 'http://127.0.0.1:8101/api/health', command: 'python3', args: ['server/app.py'] },
-  { name: 'app-ui', url: 'http://127.0.0.1:8100/api/health', command: nodeBinary, args: ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '8100', '--strictPort'] },
-];
+// KIWI_API_PORT (shell, then .env, then 8101) moves the app API and its readiness check; Vite gets the same value.
+// Resolved on use, so `demo:stop` works even when the port setting is broken.
+const services = () => demoServices(nodeBinary);
 
 async function healthy(service) {
   try {
@@ -41,7 +38,7 @@ async function start() {
   fs.mkdirSync(path.join(local, 'logs'), { recursive: true });
   compose(['up', '-d', '--wait']);
   const records = readRegistry();
-  for (const service of services) {
+  for (const service of services()) {
     if (await healthy(service)) {
       records[service.name] ||= { reused: true, url: service.url };
       console.log(`${service.name}: already running`);
@@ -51,7 +48,7 @@ async function start() {
     const fd = fs.openSync(logfile, 'a', 0o600);
     const child = spawn(service.command, service.args, {
       cwd: root, detached: true, stdio: ['ignore', fd, fd],
-      env: { ...process.env, BROWSER: 'none', PATH: `${path.dirname(nodeBinary)}${path.delimiter}${process.env.PATH || ''}` },
+      env: { ...process.env, ...service.env, BROWSER: 'none', PATH: `${path.dirname(nodeBinary)}${path.delimiter}${process.env.PATH || ''}` },
     });
     await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
     child.unref(); fs.closeSync(fd);
@@ -92,7 +89,7 @@ try {
   const action = process.argv[2] || 'start';
   if (action === 'stop') await stop();
   else if (action === 'status') {
-    for (const service of services) console.log(`${service.name}: ${await healthy(service) ? 'ready' : 'offline'} (${service.url})`);
+    for (const service of services()) console.log(`${service.name}: ${await healthy(service) ? 'ready' : 'offline'} (${service.url})`);
   } else if (action === 'start') await start();
   else throw new Error('Usage: start.mjs [start|stop|status]');
 } catch (error) { console.error(redact(error.message)); process.exitCode = 1; }

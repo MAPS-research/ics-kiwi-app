@@ -16,6 +16,7 @@ import {
   AssignmentPageView,
   attemptLabel,
   blockedReason,
+  closedEarly,
   dueLines,
   GRADED_HOMEWORK_NOTE,
   originalNote,
@@ -107,6 +108,22 @@ describe("header, attempts and time limit (ASSESS-01/02/22)", () => {
     expect(dueLines(homework({ state: "past_due", latePolicy: { ...late, mode: "accept_until", untilAt: "2026-10-26T15:59:00Z" } }), "UTC").detail)
       .toBe("Late submissions accepted until Mon 10/26, 3:59 PM UTC (marked late).");
     expect(dueLines(homework({ state: "closed" })).detail).toBe("Closed — submissions are no longer accepted.");
+  });
+  it("K-m02: a homework closed before its due date reads 'Closed early · due …', never 'was due'", () => {
+    const early = homework({ state: "closed", closeAt: "2026-10-23T14:21:40Z" });   // due Sat 10/24
+    expect(closedEarly(early)).toBe(true);
+    expect(dueLines(early, "UTC")).toEqual({ headline: "Closed early · due Sat 10/24, 3:59 PM UTC", detail: "Closed — submissions are no longer accepted." });
+    expect(dueLines(homework({ state: "closed", closeAt: "2026-10-25T00:00:00Z" }), "UTC").headline).toBe("Closed · was due Sat 10/24, 3:59 PM UTC");
+    // closed by the late policy (no close date): the due date has passed
+    expect(dueLines(homework({ state: "closed", closeAt: null }), "UTC").headline).toBe("Closed · was due Sat 10/24, 3:59 PM UTC");
+    expect(dueLines(homework({ state: "closed", dueAt: null, closeAt: "2026-10-23T14:21:40Z" })).headline).toBe("Closed");
+    expect(closedEarly(homework({ closeAt: "not a date" }))).toBe(false);
+    expect(view(early)).toContain("Closed early · due");
+    expect(view(early)).not.toContain("was due");
+  });
+  it("K-m03: the copied-answers notice is a status line at the top of the page", () => {
+    expect(view(homework(), { notice: "Your answers from the earlier version were copied here." }))
+      .toContain('<p class="assess-notice" role="status">Your answers from the earlier version were copied here.</p>');
   });
   it("counts attempts and explains blocked submissions", () => {
     expect(attemptLabel(homework(), 1)).toBe("Attempt 2 of 3");

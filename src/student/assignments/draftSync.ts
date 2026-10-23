@@ -149,11 +149,16 @@ export function writeLocalDraft(key: string, draft: LocalDraft): boolean {
 }
 
 export const UPDATED_NOTICE = "This assignment was updated; review your answers.";
+/** K-m03: the server copied the student's draft from the closed earlier version on this load. */
+export const COPIED_NOTICE = "Your answers from the earlier version were copied here.";
 /**
  * R-m01: the notice says nothing once the assignment no longer accepts answers (closed or archived, e.g. closed by
  * publishing its revision): there is nothing left to review, and the header already says it is closed.
+ * K-m03: answers copied from the earlier version say so (`copied`), before any other notice.
  */
-export function draftNotice(storedVersion: number | null, currentVersion: number, removed: readonly string[], state?: AssignmentState): string {
+export function draftNotice(storedVersion: number | null, currentVersion: number, removed: readonly string[], state?: AssignmentState,
+  copied = false): string {
+  if (copied) return COPIED_NOTICE;
   if (state === "closed" || state === "archived") return "";
   return removed.length || (storedVersion !== null && storedVersion !== currentVersion) ? UPDATED_NOTICE : "";
 }

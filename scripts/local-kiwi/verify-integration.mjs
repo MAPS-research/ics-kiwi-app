@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { getDemoAppToken } from './app-session.mjs';
-import { local } from './config.mjs';
+import { apiPort, local } from './config.mjs';
 
 const teacher = await getDemoAppToken('teacher'), student = await getDemoAppToken('student');
 const headers = session => ({ Authorization: `Bearer ${session.accessToken}` });
@@ -15,7 +15,7 @@ async function check(name, url, expected, init = {}) {
   assert.equal(response.status, expected, `${name}: ${body.error || response.status}`);
   checks.push(name); return body;
 }
-const api = 'http://127.0.0.1:8101/api', native = 'http://localhost:3000/api/kiwi-apps/ics-r-lab/lab';
+const api = `http://127.0.0.1:${apiPort()}/api`, native = 'http://localhost:3000/api/kiwi-apps/ics-r-lab/lab';
 const q = `classId=${teacher.classId}`;
 const teacherContext = await check('teacher verified SSO', `${api}/kiwi/context?${q}`, 200, { headers: headers(teacher) });
 assert.equal(teacherContext.canManageCourse, true); assert.equal(teacherContext.canViewAnalytics, true);

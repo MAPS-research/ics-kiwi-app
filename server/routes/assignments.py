@@ -170,8 +170,18 @@ def list_submissions(req: Request) -> list:
 @route("GET", "/api/drafts/{assignmentId}", auth=Auth.STUDENT)
 def get_draft(req: Request) -> dict:
     work_id = req.params["assignmentId"]
-    assignments.student_row(req.db, req.class_id, work_id, _student(req), preview=req.identity.preview)
-    return submissions.get_draft(req.db, req.class_id, work_id, _student(req))
+    student = _student(req)
+    row = assignments.student_row(req.db, req.class_id, work_id, student, preview=req.identity.preview)
+    copied = None
+    # K-m03: the first open of a revision brings the draft over from its closed original (read-only check first, so a
+    # plain GET only takes the write lock when there is something to copy)
+    if row["revision_of"] and not submissions.has_draft(req.db, req.class_id, work_id, student):
+        with dbmod.write_tx(req.db):
+            copied = submissions.carry_revision_draft(req.db, req.class_id, row, student, preview=req.identity.preview)
+    draft = submissions.get_draft(req.db, req.class_id, work_id, student)
+    if copied is not None:
+        draft["copiedFrom"] = copied
+    return draft
 
 
 @route("PUT", "/api/drafts/{assignmentId}", auth=Auth.STUDENT)

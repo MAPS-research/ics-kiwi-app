@@ -34,7 +34,7 @@ export function metricCards(m: CourseMetrics, range: TimeRange): MetricCardModel
   const active = m.active.value ?? 0;
   const perActive = `per active student · ${active} of ${m.enrolled} enrolled`;
   return [
-    { key: "active", label: activeOfEnrolledLabel(range.effectivePreset, active, m.enrolled), value: `${active}`, note: `of ${m.enrolled} enrolled (never-active students included)`, delta: deltaLabel(m.active, compare), href: teacherPaths.activity({ group: "students" }) },
+    { key: "active", label: activeOfEnrolledLabel(range.effectivePreset, active, m.enrolled), value: `${active}`, note: `of ${m.enrolled} enrolled (never-active students included). ${LABELS.learningActionsHelp}`, delta: deltaLabel(m.active, compare), href: teacherPaths.activity({ group: "students" }) },
     { key: "chapter", label: thisWeeksChapterLabel((m.thisWeekChapter as CourseMetrics["thisWeekChapter"] & { number?: number }).number ?? 0, m.thisWeekChapter.completed, m.thisWeekChapter.total), value: m.thisWeekChapter.title.replace(/^\d+\s*·\s*/, ""), note: `${m.thisWeekChapter.completed} of ${m.thisWeekChapter.total} chapters completed`, delta: "", href: teacherPaths.activity({ group: "chapters" }), compact: true },
     { key: "published", label: "Published homework", value: `${m.publishedHomework} (+${pluralize(m.inClassExercises, "in-class exercise")})`, note: "Published and not archived", delta: "", href: teacherPaths.activity({ group: "assignments" }), compact: true },
     { key: "attempts", label: LABELS.answerAttemptsPerActive, value: fmt(m.answerAttemptsPerActive.value), note: perActive, delta: deltaLabel(m.answerAttemptsPerActive, compare), href: teacherPaths.activity({ group: "students", sort: "attempts" }) },

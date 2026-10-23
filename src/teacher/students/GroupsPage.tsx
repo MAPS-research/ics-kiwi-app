@@ -75,13 +75,14 @@ export function GroupsView({
                       <td>{g.description || "—"}</td>
                       {canManage && (
                         <td className="row-actions">
-                          <button className="text-button" onClick={() => onMembers(g)}>
+                          {/* K-m04: each group's buttons name the group */}
+                          <button className="text-button" aria-label={`Members of ${g.name}`} onClick={() => onMembers(g)}>
                             Members
                           </button>
-                          <button className="text-button" onClick={() => onRename(g)}>
+                          <button className="text-button" aria-label={`Rename ${g.name}`} onClick={() => onRename(g)}>
                             Rename
                           </button>
-                          <button className="text-button" onClick={() => onArchive(g)}>
+                          <button className="text-button" aria-label={`Archive ${g.name}`} onClick={() => onArchive(g)}>
                             Archive
                           </button>
                         </td>

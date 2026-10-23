@@ -6,6 +6,7 @@ import {
   pruneStale,
   readLocalDraft,
   savedLabel,
+  COPIED_NOTICE,
   UPDATED_NOTICE,
   writeLocalDraft,
 } from "./draftSync";
@@ -89,6 +90,13 @@ describe("stale keys and merging (ASSESS-12, AU-D1-14)", () => {
     expect(draftNotice(1, 2, ["old"], "archived")).toBe("");
     expect(draftNotice(1, 2, [], "past_due")).toBe(UPDATED_NOTICE);
     expect(draftNotice(1, 2, [], "open")).toBe(UPDATED_NOTICE);
+  });
+  it("K-m03: answers copied from the earlier version say so, before any other notice", () => {
+    expect(COPIED_NOTICE).toBe("Your answers from the earlier version were copied here.");
+    expect(draftNotice(2, 2, [], "open", true)).toBe(COPIED_NOTICE);
+    expect(draftNotice(1, 2, ["old"], "open", true)).toBe(COPIED_NOTICE);
+    expect(draftNotice(2, 2, [], "closed", true)).toBe(COPIED_NOTICE);
+    expect(draftNotice(2, 2, [], "open", false)).toBe("");
   });
 });
 
