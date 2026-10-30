@@ -4,7 +4,7 @@ R practice, assignments, grading and Lab activity for SOCS-SH 190.
 
 **Development branch: `codex/kiwi-sdk-v0.7.0`. This SDK migration is not merged into `main`.** The previous v0.6 implementation is on `codex/css-lab-v0.6.0`; its patched-host deployment is retired.
 
-[Agent setup](set_up_for_agent.md) · [Integration contract](docs/architecture-v0.7.0.md) · [Changelog](CHANGELOG.md) · [Browser review](docs/reviews/2026-10-29-v0.7.0.md)
+[Agent setup](set_up_for_agent.md) · [Integration contract](docs/architecture-v0.7.0.md) · [SDK feedback](docs/handoff/v0.7.0-sdk-feedback.md) · [Changelog](CHANGELOG.md) · [Browser review](docs/reviews/2026-10-29-v0.7.0.md)
 
 ## v0.7 接入规则
 
@@ -41,7 +41,7 @@ Open `http://127.0.0.1:8100/entry`. Students can choose a local demo identity; t
 
 Keep one API process per database. For isolated testing use `KIWI_DB_PATH` and a different API/UI port; export `KIWI_API_PORT` for both processes. `npm run dev:all` prefers `.venv/bin/python`; `KIWI_PYTHON` overrides it.
 
-The branch may still be local during development. If the clone command cannot find it, use the current local checkout; do not substitute `main` or the old v0.6 branch.
+Use the named `codex/kiwi-sdk-v0.7.0` branch for these instructions. `main` and the old v0.6 branch do not contain this SDK migration.
 
 ## Connect an unmodified Kiwi host
 

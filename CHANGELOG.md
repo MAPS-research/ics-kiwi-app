@@ -6,6 +6,7 @@
 - Route AI through Kiwi's approved contextual-chat API. Remove direct OpenAI credentials/calls and unsupported host-chat messages. Preserve historical provider provenance; label fixed local guidance and templates accurately.
 - Retire host patch/install scripts and native activity sync. Keep existing assignments, answers, grades and historical records; suppress old identity fields in linked-course views and exports. Generic course placements replace app-specific host components.
 - Document the current branch, upstream commits, identity/AI limits and safe upgrade path in the [v0.7 integration contract](docs/architecture-v0.7.0.md). Independent [browser review](docs/reviews/2026-10-29-v0.7.0.md) distinguishes standalone workflow checks from untested live Kiwi integration.
+- Record [feedback for Kiwi SDK developers](docs/handoff/v0.7.0-sdk-feedback.md) (2026-10-30): three SDK/API requests, five host issues, two AI extensions, and the old approaches that must remain retired, with pinned evidence and proposed acceptance checks.
 
 ## [0.6.0] - 2026-10-22
 

@@ -26,6 +26,8 @@ No theme refresh was made in this version. The existing Montserrat/purple theme 
 
 The old .local checkouts, containers, data and running services are not reset by this migration. Merely checking out this version does not clean an already-patched host. See the [upgrade notes](../README.md#upgrade-from-v06).
 
+The [SDK developer feedback record](handoff/v0.7.0-sdk-feedback.md) separates proposed SDK/API capabilities, host bugs, AI extensions and withdrawn boundary violations. It includes pinned source evidence and proposed acceptance checks; these are pending upstream discussion, not approved changes or live-host test results.
+
 ## Request and authorization path
 
 1. Official iframe SDK performs its handshake and supplies context. Standalone simulator/demo context grants no Kiwi privileges.
