@@ -1,32 +1,27 @@
-"""OpenAI provider adapter, concurrency slots and rate budgets (AIRUN; spec §12.7).
+"""Kiwi App API adapter, concurrency slots and rate budgets.
 
 ``invoke(request, class_id, student_id, meta=None)`` keeps its name and positional signature (tests patch
-``app.ai.invoke`` with fakes). It makes exactly one provider call, fills ``meta`` (response id, token usage, latency)
+``app.ai.invoke`` with fakes). It makes one approved Kiwi contextual-chat call and records the available latency/provenance
 and raises ``contracts.AiError`` (429/502/503) for every failure. Capacity is enforced around it by ``ai_runtime``:
 ``_slots`` (``KIWI_AI_CONCURRENCY`` concurrent calls, bounded wait queue) and ``_rates`` (atomic per-student, per-class
 and per-address budgets with refunds). Policy and request-building names moved to ``ai_policy``/``ai_runtime`` and
 are re-exported here for compatibility.
-Role precedence follows https://developers.openai.com/api/docs/guides/text#message-roles-and-instruction-following
+Kiwi owns the approved prompt; Lab rules are task data, not provider system messages.
 """
 
 from __future__ import annotations
 
-import json
 import os
-import socket
 import threading
 import time
 from collections import deque
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
-from server import ai_policy, ai_runtime
+from server import ai_policy, ai_runtime, kiwi_api
 from server.ai_runtime import SYSTEM, build_request, is_novel, validate_question  # noqa: F401  (re-exports)
 from server.contracts import AiError
 
 DEFAULT_POLICY = ai_policy.LEGACY_DEFAULT_POLICY
-PROVIDER_URL = "https://api.openai.com/v1/responses"
-PROVIDER_TIMEOUT_S = 50
+PROVIDER_TIMEOUT_S = 120
 MAX_WAITERS = 32
 
 
@@ -164,7 +159,7 @@ _rate_lock = threading.Lock()  # kept for v0.5.1 compatibility (no longer used)
 
 
 def available() -> bool:
-    return bool(os.environ.get("OPENAI_API_KEY") or os.environ.get("OPEN_AI_TEST_KEY"))
+    return kiwi_api.ai_available()
 
 
 def init(db) -> None:
@@ -184,55 +179,13 @@ def save_policy(db, class_id, data, unit_ids, now=None, *, created_by="instructo
     return ai_policy.save_policy(db, class_id, data, unit_ids, created_by=created_by, created_by_role=created_by_role)
 
 
-def _provider_error(error: Exception) -> AiError:
-    if isinstance(error, HTTPError):
-        if error.code == 429:
-            return AiError(429, "rate_limited", "The AI service is receiving too many requests. Please wait a minute and try again.",
-                           {"reason": "provider_rate_limit"})
-        return AiError(502, "ai_provider_error", "The AI service could not complete the request. Please retry.",
-                       {"reason": f"provider_http_{error.code}"})
-    reason = getattr(error, "reason", None)
-    if isinstance(error, (TimeoutError, socket.timeout)) or isinstance(reason, (TimeoutError, socket.timeout)):
-        return AiError(502, "ai_provider_error", "The AI service took too long to answer. Please retry.", {"reason": "timeout"})
-    return AiError(502, "ai_provider_error", "The AI service could not be reached. Please retry in a moment.", {"reason": "network"})
-
-
 def invoke(request, class_id, student_id, meta=None):
-    """Call the Responses API once; returns the reply text or raises ``AiError``. Never holds a database transaction."""
-    if not available():
-        raise AiError(503, "ai_unavailable", "AI is unavailable. Configure the server API key to enable teacher-controlled AI.")
-    key = os.environ.get("OPENAI_API_KEY") or os.environ.get("OPEN_AI_TEST_KEY")
+    """Run the approved Kiwi prompt using this request's verified App identity."""
     started = time.monotonic()
-    http = Request(PROVIDER_URL, data=json.dumps(request).encode(),
-                   headers={"Content-Type": "application/json", "Authorization": "Bearer " + str(key)}, method="POST")
-    try:
-        with urlopen(http, timeout=PROVIDER_TIMEOUT_S) as response:
-            raw = response.read()
-    except (HTTPError, URLError, TimeoutError, socket.timeout, OSError) as error:
-        raise _provider_error(error) from error
-    try:
-        result = json.loads(raw)
-    except (ValueError, UnicodeDecodeError) as error:
-        raise AiError(502, "ai_invalid_output", "The AI service sent a response the Lab could not read. Please retry.",
-                      {"reason": "provider_json"}) from error
-    if not isinstance(result, dict):
-        raise AiError(502, "ai_invalid_output", "The AI service sent a response the Lab could not read. Please retry.")
+    result = kiwi_api.contextual_chat(request, class_id, student_id, meta)
     if isinstance(meta, dict):
-        usage = result.get("usage") or {}
-        meta.update(response_id=result.get("id"), input_tokens=usage.get("input_tokens"),
-                    output_tokens=usage.get("output_tokens"),
-                    reasoning_tokens=(usage.get("output_tokens_details") or {}).get("reasoning_tokens"),
-                    latency_ms=int((time.monotonic() - started) * 1000))
-    if result.get("status") != "completed":
-        reason = (result.get("incomplete_details") or {}).get("reason") if isinstance(result.get("incomplete_details"), dict) else None
-        raise AiError(502, "ai_incomplete",
-                      "AI output was incomplete. Please retry or ask your teacher to increase the output token limit.",
-                      {"reason": reason or "incomplete"})
-    text = "\n".join(part.get("text", "") for item in result.get("output", []) if item.get("type") == "message"
-                     for part in item.get("content", []) if part.get("type") == "output_text").strip()
-    if not text:
-        raise AiError(502, "ai_invalid_output", "AI returned an empty response. Please retry.", {"reason": "empty"})
-    return text
+        meta["latency_ms"] = int((time.monotonic() - started) * 1000)
+    return result
 
 
 __all__ = ["DEFAULT_POLICY", "SYSTEM", "Capacity", "RateBudget", "available", "build_request", "init", "invoke",

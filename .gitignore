@@ -8,5 +8,6 @@ public/webr/
 __pycache__/
 .DS_Store
 .local/
+.venv/
 
 coverage/

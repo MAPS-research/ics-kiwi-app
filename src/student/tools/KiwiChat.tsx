@@ -26,7 +26,7 @@ import type { AskKiwiMode, ChatRequest, ChatResponse, ChatTurnView, GuardView, K
  */
 
 export interface ChatTurnRow {
-  prompt: string; response: string; createdAt: string; local: boolean; guard: GuardView["status"];
+  prompt: string; response: string; createdAt: string; local: boolean; source?: ChatResponse["source"]; guard: GuardView["status"];
   /** RV6-m14: why the course rules refused this question (it stays in the thread instead of disappearing) */
   refused?: string;
 }
@@ -37,7 +37,7 @@ export function isRefusal(error: unknown): boolean {
 }
 
 export function turnFromView(t: ChatTurnView): ChatTurnRow {
-  return { prompt: t.prompt, response: t.response, createdAt: t.createdAt, local: t.source === "local", guard: t.guardStatus ?? "not_applicable" };
+  return { prompt: t.prompt, response: t.response, createdAt: t.createdAt, local: t.source === "local", source: t.source, guard: t.guardStatus ?? "not_applicable" };
 }
 
 /** Send one chat request: registers the reply for paste detection, reports unreached requests, rethrows errors. */
@@ -66,7 +66,7 @@ export interface KiwiChatViewProps {
 }
 
 /** SB-m12: students are told what they get, not how the server is configured. */
-export const LOCAL_GUIDANCE_NOTE = "Kiwi's AI is not available right now, so you get Kiwi's standard hints for your question.";
+export const LOCAL_GUIDANCE_NOTE = "Kiwi AI is unavailable in this session. The Lab shows fixed local guidance from your chapter rules; it does not generate an AI answer.";
 
 export function KiwiChatView({ inputId, turns, input, busy, error, notice, aiAvailable, disabled, onInput, onAsk }: KiwiChatViewProps) {
   return (
@@ -100,7 +100,7 @@ export function KiwiChatView({ inputId, turns, input, busy, error, notice, aiAva
                 <p className="airun-warning" role="note">Not answered: {t.refused}</p>
               ) : (
                 <>
-                  <span className="ai-source">{sourceLabel(t.local ? "local" : "lab-ai")}</span>
+                  <span className="ai-source">{sourceLabel(t.source ?? (t.local ? "local" : "lab-ai"))}</span>
                   {guard && <p className="airun-guard-notice">{guard}</p>}
                   <ResponseText text={t.response} />
                 </>
@@ -197,7 +197,7 @@ export function KiwiChat({ classId, studentId, unitId, surface, code, track, ass
     try {
       const reply = await sendChat(classId, body, track, { surface, unitId, assignmentId, questionId, itemId });
       if (mounted.current) {
-        setTurns((t) => [...t, { prompt, response: reply.response, createdAt: new Date().toISOString(), local: reply.source === "local", guard: reply.guard?.status ?? "not_applicable" }]);
+        setTurns((t) => [...t, { prompt, response: reply.response, createdAt: new Date().toISOString(), local: reply.source === "local", source: reply.source, guard: reply.guard?.status ?? "not_applicable" }]);
         setInput("");
       }
     } catch (e) {

@@ -170,7 +170,7 @@ export function DigestView({
             </tbody>
           </table>
         </div>
-        {!digest.recent.length && <p className="muted">No AI questions in this range.</p>}
+        {!digest.recent.length && <p className="muted">No Tutor requests in this range.</p>}
       </section>
     </div>
   );

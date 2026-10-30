@@ -29,18 +29,18 @@ export function kiwiRoleText(kiwiRole: string): string {
   return map[kiwiRole] ?? (kiwiRole || "Course staff");
 }
 export function sourceText(source: KiwiStaffSeen["roleSource"]): string {
-  return source === "override" ? "Override" : "From Kiwi";
+  return source === "override" ? "Override" : "Server grant";
 }
 
 export function KiwiStaffTable({ rows, me, busy, onChange }: { rows: KiwiStaffSeen[]; me: Pick<Me, "userId">; busy: boolean; onChange: (row: KiwiStaffSeen, role: StaffRole | "kiwi") => void }) {
-  if (!rows.length) return <EmptyState>No Kiwi course staff have opened CSS Lab yet. They appear here after their first visit.</EmptyState>;
+  if (!rows.length) return <EmptyState>No users with Lab staff grants have opened this course yet.</EmptyState>;
   return (
     <div className="table-scroll">
       <table className="data-table">
         <thead>
           <tr>
             <th>Kiwi user</th>
-            <th>Kiwi role</th>
+            <th>Last recorded role</th>
             <th>Lab role</th>
             <th>Source</th>
             <th>Last seen</th>
@@ -67,7 +67,7 @@ export function KiwiStaffTable({ rows, me, busy, onChange }: { rows: KiwiStaffSe
                     value={row.roleSource === "override" && row.effectiveRole ? row.effectiveRole : "kiwi"}
                     onChange={(e) => onChange(row, e.target.value as StaffRole | "kiwi")}
                   >
-                    <option value="kiwi">Use Kiwi role</option>
+                    <option value="kiwi">Use server grant</option>
                     {ROLE_OPTIONS.map((role) => (
                       <option key={role} value={role}>{ROLE_LABELS[role]}</option>
                     ))}
@@ -162,7 +162,7 @@ export function StaffRolesPanel({ classId, me, linked }: { classId: string; me: 
     void act(async () => {
       if (role === "kiwi") {
         if (row.overrideStaffId) await api.revokeStaff(classId, row.overrideStaffId);
-        return `${row.username} now uses the Kiwi role.`;
+        return `${row.username} now uses the server grant.`;
       }
       if (row.overrideStaffId) await api.updateStaff(classId, row.overrideStaffId, { role });
       else await api.createStaff(classId, { displayName: row.username || row.kiwiUserId, role, kiwiUserId: row.kiwiUserId });
@@ -186,10 +186,10 @@ export function StaffRolesPanel({ classId, me, linked }: { classId: string; me: 
       )}
       {linked ? (
         <>
-          <h3>Kiwi course staff</h3>
+          <h3>Kiwi users with Lab grants</h3>
           <KiwiStaffTable rows={data?.kiwiStaff ?? []} me={me} busy={busy}
             onChange={(row, role) => setRoleChange({ name: row.username || row.kiwiUserId, from: roleText(row.effectiveRole),
-              to: role === "kiwi" ? "the Kiwi role" : roleText(role), apply: () => changeKiwiRole(row, role) })} />
+              to: role === "kiwi" ? "the server grant" : roleText(role), apply: () => changeKiwiRole(row, role) })} />
         </>
       ) : (
         <>

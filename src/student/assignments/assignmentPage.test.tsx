@@ -10,7 +10,7 @@ vi.mock("../../lib/kiwi", async (importOriginal) => {
   return { ...actual, useHostChatPolicy: (policy: HostChatPolicy | null) => void policies.push(policy) };
 });
 
-import { CHAT_UNAVAILABLE_REASON, hostChatMessages } from "../../lib/kiwi";
+import { hostChatMessages } from "../../lib/kiwi";
 import {
   allowedTools,
   AssignmentPageView,
@@ -62,18 +62,17 @@ beforeEach(() => {
 });
 
 describe("host chat policy (ASSESS-24)", () => {
-  it("hides Kiwi's chat for homework with Ask Kiwi off and sends the graded-homework note", () => {
+  it("sends only a graded-homework context hint when Lab Ask Kiwi is off", () => {
     view(homework({ toolPolicy: { rWorkspace: true, allowRunPredict: false, askKiwi: "off", similarPractice: false } }));
     expect(policies.at(-1)).toEqual({ available: false, contextNote: GRADED_HOMEWORK_NOTE });
     expect(hostChatMessages("Course X.", policies.at(-1) ?? null)).toEqual([
-      { type: "kiwi:updateContext", payload: { context: `Course X.\n${GRADED_HOMEWORK_NOTE}`, tutoringMode: "guidance" } },
-      { type: "kiwi:setChatAvailability", payload: { available: false, reason: CHAT_UNAVAILABLE_REASON } },
+      { type: "kiwi:updateContext", payload: { context: `Course X.\n${GRADED_HOMEWORK_NOTE}` } },
     ]);
   });
   it("keeps the chat available for hints-only homework", () => {
     view(homework());
     expect(policies.at(-1)).toEqual({ available: true, contextNote: GRADED_HOMEWORK_NOTE });
-    expect(hostChatMessages("Course X.", policies.at(-1) ?? null)[1]).toEqual({ type: "kiwi:setChatAvailability", payload: { available: true, reason: "" } });
+    expect(hostChatMessages("Course X.", policies.at(-1) ?? null)).toHaveLength(1);
     expect(hostPolicyFor(null)).toBeNull();
     expect(hostPolicyFor(homework({ kind: "practice" }))?.contextNote).toContain("In-class exercise: HW 3");
   });

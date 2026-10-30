@@ -35,7 +35,7 @@ const explorer = (group: "students" | "questions" | "question-activities", prese
 describe("Activity explorer markup", () => {
   it("uses the final names, one chip row and a pinned See details column", () => {
     const html = explorer("students", "teaching");
-    for (const text of ["See details", "Question activities", "Auto-checked accuracy (your questions)", "AI tutor questions (incl. hints)", "Lecture reading", "+ Filter", "2 active of 5 enrolled"])
+    for (const text of ["See details", "Question activities", "Auto-checked accuracy (your questions)", "Tutor requests (AI and local hints)", "Lecture reading", "+ Filter", "2 active of 5 enrolled"])
       expect(html).toContain(text);
     expect(html).toContain('class="pinned-col"');
     expect(html).toContain('class="data-table sticky-head"');
@@ -97,7 +97,7 @@ const TIMELINE: StudentTimeline = {
     { id: "e:1", at: "2026-10-21T01:03:00Z", kind: "similar_generated", questionId: "gi-1", questionLabel: "AI item", title: "Similar exercise generated", studySessionIndex: 0,
       context: { practiceMode: "similar", assignmentId: "hw3", assignmentLabel: "Week 3 Homework", unitId: "u3" }, provenance: { where: "lab" },
       detail: { stem: "What does mean(c(1, 3)) return?", choices: ["1", "2", "3", "4"], difficulty: 2, questionType: "choice" } },
-    { id: "e:2", at: "2026-10-21T01:04:00Z", kind: "ai_turn", questionId: "q1", questionLabel: "Q1", title: "AI tutor question", studySessionIndex: 0,
+    { id: "e:2", at: "2026-10-21T01:04:00Z", kind: "ai_turn", questionId: "q1", questionLabel: "Q1", title: "Tutor request", studySessionIndex: 0,
       context: { practiceMode: "homework", assignmentId: "hw3", assignmentLabel: "Week 3 Homework", unitId: "u3" },
       provenance: { where: "lab", ai: "Lab AI tutor", policyLabel: "Ch 03 rules v4", model: "gpt-5.4-mini", aiCallId: 7 }, detail: { prompt: "Why?", response: "Check the keys." } },
     { id: "g:1", at: "2026-10-21T03:00:00Z", kind: "grade_released", questionId: null, questionLabel: "", title: "Released 17/20", studySessionIndex: 1,

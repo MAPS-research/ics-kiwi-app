@@ -14,7 +14,8 @@ export function provenanceLabel(p: Provenance | null | undefined): string {
   if (p.where === "kiwi") return p.ai ? LABELS.kiwiLectureAi : "Kiwi";
   if (!p.ai) return "";
   if (p.ai === LABELS.localGuidance) return LABELS.localGuidance;
-  return p.policyLabel ? `${LABELS.labAiTutor} · ${p.policyLabel}` : LABELS.labAiTutor;
+  const label = p.ai === "Kiwi AI in Lab" ? p.ai : LABELS.labAiTutor;
+  return p.policyLabel ? `${label} · ${p.policyLabel}` : label;
 }
 
 /** Full provenance line (§12.9): `Lab AI tutor · Ch 03 rules v4 · gpt-5.4-mini`. */
@@ -30,12 +31,12 @@ export const KIND_LABELS: Readonly<Record<TimelineEvent["kind"], string>> = {
   code_edited: "Code saved",
   answer_draft: "Answer draft saved",
   answer_attempt: "Answer attempt",
-  ai_turn: "AI tutor question",
+  ai_turn: "Tutor request",
   ai_failed: "AI request failed",
   ai_feedback: "Feedback on a Kiwi reply",
   similar_generated: LABELS.similarExerciseGenerated,
   practice_generated: "Practice exercise generated",
-  item_check: "AI practice answer",
+  item_check: "Practice answer",
   attempt_started: "Attempt started",
   submission: "Homework submission",
   grade: "Grade saved",
@@ -59,7 +60,7 @@ const MODE_LABELS: Readonly<Record<string, string>> = {
   kiwi: "Kiwi",
   other: "Other activity",
 };
-/** Where the step happened: the assignment title, or the practice mode (`Free practice (AI)`, `R workspace`, …). */
+/** Where the step happened: the assignment title, or the practice mode (`Free practice`, `R workspace`, …). */
 export function contextLabel(ctx: TimelineEvent["context"]): string {
   if (ctx.assignmentLabel && (ctx.practiceMode === "homework" || ctx.practiceMode === "in-class")) return ctx.assignmentLabel;
   if (ctx.practiceMode === "similar" && ctx.assignmentLabel) return `${LABELS.similarPracticeAi} · ${ctx.assignmentLabel}`;

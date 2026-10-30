@@ -519,6 +519,7 @@ def dispatch(handler: Any, method: str, registry: Registry | None = None) -> Non
     req = Request(handler, method, path, query, uuid.uuid4().hex, _client_addr(handler))
     response: Response
     committed = False
+    identity_token = None
     try:
         parts = [unquote(part) for part in path.split("/")]
         spec, params, allowed = reg.match(method, parts)
@@ -539,6 +540,10 @@ def dispatch(handler: Any, method: str, registry: Registry | None = None) -> Non
         from server import auth
 
         req.identity = auth.resolve(req.headers, class_id, path, client_addr=req.client_addr, db=req.db)
+        from server import kiwi_api, identity
+        identity_token = kiwi_api.current_identity.set(req.identity)
+        if identity.class_linked(req.db, class_id):
+            req.name_mode = "pseudonyms"
         researcher = getattr(req.identity, "staff_role", None) == "researcher"
         if researcher:
             # WHY (decision D3): researchers never see identities, whatever name mode the client asks for.
@@ -603,6 +608,8 @@ def dispatch(handler: Any, method: str, registry: Registry | None = None) -> Non
     except Exception as exc:  # noqa: BLE001 - single mapping point (spec §5.2)
         response = _map_exception(handler, req, exc)
     finally:
+        if identity_token is not None:
+            kiwi_api.current_identity.reset(identity_token)
         if not committed:
             try:
                 req.close(commit=False)

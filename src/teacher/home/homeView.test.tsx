@@ -35,7 +35,7 @@ function fixture(linked = false): HomeViewData {
       hasAttempts: true, revisionOf: null, stats, updatedAt: "2026-10-20T00:00:00+00:00" }],
     attention: { students: [{ studentId: "s1", studentName: "Ada Chen", reasons: [{ rule: "no_activity", text: "No learning actions for 9 days", href: "/teacher/students/s/s1/timeline", at: null },
       { rule: "late_pattern", text: "2 late submissions in 3 weeks", href: "/teacher/grading?studentId=s1&show=late", at: null }] }], total: 4,
-      rules: ["No learning actions (answers, code runs, AI questions, submissions) for 7+ days"] },
+      rules: ["No learning actions (answers, code runs, Tutor requests, submissions) for 7+ days"] },
     reteach: { candidates: [{ assignmentId: "hw3", questionId: "q2", label: "HW3 Q2", prompt: "left_join()", students: 9, firstTryCorrectPct: 38, meanTriesToCorrect: 2.9, meanScorePct: null, marked: false }], marked: [] },
     askedAi: { repeated: [{ prompt: "why does merge drop rows?", students: 7, occurrences: 9, threadKeys: ["lab:s1:t1"] }], topics: [{ label: "joins", count: 14 }, { label: "NA handling", count: 9 }], flaggedFinalAnswer: 2 },
     glance: { activeStudents: { ...metric(48, 42, 14), denominator: { label: "enrolled", value: 60 } }, enrolled: 60, aiQuestions: metric(132, 112, 18), codeRuns: metric(910, 800, 14),
@@ -51,12 +51,12 @@ const render = (permissions = ROLE_PERMISSIONS.instructor, data = fixture(), hid
 describe("Home view", () => {
   it("renders the blocks in order with the fixed labels and no eyebrow", () => {
     const html = render();
-    const order = ["Needs your action", "Students needing attention (4)", "What to re-teach (your questions only)", "Assignments", "What students asked the AI", "This week at a glance"];
+    const order = ["Needs your action", "Students needing attention (4)", "What to re-teach (your questions only)", "Assignments", "What students asked the tutor", "This week at a glance"];
     const positions = order.map((t) => html.indexOf(t));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     expect(html).not.toContain('class="eyebrow"');
-    expect(html).not.toMatch(/\bKiwi AI\b/);
+    expect(html).not.toMatch(/\bKiwi AI\b(?! in Lab)/);
   });
   it("shows Needs your action chips with links for an instructor (INSIGHTS-02)", () => {
     const html = render();
@@ -87,7 +87,7 @@ describe("Home view", () => {
     expect(html).toContain("2 late submissions in 3 weeks</span>");
   });
   it("shows the Kiwi banner only when the course is not linked and not dismissed (INSIGHTS-18)", () => {
-    expect(render()).toContain("Kiwi not linked — lecture reading and Kiwi lecture AI chats won&#x27;t appear.");
+    expect(render()).toContain("Standalone mode — Kiwi AI in Lab requires an approved course app session.");
     expect(render()).toContain("How to link");
     expect(render()).toContain("Dismiss");
     expect(render(ROLE_PERMISSIONS.instructor, fixture(true))).not.toContain("Kiwi not linked");
@@ -110,7 +110,7 @@ describe("Home texts", () => {
     expect(glanceItems(fixture().glance, RANGE)[0].title).toMatch(/^Active: enrolled students with at least one learning action/);
     expect(glanceItems({ ...fixture().glance, activeStudents: metric(1, null, null) }, { ...RANGE, compareLabel: null })[0].text)
       .toBe("Active since last class: 1 of 60 (learning actions)");
-    expect(items[1]).toBe("AI questions 132 (+18%)");
+    expect(items[1]).toBe("Tutor requests 132 (+18%)");
     expect(items).toContain("AI requests turned away 3");
     expect(deltaText(metric(10, null, null), "pct", null)).toBe("");
     expect(assignmentLine(fixture().assignments[0], "Asia/Shanghai")).toBe("Week 3 HW · Due Sat 10/24 23:59 GMT+8 · Submitted 41/60 · To grade 12");

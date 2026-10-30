@@ -19,6 +19,7 @@ import {
   RequestTimeout,
   resetVerificationMemory,
   settingsChanges,
+  sourceLabel,
   skippedPayload,
   unreachedReason,
   verifyAfterFirstCheck,
@@ -88,6 +89,12 @@ describe("threads", () => {
 });
 
 describe("notices and messages", () => {
+  it("distinguishes official Kiwi replies from local and historical provider replies", () => {
+    expect(sourceLabel("kiwi-ai")).toBe("Kiwi AI");
+    expect(sourceLabel("local")).toBe("Local guidance");
+    expect(sourceLabel("lab-ai")).toBe("Lab AI (historical)");
+  });
+
   it("names the assignment help level and guard rewrites", () => {
     expect(helpLevelNotice("hints_only")).toBe("Ask Kiwi gives hints only for this assignment");
     expect(helpLevelNotice("off")).toBe("Ask Kiwi is turned off for this assignment");

@@ -41,7 +41,7 @@ export function PrivacyForm({ draft, setDraft, busy }: { draft: PrivacyDraft; se
     <fieldset className="editor-fields" disabled={busy}>
       <label className="checkbox-label">
         <input type="checkbox" checked={draft.showEmails} onChange={(e) => setDraft({ ...draft, showEmails: e.target.checked })} />
-        Show Kiwi emails when a student has no display name
+        Show imported emails in standalone courses only
       </label>
       <label className="work-label">
         Default for {LABELS.presentationMode}

@@ -63,7 +63,7 @@ class PersistenceTests(ItemCase):
                          ("mean(y)", "mean() averages the values.", ["mean( y )"]))
         self.assertEqual((row["requested_type"], row["requested_difficulty"], row["focus_note"], row["policy_version_id"],
                           row["model"], row["novelty_retries"], row["source"], row["status"]),
-                         ("fill", 2, "logical indexing", version, "gpt-5.4-mini", 0, "ai", "active"))
+                         ("fill", 2, "logical indexing", version, "kiwi-managed", 0, "ai", "active"))
         self.assertIsNotNone(row["ai_call_id"])
         call = self.rows("SELECT status, item_id, action FROM ai_calls WHERE id=?", (row["ai_call_id"],))[0]
         self.assertEqual(tuple(call), ("ok", item["id"], "question"))

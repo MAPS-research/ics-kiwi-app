@@ -73,7 +73,7 @@ def ai_status(req: Request) -> dict:
     except ValueError:
         concurrency = 4
     return {"configured": configured, "model": ai_runtime.default_model() if configured else None,
-            "modelAllowlist": ai_policy.model_allowlist(), "platformRulesVersion": ai_policy.PLATFORM_RULES_VERSION,
+            "modelAllowlist": [ai_runtime.default_model()], "platformRulesVersion": ai_policy.PLATFORM_RULES_VERSION,
             "concurrency": concurrency, "perStudentPerMinute": int(limits.get("perStudentPerMinute", 15)),
             "classPerMinute": int(limits.get("classPerMinute", 120))}
 
@@ -408,7 +408,7 @@ class TestRun:
                 (uuid.uuid4().hex, self.req.class_id, self.student_id, identity.actor_role, int(bool(identity.verified)), action,
                  self.context_unit, self.sample.get("assignmentId", ""), self.sample.get("questionId", ""), self.group_id,
                  self.resolved.version_id, self.resolved.source, ai_policy.PLATFORM_RULES_VERSION, self.request.get("model"),
-                 self.config.get("reasoningEffort"), self.request.get("max_output_tokens"), self.config.get("historyTurns"),
+                 None, None, self.config.get("historyTurns"),
                  self.prompt_hash, ai_runtime.developer_text(self.request),
                  json.dumps({k: v for k, v in self.context.items() if k != "prompt"}, ensure_ascii=False)[:60000], stamp,
                  match.assignment_id if match else "", match.question_id if match else "",

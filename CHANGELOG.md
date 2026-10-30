@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0] - 2026-10-29
+
+- Replace the v0.6 private host bridge with official SDK handshake/navigation, RS256 App tokens verified through public JWKS, and explicit Lab-owned teacher grants. No host database access, roster/name/email lookup or injected UI.
+- Route AI through Kiwi's approved contextual-chat API. Remove direct OpenAI credentials/calls and unsupported host-chat messages. Preserve historical provider provenance; label fixed local guidance and templates accurately.
+- Retire host patch/install scripts and native activity sync. Keep existing assignments, answers, grades and historical records; suppress old identity fields in linked-course views and exports. Generic course placements replace app-specific host components.
+- Document the current branch, upstream commits, identity/AI limits and safe upgrade path in the [v0.7 integration contract](docs/architecture-v0.7.0.md). Independent [browser review](docs/reviews/2026-10-29-v0.7.0.md) distinguishes standalone workflow checks from untested live Kiwi integration.
+
 ## [0.6.0] - 2026-10-22
 
 ### Features

@@ -54,6 +54,8 @@ def ensure_roster(db: sqlite3.Connection, class_id: str, student_id: str, *, sou
         raise ValueError("Unknown roster source")
     if not is_roster_eligible(student_id):
         return
+    if class_linked(db, class_id):
+        display_name, kiwi_email = "", ""
     display_name = (display_name or "").strip()[:100]
     kiwi_email = (kiwi_email or "").strip()[:200]
     kiwi_role = (kiwi_role or "").strip()[:40]
@@ -120,7 +122,7 @@ def label(db: sqlite3.Connection, class_id: str, student_id: str, mode: str = "n
         "SELECT display_name, kiwi_email, student_name, pseudonym_seq FROM roster WHERE class_id=? AND student_id=?",
         (class_id, student_id),
     ).fetchone()
-    if mode == "pseudonyms":
+    if mode == "pseudonyms" or class_linked(db, class_id):
         return _pseudonym(class_id, student_id, row["pseudonym_seq"] if row else None)
     show_emails = bool(_settings(db, class_id)["privacy"].get("showEmails", True))
     return _name_from_row(row, student_id, show_emails)
@@ -139,7 +141,7 @@ def labels(db: sqlite3.Connection, class_id: str, student_ids: Iterable[str], mo
             (class_id, *chunk),
         ):
             rows[row["student_id"]] = row
-    if mode == "pseudonyms":
+    if mode == "pseudonyms" or class_linked(db, class_id):
         return {s: _pseudonym(class_id, s, rows[s]["pseudonym_seq"] if s in rows else None) for s in ids}
     show_emails = bool(_settings(db, class_id)["privacy"].get("showEmails", True))
     return {s: _name_from_row(rows.get(s), s, show_emails) for s in ids}
@@ -266,6 +268,11 @@ def roster_term_owners(db: sqlite3.Connection, class_id: str) -> list[tuple[str,
             if "@" not in term and " " not in term and len(term) < 4:
                 continue
             found.setdefault(term.casefold(), (term, sid))
+    if class_linked(db, class_id):
+        for row in db.execute("SELECT kiwi_user_id, username FROM kiwi_staff_seen WHERE class_id=?", (class_id,)):
+            term = (row["username"] or "").strip()
+            if len(term) >= 4 and term != row["kiwi_user_id"]:
+                found.setdefault(term.casefold(), (term, row["kiwi_user_id"]))
     return sorted(found.values(), key=lambda pair: len(pair[0]), reverse=True)
 
 

@@ -124,7 +124,7 @@ class BuilderParityTests(AirunCase):
             real_turn = dict(db.execute("SELECT * FROM chat_turns WHERE id=?", (reply["chatTurnId"],)).fetchone())
             built_id = testsupport.make_chat_turn(db, C, "demo-bo", "How do I start?", "Look at what mean() needs.",
                                                   thread_id="thread-ask-kiwi-r-basics", unit_id="r-basics", surface="ask-kiwi",
-                                                  model=real_turn["model"], policy_version_id=real_turn["policy_version_id"])
+                                                  model=real_turn["model"], source=real_turn["source"], policy_version_id=real_turn["policy_version_id"])
             built_turn = dict(db.execute("SELECT * FROM chat_turns WHERE id=?", (built_id,)).fetchone())
             for column in ("thread_id", "question_id", "unit_id", "assignment_id", "item_id", "surface", "policy_version_id",
                            "model", "source", "guard_status", "flagged", "flag_source", "actor_role", "is_preview",
@@ -307,12 +307,10 @@ class ChangeRequestTests(ApiTestCase):
         self.assertEqual(status, 200, health)
         self.assertEqual((health["events"]["duplicatesIgnored"], health["events"]["rejected"]), (2, []))
 
-    def test_kiwi_chat_mode_survives_a_restart(self):  # CR-T5
+    def test_historical_kiwi_metadata_survives_a_restart(self):  # CR-T5
         with app.connection() as db:
             with dbmod.write_tx(db):
-                kiwi_bridge._apply_metadata(db, "live-course", {"appConfig": {"tutoringMode": "guidance", "source": "class_override"},
-                                                               "roster": [], "excludedByDesign": 3}, False)
-        kiwi_bridge._app_config.clear()  # a new process has no live value
+                db.execute("INSERT INTO kiwi_sync (class_id, native_tutoring_mode, native_tutoring_mode_source, excluded_by_design) VALUES ('live-course', 'guidance', 'class_override', 3)")
         with app.connection() as db:
             state = kiwi_bridge.status(db, "live-course")
         self.assertEqual((state["nativeTutoringMode"], state["nativeTutoringModeSource"], state["excludedByDesign"]),
@@ -518,18 +516,11 @@ class WiringTests(unittest.TestCase):
             ("server/test_core.py", "test_course_put_keeps_referenced_chapters"),
             ("server/test_telemetry.py", "test_code_run_300k_output_truncated_not_rejected"),
             ("server/test_telemetry.py", "test_heartbeat_bucket_counts_once_two_threads"),
-            ("server/test_kiwi_bridge.py", "test_sync_route_with_roster_metadata_after_migration"),
+            ("server/test_kiwi_bridge.py", "test_retired_sync_preserves_existing_work_without_importing_roster"),
             ("server/test_kiwi_bridge.py", "test_material_route_writes_map_not_payload"),
             ("server/test_core.py", "test_standalone_student_cannot_read_or_write_other_student"),
             ("server/test_core.py", "test_staff_requires_preview_on_student_routes"),
-            ("scripts/local-kiwi/bridge/lab-bridge.controller.spec.ts", "projects new types"),
-            ("scripts/local-kiwi/bridge/lab-bridge.controller.spec.ts", "filters by userId"),
-            ("scripts/local-kiwi/bridge/lab-bridge.controller.spec.ts", "returns consent"),
-            ("scripts/local-kiwi/bridge/lab-bridge.controller.spec.ts", "counts excluded records"),
-            ("scripts/local-kiwi/verify-integration.mjs", "INTEGRATION-06"),
-            ("scripts/local-kiwi/bridge/CssLabHostPatches.test.tsx", "hides chat while unavailable"),
-            ("scripts/local-kiwi/bridge/CssLabHostPatches.test.tsx", "returns to the requested path after login"),
-            ("scripts/local-kiwi/run-bridge-tests.mjs", "Skipped bridge tests: .local/kiwi and .local/kiwi-ui are not set up"),
+            ("server/test_kiwi_api.py", "test_signed_tokens_with_and_without_kid"),
             ("server/test_core.py", "test_init_db_twice_on_snapshots"),
         ]
         for path, name in rows:
@@ -539,7 +530,7 @@ class WiringTests(unittest.TestCase):
             else:
                 self.assertIn(name, text, f"{path} › {name}")
         package = json.loads((ROOT / "package.json").read_text())
-        self.assertEqual(package["scripts"]["test:bridge"], "node scripts/local-kiwi/run-bridge-tests.mjs")
+        self.assertEqual(package["scripts"]["test:bridge"], "node --test scripts/sdk-contract.test.mjs")
 
 
 if __name__ == "__main__":

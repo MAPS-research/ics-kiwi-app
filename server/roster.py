@@ -125,7 +125,7 @@ def entries(db: sqlite3.Connection, class_id: str, rows: list[sqlite3.Row], mode
     out = []
     for row in rows:
         sid = row["student_id"]
-        pseudo = mode == "pseudonyms"
+        pseudo = mode == "pseudonyms" or identity.class_linked(db, class_id)
         out.append({
             "studentId": sid,
             "studentName": names.get(sid, sid),
@@ -531,9 +531,9 @@ def profile(db: sqlite3.Connection, class_id: str, student_id: str, *, mode: str
             break
     questions = []
     for turn in db.execute(
-        f"""SELECT created_at, prompt, thread_id, flagged FROM chat_turns WHERE class_id=? AND student_id=? AND is_preview=0
+        f"""SELECT created_at, prompt, thread_id, flagged, source FROM chat_turns WHERE class_id=? AND student_id=? AND is_preview=0
         {clause} ORDER BY created_at DESC, id DESC LIMIT 5""", (class_id, student_id, *params)):
-        questions.append({"at": turn["created_at"], "prompt": turn["prompt"][:300], "where": "lab",
+        questions.append({"at": turn["created_at"], "prompt": turn["prompt"][:300], "where": "lab", "source": turn["source"],
                           "threadKey": f"lab:{student_id}:{turn['thread_id']}", "flagged": bool(turn["flagged"])})
     for ev in db.execute(
         f"""SELECT created_at, payload_json FROM events WHERE class_id=? AND student_id=? AND source='kiwi'

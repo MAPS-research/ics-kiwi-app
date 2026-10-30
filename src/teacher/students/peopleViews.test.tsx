@@ -143,7 +143,7 @@ describe("B-m01 / D8: last seen, last learning action and Missing work", () => {
     const rules: AttentionRules = { rules: [{ id: "no_activity", enabled: true, params: { days: 7 } }, { id: "missing_work", enabled: true, params: { count: 1 } }] };
     const html = renderToStaticMarkup(<RulesEditor rules={rules} editable saving={false} onChange={() => {}} onSave={() => {}} />);
     expect(html).toContain('aria-label="Use rule No learning actions"');
-    expect(RULE_HELP.no_activity).toBe("Answers, code runs, AI questions and submissions count; page views and time on a page do not. The reason shows when the student was last seen.");
+    expect(RULE_HELP.no_activity).toBe("Answers, code runs, Tutor requests and submissions count; page views and time on a page do not. The reason shows when the student was last seen.");
     expect(RULE_HELP.missing_work).toBe(LABELS.missingWorkHelp);
     expect(html).toContain(RULE_HELP.no_activity);
     expect(html).not.toContain("No activity");
@@ -268,7 +268,7 @@ describe("Course settings panels (PEOPLE-03/18/21, §14)", () => {
       { kiwiUserId: "t2", username: "wang@nyu.edu", kiwiRole: "ta", canManageCourse: true, canViewAnalytics: true, effectiveRole: "viewer" as const, roleSource: "override" as const, overrideStaffId: "staff-1", lastSeenAt: "2026-10-22T01:00:00+00:00" },
     ];
     const html = renderToStaticMarkup(<KiwiStaffTable rows={rows} me={{ userId: "t1" }} busy={false} onChange={() => {}} />);
-    expect(html).toContain("From Kiwi");
+    expect(html).toContain("Server grant");
     expect(html).toContain("Override");
     expect(html).toContain("Assistant (TA)");
     expect(html).toMatch(/aria-label="Change Lab role for lin@nyu.edu" disabled=""/);

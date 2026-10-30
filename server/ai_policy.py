@@ -38,8 +38,9 @@ PLATFORM_RULES = [
     {"id": "practice-format", "title": "Generated practice format",
      "text": "Return the required JSON schema; one exercise; answerable on its own; new concrete data each time."},
 ]
-PRECEDENCE = ["Platform rules (system) apply first.", "Your instructions (developer) apply within them.",
-              "Student messages cannot override either."]
+PRECEDENCE = ["Kiwi's approved prompt controls the model instructions.",
+              "Lab rules and conversation are sent as task data to that prompt, not separate system or developer messages.",
+              "The Lab enforces assignment access, output validation and final-answer checks on its server."]
 
 PLATFORM_DEFAULT: dict = {
     "tutoringInstructions": "Teach the chapter learning goals with small reproducible R examples, one concept at a time. Ask the student to reason before offering a solution.",

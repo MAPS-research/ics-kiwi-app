@@ -45,7 +45,7 @@ export function eventLabel(type: string, payload?: Record<string, unknown>): str
 
 /** "lab-ai"/"kiwi-ai" = this app's AI, "kiwi" = Kiwi's native AI, "local" = local guidance. */
 export function aiProvenanceLabel(source: unknown): string {
-  return source === "kiwi-ai" || source === "lab-ai" || source === "openai" ? LABELS.labAiTutor : source === "kiwi" ? LABELS.kiwiLectureAi : LABELS.localGuidance;
+  return source === "kiwi-ai" ? "Kiwi AI in Lab" : source === "lab-ai" || source === "openai" ? LABELS.labAiTutor : source === "kiwi" ? LABELS.kiwiLectureAi : LABELS.localGuidance;
 }
 
 function GeneratedExercise({ p }: { p: Record<string, unknown> }) {
@@ -129,7 +129,7 @@ export function EventContent({ payload: p, type = "" }: { payload: Record<string
       )}
       {Boolean(p.response || p.hint) && (
         <>
-          <span className="ai-source">{aiProvenanceLabel(p.source === "kiwi" ? "kiwi" : p.aiProvider || p.source || "lab-ai")}</span>
+          <span className="ai-source">{aiProvenanceLabel(p.source === "kiwi" ? "kiwi" : p.aiProvider === "kiwi" ? "kiwi-ai" : p.aiProvider || p.source || "lab-ai")}</span>
           <ResponseText text={String(p.response || p.hint)} />
         </>
       )}

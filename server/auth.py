@@ -313,12 +313,13 @@ def _resolve_kiwi(db: sqlite3.Connection, authorization: str, class_id: str) -> 
     role: str | None = None
     source: str | None = None
     staff_id: str | None = None
-    if kiwi_staff:
-        override = db.execute(
-            "SELECT id, role FROM staff WHERE class_id=? AND kiwi_user_id=? AND revoked_at IS NULL",
-            (class_id, user_id)).fetchone()
-        if override:
-            role, source, staff_id = override["role"], "override", override["id"]
+    override = db.execute(
+        "SELECT id, role FROM staff WHERE class_id=? AND kiwi_user_id=? AND revoked_at IS NULL",
+        (class_id, user_id)).fetchone()
+    if override:
+        role, source, staff_id = override["role"], "override", override["id"]
+    elif context.get("labRole"):
+        role, source = context["labRole"], "override"
     if role is None:
         if user_role == "ta" and (can_view or can_manage):
             role = "ta"
@@ -328,8 +329,14 @@ def _resolve_kiwi(db: sqlite3.Connection, authorization: str, class_id: str) -> 
             role = "viewer"
         source = "kiwi" if role else None
     is_staff = role is not None or kiwi_staff
+    # The official token grants identity, not a teacher role. Role bindings are
+    # owned by this Lab; return the effective grant to the entry-page router.
+    context.update(canTeach=is_staff, canManageCourse=role == "instructor", canViewAnalytics=is_staff)
     if is_staff:
         _upsert_staff_seen(db, class_id, user_id, username, str(user_role or ""), can_manage, can_view)
+    elif not identitymod.tombstone(db, class_id, user_id):
+        with dbmod.write_tx(db):
+            identitymod.ensure_roster(db, class_id, user_id, source="kiwi")
     perms = permissions_for(role, _settings(db, class_id) if role in ("ta", "viewer") else None, kiwi_staff=kiwi_staff)
     return Identity("kiwi", class_id, user_id, username, str(user_role) if user_role else None, role, is_staff,  # type: ignore[arg-type]
                     not is_staff, True, False, None if is_staff else user_id, perms, source, staff_id,  # type: ignore[arg-type]

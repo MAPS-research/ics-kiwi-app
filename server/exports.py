@@ -214,6 +214,8 @@ def parse_filters(req: Request, *, research: bool = False) -> Filters:
         consent=req.q_choice("consent", ("all", "yes"), "yes" if research else "all"),
         purpose=req.q_str("purpose", "", 500).strip(), thread_key=req.q_str("threadKey", "", 300) or None,
         code_id=req.q_id("codeId"), flagged=req.q_bool("flagged"))
+    if identity.class_linked(req.db, req.class_id):
+        f.pseudonymize = True
     if ident.staff_role in auth.PSEUDONYMOUS_EXPORT_ROLES:
         # §5.3 footnote 1 and decision D3: viewers and researchers get de-identified exports of consenting students only.
         f.forced = not (f.pseudonymize and f.consent == "yes" and not f.include_staff)
@@ -536,7 +538,7 @@ def ai_rows(db: sqlite3.Connection, class_id: str, f: Filters, people: People) -
             if f.code_id and not has_code(key):
                 continue
             sid = row["student_id"]
-            provider = "local" if row["source"] == "local" else "openai"
+            provider = "local" if row["source"] == "local" else "kiwi" if row["source"] == "kiwi-ai" else "openai"
             rows.append({
                 "chat_turn_id": row["id"], "native_event_id": None, "thread_key": people.thread_key(key), "where": "lab",
                 people.student_column: people.ident(sid), "student_label": people.label(sid),
@@ -792,7 +794,7 @@ def case_file(req: Request, student_id: str) -> Response:
 
     if not governance._has_data(db, class_id, student_id):  # noqa: SLF001 - shared existence rule
         raise ApiError(404, "not_found", "No records for this student in this course")
-    people = People(db, class_id, pseudonymize=False)
+    people = People(db, class_id, pseudonymize=identity.class_linked(db, class_id))
     f = Filters(student_id=student_id, assignment_id=assignment_id, include_staff=True, include_excluded=True, purpose=purpose)
     conversations = TableWriter(AI_COLUMNS, fmt="csv", teaching=True, numeric=AI_NUMERIC)
     for row in ai_rows(db, class_id, f, people):
@@ -1152,7 +1154,7 @@ TABLE_DICTIONARY: dict[str, dict[str, str]] = {
         "chat_turn_id, native_event_id": "Lab AI tutor turn id, or the Kiwi lecture AI event id",
         "thread_key": "`lab:<student>:<thread>` (Lab, student part replaced by the research id in research files) or `kiwi:<conversationId>`",
         "where": "`lab` or `kiwi`", "prompt, response": "Student prompt and the reply shown (after the final-answer guard)",
-        "ai_provider": "openai | local (fixed local guidance) | kiwi-native — kept separate from `where`/`source`",
+        "ai_provider": "kiwi | openai (historical) | local (fixed local guidance) | kiwi-native — kept separate from `where`/`source`",
         "model": "Model name used for the reply", "policy_label": "Human-readable rule version, e.g. `Ch 03 rules v4`",
         "guard_status": "Final-answer guard result (section 8)", "flagged, flag_source": "Flag state and who set it (`guard` or `staff`)",
         "homework_match_assignment_id, homework_match_score": "Protected homework matched by containment",
@@ -1220,7 +1222,7 @@ def codebook_md() -> str:
         "- `identity_verified`: 1 for identities verified through Kiwi; standalone (demo) rows are 0.",
         "- `actor_role` marks staff and preview rows; Preview as student traffic (`is_preview=1`, ids `preview-…`) is never exported.",
         "- `source` / `where`: **where** the activity happened (`lab` = CSS Lab, `kiwi` = imported from Kiwi). It is "
-        "separate from the AI provider (`ai_provider`: openai | local | kiwi-native) and the `model`.", "",
+        "separate from the AI provider (`ai_provider`: kiwi | openai (historical) | local | kiwi-native) and the `model`.", "",
         "## 2 Identifiers", "",
         "- `research_id`: `P` + base32(HMAC-SHA256(course salt, `<class>:<student>`))[:10]; the salt never leaves the server.",
         "- Thread keys: `lab:<student>:<thread>` (Lab AI tutor) and `kiwi:<conversationId>` (Kiwi lecture AI).",

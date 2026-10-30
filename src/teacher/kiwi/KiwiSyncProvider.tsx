@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore, type JSX, type ReactNode } from "react";
-import { api, hasKiwiIdentity } from "../../lib/api";
+import { api } from "../../lib/api";
 import { useTeacher } from "../shell/TeacherContext";
 import { KiwiSyncContext, KiwiSyncLoop, type KiwiSyncApi, type KiwiSyncContextValue } from "./useKiwiSync";
 
@@ -11,7 +11,7 @@ const DEFAULT_API: KiwiSyncApi = { status: (classId) => api.kiwiStatus(classId),
 
 export function KiwiSyncProvider({ children }: { children: ReactNode }): JSX.Element {
   const { classId } = useTeacher();
-  const loop = useMemo(() => new KiwiSyncLoop(classId, DEFAULT_API, hasKiwiIdentity), [classId]);
+  const loop = useMemo(() => new KiwiSyncLoop(classId, DEFAULT_API, () => false), [classId]);
   const state = useSyncExternalStore(loop.subscribe, loop.getState, loop.getState);
   useEffect(() => {
     loop.start();

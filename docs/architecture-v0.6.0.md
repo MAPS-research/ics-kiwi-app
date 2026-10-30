@@ -1,3 +1,5 @@
+> **Historical v0.6 record.** The 2026-10-29 SDK feedback supersedes the bridge/identity and local-host patch exceptions, including D5. Do not follow these deployment instructions. See [v0.7 integration contract](architecture-v0.7.0.md).
+
 # CSS Kiwi Lab v0.6.0 — Architecture & Implementation Spec
 
 Status: **approved design for implementation (revision r2, after coverage and engineering review)** · Date: 2026-10-22 · Branch: `codex/css-lab-v0.5.1` (work stays on this branch; no commits, no branch changes) · Baseline: v0.5.1 @ `04a7aeb`.

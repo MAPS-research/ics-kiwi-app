@@ -219,7 +219,7 @@ class ConversationExportTests(ApiTestCase):
             rows = _dicts(raw)
             self.assertEqual({r["where"] for r in rows}, {"lab", "kiwi"})
             lab = next(r for r in rows if r["where"] == "lab")
-            self.assertEqual((lab["thread_key"], lab["condition_group"], lab["codes"]), ("lab:k1:t1", "A", "Confusion"))
+            self.assertEqual((lab["thread_key"], lab["condition_group"], lab["codes"]), (f"lab:{lab['research_id']}:t1", "A", "Confusion"))
             self.assertEqual((lab["ai_provider"], lab["model"]), ("openai", "gpt-5.4-mini"))
             kiwi = next(r for r in rows if r["where"] == "kiwi")
             self.assertEqual((kiwi["ai_provider"], kiwi["prompt"], kiwi["response"]), ("kiwi-native", "Why NA?", "Because missing."))
@@ -240,7 +240,7 @@ class ConversationExportTests(ApiTestCase):
             self.assertIn("item_json", _csv(raw)[0])
             status, raw = self._get("conversation-codes.csv", token)
             codes = _dicts(raw)
-            self.assertEqual((codes[0]["code_label"], codes[0]["thread_key"]), ("Confusion", "lab:k1:t1"))
+            self.assertEqual((codes[0]["code_label"], codes[0]["thread_key"]), ("Confusion", lab["thread_key"]))
 
 
 class CaseFileTests(ApiTestCase):

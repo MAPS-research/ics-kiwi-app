@@ -54,7 +54,7 @@ export function TeacherGate({
         {reason === "no_lab_role" ? (
           <>
             <p className="muted">
-              Your Kiwi course role does not include CSS Lab teacher access. Ask the course instructor to add you in Course settings › Staff &amp; roles.
+              Your account has no CSS Lab teacher grant for this course. Ask the Lab administrator to grant access to your course and account ID.
             </p>
             {onPreview && (
               <button className="primary-button full" onClick={onPreview}>
@@ -64,9 +64,9 @@ export function TeacherGate({
           </>
         ) : (
           <>
-            <p className="muted">Sign in through Kiwi to open your teaching course and student learning activity.</p>
+            <p className="muted">Open Kiwi, choose your course, then open CSS Lab from the course's Apps panel. Teacher access requires a Lab administrator's grant.</p>
             <a className="primary-button full" href={kiwiTeacherEntryUrl()}>
-              Sign in with Kiwi
+              Open Kiwi
             </a>
             <h2 className="local-demo-login-title">Local demo access</h2>
             <form

@@ -76,7 +76,7 @@ describe("unique accessible names on the Students views (K-m04)", () => {
     expectUnique(markup, 8);
     expect(markup).toContain('aria-label="No learning actions recorded yet — Bo Lin"');
   });
-  it("Student profile: two assignments, errors and AI questions", () => {
+  it("Student profile: two assignments, errors and Tutor requests", () => {
     const cell: GradebookCell = { assignmentId: "w1", state: "released", score: 16, maxPoints: 20, attempts: 1, late: false, lateSeconds: 0, overTime: false,
       latestSubmissionId: "sub-1", scoredSubmissionId: "sub-1", draftAnswered: 0, draftTotal: 2, label: "16/20 · 1 submission" };
     const row = (assignmentId: string, title: string) => ({ assignmentId, title, kind: "homework" as const, dueAt: "2026-10-24T15:59:00+00:00", cell: { ...cell, assignmentId },

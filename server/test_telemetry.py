@@ -306,7 +306,7 @@ class IngestionApiTests(ApiTestCase):
         self.assertEqual((row["student_name"], row["identity_verified"], row["actor_role"]), ("", 1, "student"))
         with self.db() as db:
             roster = db.execute("SELECT source, kiwi_email FROM roster WHERE class_id='local-css-demo' AND student_id='s1'").fetchone()
-        self.assertEqual(tuple(roster), ("activity", "ada@example.edu"))
+        self.assertEqual(tuple(roster), ("kiwi", ""))
 
 
 class _RaisingHandler(app.Handler):

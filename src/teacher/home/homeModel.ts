@@ -48,7 +48,7 @@ export function deltaText(metric: Metric, mode: "abs" | "pct", compareLabel: str
 
 export interface GlanceItem { key: string; text: string; href: string; title?: string }
 /**
- * "Active this week: 48 of 60 (learning actions; +6 vs last wk) · AI questions 132 (+18%) · Code runs 910 · Free-practice
+ * "Active this week: 48 of 60 (learning actions; +6 vs last wk) · Tutor requests 132 (+18%) · Code runs 910 · Free-practice
  * items 214 · AI requests turned away 3" (K-m01: the Active label is the one Course metrics uses).
  */
 export function glanceItems(glance: HomeData["glance"], range: TimeRange): GlanceItem[] {
@@ -57,7 +57,7 @@ export function glanceItems(glance: HomeData["glance"], range: TimeRange): Glanc
   return [
     { key: "active", text: activeOfEnrolledLabel(range.effectivePreset, glance.activeStudents.value ?? 0, glance.enrolled,
       deltaText(glance.activeStudents, "abs", range.compareLabel)), href: "/teacher/insights/activity?group=students", title: LABELS.activeHelp },
-    { key: "ai", text: withDelta(`AI questions ${value(glance.aiQuestions)}`, deltaText(glance.aiQuestions, "pct", range.compareLabel)), href: teacherPaths.aiConversations({ unitId: "all" }) },
+    { key: "ai", text: withDelta(`Tutor requests ${value(glance.aiQuestions)}`, deltaText(glance.aiQuestions, "pct", range.compareLabel)), href: teacherPaths.aiConversations({ unitId: "all" }) },
     { key: "runs", text: withDelta(`${LABELS.codeRuns} ${value(glance.codeRuns)}`, deltaText(glance.codeRuns, "pct", range.compareLabel)), href: "/teacher/insights/activity?group=question-activities&activity=runs" },
     { key: "items", text: `Free-practice items ${value(glance.freePracticeItems)}`, href: "/teacher/insights/activity?group=questions&origin=ai-free" },
     { key: "away", text: `AI requests turned away ${value(glance.aiTurnedAway)}`, href: "/teacher/insights/data-health" },

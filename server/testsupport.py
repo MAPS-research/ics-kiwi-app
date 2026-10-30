@@ -113,10 +113,8 @@ def fake_kiwi_identity(role: str = "student", can_manage: bool = False, can_view
             return dict(ctx)
         return original(token, path, params)
 
-    kiwi_bridge._identity_cache.clear()
     with patch.object(kiwi_bridge, "remote", side_effect=remote):
         yield f"token-{ctx['userId']}"
-    kiwi_bridge._identity_cache.clear()
 
 
 # -- course & schedule -----------------------------------------------------------------------------
@@ -461,7 +459,7 @@ def make_chat_turn(db: sqlite3.Connection, class_id: str, student_id: str, promp
         _server_event(db, ident, "ai_question", {
             "chatTurnId": turn.lastrowid, "aiCallId": call.lastrowid, "unitId": unit_id, "assignmentId": assignment_id or None,
             "itemId": item_id or None, "threadId": thread_id, "surface": surface, "prompt": prompt, "response": response,
-            "aiProvider": "openai" if source == "lab-ai" else "local", "model": model, "policyVersionId": policy_version_id,
+            "aiProvider": "kiwi" if source == "kiwi-ai" else "openai" if source == "lab-ai" else "local", "model": model, "policyVersionId": policy_version_id,
             "guardStatus": guard_status}, question_id=question_id or None, surface=surface)
     return int(turn.lastrowid)
 
@@ -520,7 +518,6 @@ class ApiTestCase(unittest.TestCase):
     teacher_key = TEACHER_KEY
 
     def setUp(self) -> None:
-        kiwi_bridge._identity_cache.clear()
         auth.LIMITER.reset()
         auth.clear_key_cache()
         dbmod.set_clock(None)

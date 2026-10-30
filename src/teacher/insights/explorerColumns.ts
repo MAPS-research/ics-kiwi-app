@@ -81,7 +81,7 @@ const C = {
   student: (label = "Student"): ExplorerColumn => ({ key: "student", label, sort: "label", cell: (r) => r.studentName || r.label || r.studentId || "" }),
   /** K-m01: *Last seen* — the newest event of any kind (the roster's column); the server's `lastActive` */
   lastSeen: (): ExplorerColumn => ({ key: "lastActive", label: LABELS.lastSeen, sort: "lastActive", stamp: true, cell: (r, ctx) => seenAt(r.lastActive, ctx.ranged) }),
-  /** K-m01: *Last learning action* — answers, code runs, AI questions, submissions (the No learning actions rule) */
+  /** K-m01: *Last learning action* — answers, code runs, Tutor requests, submissions (the No learning actions rule) */
   lastLearningAction: (): ExplorerColumn => ({ key: "lastLearningAction", label: LABELS.lastLearningAction, sort: "lastLearningAction", stamp: true,
     cell: (r, ctx) => learnedAt(r.lastLearningAction, ctx.ranged) }),
   attempts: (): ExplorerColumn => ({ key: "attempts", label: "Attempts", sort: "attempts", numeric: true, cell: (r) => num(r.attempts) }),

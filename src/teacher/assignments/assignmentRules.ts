@@ -73,7 +73,7 @@ export const QUESTION_TYPE_OPTIONS: readonly WorkQuestionType[] = ["text", "choi
 /** Hint under `Solutions visible: After the due date` (decision D2: solutions wait for the late window too). */
 export const AFTER_DUE_HINT = "Shown when the homework closes: after the due date and any late window.";
 export const KIWI_PANEL_HELP =
-  "Kiwi's own chat panel on Lab pages runs in guidance mode and does not know this assignment's answers. With Ask Kiwi set to Off, the Lab asks Kiwi to hide that panel on this assignment's pages.";
+  "This setting controls Ask Kiwi inside the Lab. The official SDK cannot disable Kiwi's own chat panel; that panel remains under Kiwi's control. The Lab never sends it assignment answer keys.";
 export const FROZEN_BANNER =
   "Students have started this assignment. Questions are locked to keep their attempts and grades consistent.";
 

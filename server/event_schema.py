@@ -225,7 +225,7 @@ REGISTRY: dict[str, dict] = {
         "fields": {"chatTurnId": _f("integer", "chat_turns id"), "aiCallId": _f("integer", "ai_calls id"), **_CONTEXT,
                    "threadId": _f("string", "Thread id"), "surface": _f("string", "Surface"),
                    "prompt": _f("string", "Student prompt", True), "response": _f("string", "AI reply", True),
-                   "aiProvider": _f("string", "openai | local | kiwi-native"), "model": _f("string", "Model"),
+                   "aiProvider": _f("string", "kiwi | openai (historical) | local | kiwi-native"), "model": _f("string", "Model"),
                    "policyVersionId": _f("integer", "Policy version applied"), "guardStatus": _f("string", "Final-answer guard status"),
                    "effectiveAccess": _f("string", "Chapter access at the time: open | review | locked | hidden"),
                    "ok": _f("boolean", "Legacy: request succeeded")},

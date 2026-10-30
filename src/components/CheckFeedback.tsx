@@ -4,7 +4,7 @@ import { ResponseText } from "./ResponseText";
 import type { ItemCheckResult } from "../types";
 
 /**
- * The feedback box after "Check answer" on an AI practice item (Practice with AI and Try a similar question). RT-01: the
+ * The feedback box after "Check answer" on an AI practice item (Practice exercises and Try a similar question). RT-01: the
  * verdict is one line and the explanation renders through ResponseText, so inline `code` and fenced R blocks look the
  * same as in the prompt instead of showing literal backticks.
  */

@@ -39,8 +39,8 @@ describe("timeline structure", () => {
   });
   it("labels contexts, titles, outcomes and kinds", () => {
     expect(contextLabel({ practiceMode: "homework", assignmentId: "hw3", assignmentLabel: "Week 3 Homework", unitId: "u" })).toBe("Week 3 Homework");
-    expect(contextLabel({ practiceMode: "free", assignmentId: null, assignmentLabel: null, unitId: "u" })).toBe("Free practice (AI)");
-    expect(contextLabel({ practiceMode: "similar", assignmentId: "hw3", assignmentLabel: "Week 3 Homework", unitId: "u" })).toBe("Similar practice (AI) · Week 3 Homework");
+    expect(contextLabel({ practiceMode: "free", assignmentId: null, assignmentLabel: null, unitId: "u" })).toBe("Free practice");
+    expect(contextLabel({ practiceMode: "similar", assignmentId: "hw3", assignmentLabel: "Week 3 Homework", unitId: "u" })).toBe("Similar practice · Week 3 Homework");
     expect(contextLabel({ practiceMode: "workspace", assignmentId: null, assignmentLabel: null, unitId: "" })).toBe("R workspace");
     expect(timelineTitle("Ada Chen")).toBe("Ada Chen — full activity timeline");
     expect(timelineTitle("Ada Chen", "Week 3 Homework")).toBe("Ada Chen · Week 3 Homework — full timeline");

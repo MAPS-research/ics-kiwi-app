@@ -85,7 +85,7 @@ export function provenanceLine(item: Pick<ItemRow, "source" | "policyLabel" | "m
 
 export interface ItemGroup { key: string; label: string; items: ItemRow[] }
 
-/** `Free practice (AI) · Ch 03 · Multiple choice (12)` / `Similar practice (AI) · HW3 · q2 · Predict output (4)`. */
+/** `Free practice · Ch 03 · Multiple choice (12)` / `Similar practice · HW3 · q2 · Predict output (4)`. */
 export function foldItems(items: readonly ItemRow[], units: readonly Pick<Unit, "id">[], titles: Readonly<Record<string, string>>): ItemGroup[] {
   const groups = new Map<string, ItemGroup>();
   for (const item of items) {
@@ -367,7 +367,7 @@ export function GeneratedItemsView(props: GeneratedItemsViewProps) {
       {call && <AiCallPanelView call={call} onClose={props.onCloseCall} />}
       {!loading && groups.length === 0 ? (
         <section className="panel work-panel">
-          <EmptyState title="No AI-generated practice yet">Exercises students generate in Practice with AI or Try a similar question appear here with their answer keys.</EmptyState>
+          <EmptyState title="No AI-generated practice yet">Exercises students generate in Practice exercises or Try a similar question appear here with their answer keys.</EmptyState>
         </section>
       ) : (
         groups.map((group) => (

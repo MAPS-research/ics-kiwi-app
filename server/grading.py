@@ -853,7 +853,7 @@ def grades_csv(db: sqlite3.Connection, class_id: str, *, policy: str = "latest",
     """``Grades for LMS (CSV)`` (§13.6): wide or long; released scores only unless ``releasedOnly=0``."""
     homework = _export_assignments(db, class_id, assignment_ids or [])
     pairs = _sorted_students(db, class_id, roster_students(db, class_id, group_ids), "names")
-    show_emails = bool(readers.settings(db, class_id)["privacy"].get("showEmails", True))
+    show_emails = bool(readers.settings(db, class_id)["privacy"].get("showEmails", True)) and not identitymod.class_linked(db, class_id)
     groups = _group_info(db, class_id)
     submissions: dict[str, sqlite3.Row] = {}
 
@@ -888,7 +888,7 @@ def grades_csv(db: sqlite3.Connection, class_id: str, *, policy: str = "latest",
                               bool(basis["over_time"]) if basis else False, used["attempt"] if used else None, policy,
                               _latest_actor_label(db, used["id"] if used else None),
                               csv_time(used["released_at"]) if used else "", (used["feedback"] or "") if used else ""])
-        return to_csv(table, numeric_columns=(7, 8, 11, 13))
+        return _teaching_csv(db, class_id, table, (7, 8, 11, 13))
     head: list[object] = ["Student ID", "Name", "Email", "Section", "Condition"]
     for rec in homework:
         head += [f"{rec.title} [{grading_rules.fmt_points(grading_rules.max_points(rec))}]", f"{rec.title} Late",
@@ -905,7 +905,13 @@ def grades_csv(db: sqlite3.Connection, class_id: str, *, policy: str = "latest",
             basis = used or submission(cell["latestSubmissionId"])
             line += [score, bool(basis["is_late"]) if basis else "", (used["feedback"] or "") if used else ""]
         table.append(line)
-    return to_csv(table, numeric_columns=[5 + 3 * i for i in range(len(homework))])
+    return _teaching_csv(db, class_id, table, [5 + 3 * i for i in range(len(homework))])
+
+
+def _teaching_csv(db, class_id, table, numeric_columns):
+    if identitymod.class_linked(db, class_id):
+        table = identitymod.scrub_free_text(table, identitymod.roster_terms(db, class_id), skip_id_keys=False)
+    return to_csv(table, numeric_columns=numeric_columns)
 
 
 STATUS_STATES = {"not_due": "Not due yet", "submitted_ungraded": "Submitted · ungraded",
@@ -941,6 +947,7 @@ def csv_time(value: object) -> str:
 def status_csv(db: sqlite3.Connection, class_id: str, *, assignment_ids: list[str] | None = None,
                group_ids: list[str] | None = None, pseudonymize: bool = False, now: object = None) -> bytes:
     """``Student × assignment status (CSV)`` (§13.6, GRADE-13)."""
+    pseudonymize = pseudonymize or identitymod.class_linked(db, class_id)
     homework = _export_assignments(db, class_id, assignment_ids or [])
     pairs = _sorted_students(db, class_id, roster_students(db, class_id, group_ids), "pseudonyms" if pseudonymize else "names")
     show_emails = bool(readers.settings(db, class_id)["privacy"].get("showEmails", True)) and not pseudonymize
@@ -965,7 +972,7 @@ def status_csv(db: sqlite3.Connection, class_id: str, *, assignment_ids: list[st
                           group["section"] or "", group["condition"] or "", rec.id, rec.title, csv_time(rec.due_at),
                           status_label(cell), cell["late"], cell["attempts"], csv_time(last), cell["draftAnswered"],
                           csv_time(draft_updated)])
-    return to_csv(table, numeric_columns=(10, 12))
+    return _teaching_csv(db, class_id, table, (10, 12))
 
 
 # -- exercise results ------------------------------------------------------------------------------

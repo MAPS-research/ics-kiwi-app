@@ -212,7 +212,7 @@ describe("AI-generated practice review", () => {
       units,
       { w3: "HW3" },
     );
-    expect(groups.map((g) => g.label)).toEqual(["Free practice (AI) · Ch 03 · Multiple choice (2)", "Similar practice (AI) · HW3 · q2 · Predict output (1)"]);
+    expect(groups.map((g) => g.label)).toEqual(["Free practice · Ch 03 · Multiple choice (2)", "Similar practice · HW3 · q2 · Predict output (1)"]);
     // SB-m13: local templates are not grouped as "(AI)" and their record is not called an AI call
     const local = foldItems([row({ source: "local_template", model: null })], units, {});
     expect(local.map((g) => g.label)).toEqual(["Free practice (local template, no AI) · Ch 03 · Multiple choice (1)"]);

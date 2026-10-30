@@ -163,6 +163,7 @@ export interface DataHealth {
 export interface OutagePeriod { from: ISODate; to: ISODate; kind: "client_gap" | "server_error" | "kiwi_unreachable"; count: number;
   browsers?: number }                                        // CR-T3: distinct browsers in a client-gap period
 export interface KiwiSyncStatus {
+  nativeSyncAvailable?: boolean;
   connected: boolean; lastSynced: ISODate | null; error: string | null; hasMore: boolean; busy?: boolean;
   metadataTruncated: boolean; nativeEvents: number; imported?: number;
   excludedByDesign?: number;                                 // legacy app-ics-r-lab-* student records (counted by the bridge)
@@ -460,9 +461,9 @@ export interface ChatRequest {
   studentId: string; unitId: string; threadId: string; prompt: string; surface: Surface;
   assignmentId?: string; questionId?: string; itemId?: string; code?: string; runOutput?: string; error?: string; answerDraft?: string;
 }
-export interface ChatResponse { response: string; source: "lab-ai" | "local"; chatTurnId: number; aiCallId: number | null; policyLabel: string; guard: { status: GuardView["status"] }; flagged: boolean;
+export interface ChatResponse { response: string; source: "kiwi-ai" | "lab-ai" | "local"; chatTurnId: number; aiCallId: number | null; policyLabel: string; guard: { status: GuardView["status"] }; flagged: boolean;
   helpLevel?: AskKiwiMode }                                  // CR-AIRUN-2
-export interface ChatTurnView { id: number; prompt: string; response: string; createdAt: ISODate; source: "lab-ai" | "local"; policyLabel: string; flagged: boolean; guardStatus: GuardView["status"] }
+export interface ChatTurnView { id: number; prompt: string; response: string; createdAt: ISODate; source: "kiwi-ai" | "lab-ai" | "local"; policyLabel: string; flagged: boolean; guardStatus: GuardView["status"] }
 export interface GeneratedItemPublic {
   id: string; origin: "free" | "similar"; unitId: string; type: AiQuestionType; difficulty: Difficulty;
   title: string; prompt: string; code?: string; starterCode?: string; choices?: string[];
@@ -556,7 +557,7 @@ export interface TimelineEvent {
   questionId: string | null; questionLabel: string; title: string;
   context: { practiceMode: PracticeMode; assignmentId: string | null; assignmentLabel: string | null; unitId: string };   // full timeline groups by this
   detail: Record<string, unknown>;                          // typed per kind in EventContent
-  provenance: { where: "lab" | "kiwi"; ai?: "Lab AI tutor" | "Kiwi lecture AI" | "Local guidance"; policyLabel?: string; model?: string; checkedBy?: string; aiCallId?: number };
+  provenance: { where: "lab" | "kiwi"; ai?: "Kiwi AI in Lab" | "Lab AI tutor" | "Kiwi lecture AI" | "Local guidance"; policyLabel?: string; model?: string; checkedBy?: string; aiCallId?: number };
   studySessionIndex: number;                                // new index after a ≥ 30 min gap
 }
 export interface StudentTimeline {
@@ -608,7 +609,7 @@ export interface RosterEntry {
   studentId: string; studentName: string; displayName: string; email: string | null; pseudonym: string;
   source: "import" | "kiwi" | "activity"; status: "active" | "dropped"; groups: { kind: GroupKind; groupId: string; name: string }[];
   consent: ConsentState; consentSource: "kiwi" | "teacher" | "none"; excluded: boolean; exclusionReason: string;
-  /** B-m01: `lastActive` is *Last seen* (any event); `lastLearningAction` counts answers, code runs, AI questions, submissions */
+  /** B-m01: `lastActive` is *Last seen* (any event); `lastLearningAction` counts answers, code runs, Tutor requests, submissions */
   lastActive: ISODate | null; lastLearningAction: ISODate | null; missingWork: number; activitiesRecorded: number;
   /** D8: the homework behind `missingWork`, each lineage once (`originalTitle` names the first version of a revision) */
   missingWorkItems: MissingWorkItem[];
@@ -623,7 +624,7 @@ export interface StudentProfile {
   canExportConversations: boolean;                           // exportActivity and not viewer-pseudonymized
   assignments: { assignmentId: string; title: string; kind: AssignmentKind; dueAt: ISODate | null; cell: GradebookCell; timelineUrl: string; gradingUrl: string | null; draftAnswered: number | null }[];
   recentErrors: { at: ISODate; questionLabel: string; error: string; href: string }[];
-  recentAiQuestions: { at: ISODate; prompt: string; where: "lab" | "kiwi"; threadKey: string; flagged: boolean }[];
+  recentAiQuestions: { source?: string; at: ISODate; prompt: string; where: "lab" | "kiwi"; threadKey: string; flagged: boolean }[];
   practiceByChapter: { unitId: string; title: string; freeItems: number; similarItems: number; serverAccuracy: number | null; activeMinutes: number }[];
 }
 export interface StaffMember { id: string; displayName: string; role: StaffRole; kiwiUserId: string | null; keyPrefix: string | null; createdAt: ISODate; revokedAt: ISODate | null }

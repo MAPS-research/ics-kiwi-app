@@ -3,7 +3,6 @@ import { RefreshCw } from "lucide-react";
 import { EmptyState } from "../../components/EmptyState";
 import { PageHeader, SectionTabs } from "../../components/PageHeader";
 import { api, hasKiwiIdentity } from "../../lib/api";
-import { formatDateTime } from "../../lib/format";
 import { LABELS } from "../../lib/labels";
 import { navigate } from "../../lib/navigation";
 import { teacherPaths } from "../../lib/routes";
@@ -23,9 +22,7 @@ export function KiwiConnectionSummary({ status, error, busy, onRefresh }: { stat
       <div>
         <strong>{status?.connected ? "Kiwi connection" : LABELS.kiwiNotLinked}</strong>
         <p className="muted">
-          {status?.connected
-            ? `${status.lastSynced ? `Kiwi refreshed ${formatDateTime(status.lastSynced)}.` : "Kiwi activity has not been imported yet."} ${status.nativeEvents} native Kiwi events.${status.hasMore ? " Importing earlier course history…" : ""}`
-            : "Lecture reading and Kiwi lecture AI chats appear here once this course is linked to Kiwi."}
+          {`Native Kiwi activity import is retired. ${status?.nativeEvents ?? 0} historical records are retained. Only Lab activity is collected in this version.`}
         </p>
         {status?.metadataTruncated && (
           <p className="error-text">
@@ -38,7 +35,7 @@ export function KiwiConnectionSummary({ status, error, busy, onRefresh }: { stat
           </p>
         )}
       </div>
-      {onRefresh && (
+      {onRefresh && status?.nativeSyncAvailable !== false && (
         <button className="outline-button" disabled={busy} onClick={onRefresh}>
           <RefreshCw size={15} className={busy ? "spin" : ""} />
           Refresh Kiwi activity

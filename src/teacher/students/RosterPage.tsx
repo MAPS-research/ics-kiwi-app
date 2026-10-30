@@ -221,7 +221,7 @@ export function RosterEditForm({ entry, draft, setDraft }: { entry: RosterEntry;
   return (
     <div className="editor-fields people-edit">
       <label className="work-label">
-        Display name (shown instead of the Kiwi email)
+        App-local label (Kiwi courses use anonymous labels)
         <input value={draft.displayName} maxLength={100} onChange={(e) => setDraft({ ...draft, displayName: e.target.value })} />
       </label>
       <label className="work-label">

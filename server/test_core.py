@@ -265,7 +265,7 @@ class CourseTests(ApiTestCase):
 
     def test_health_and_me(self):
         status, health = self.request("/api/health")
-        self.assertEqual((status, health["version"], health["runtime"]), (200, "0.6.0", "browser-webR"))
+        self.assertEqual((status, health["version"], health["runtime"]), (200, "0.7.0", "browser-webR"))
         self.assertEqual(self.last_headers.get("Cache-Control"), "no-store")
         self.assertEqual(self.last_headers.get("X-Content-Type-Options"), "nosniff")
         self.assertTrue(re.fullmatch(r"[0-9a-f]{32}", self.last_headers.get("X-Request-Id", "")))
@@ -304,7 +304,7 @@ class KiwiRoleOrderTests(ApiTestCase):
             self.assertEqual(tuple(seen), ("teacher@example.edu", "ta"))
             self.assertEqual(db.execute("SELECT name FROM kiwi_links WHERE class_id='live-course'").fetchone()[0], "live-course")
 
-    def test_staff_override_applies_only_to_kiwi_staff(self):
+    def test_explicit_lab_grant_applies_without_a_host_role_claim(self):
         with self.db() as db:
             _staff(db, "live-course", "ta", kiwi_user_id="t1")
             _staff(db, "live-course", "instructor", kiwi_user_id="s1")
@@ -314,7 +314,7 @@ class KiwiRoleOrderTests(ApiTestCase):
         self.assertNotIn("manageAiRules", me["permissions"])
         with fake_kiwi_identity("student", class_id="live-course", user_id="s1") as token:
             _, me = self.request("/api/me?classId=live-course", token=token)
-        self.assertEqual(me["role"], "student")
+        self.assertEqual((me["role"], me["roleSource"]), ("instructor", "override"))
 
     def test_ta_and_viewer_permissions(self):
         self.create_course("c1")
@@ -1131,7 +1131,7 @@ class AiBaselineTests(ApiTestCase):
             self.assertEqual(self.request("/api/ai/chat?classId=c1", "POST", body, student="s1")[0], 200)
         with self.db() as db:
             row = db.execute("SELECT actor_role, identity_verified, surface, source FROM chat_turns").fetchone()
-        self.assertEqual(tuple(row), ("demo", 0, "legacy", "lab-ai"))
+        self.assertEqual(tuple(row), ("demo", 0, "legacy", "kiwi-ai"))
 
 
 class MigrationTests(unittest.TestCase):

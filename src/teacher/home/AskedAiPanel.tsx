@@ -4,7 +4,7 @@ import { HomeLink } from "./HomeLink";
 import { askedLine } from "./homeModel";
 import type { HomeData } from "../../types";
 
-/** What students asked the AI [DA03, TH07]: top repeated prompts, topics, replies that may state a final answer. */
+/** What students asked the tutor [DA03, TH07]: top repeated prompts, topics, replies that may state a final answer. */
 export function AskedAiPanel({ asked, flaggedVisible }: { asked: HomeData["askedAi"]; flaggedVisible: boolean }) {
   return (
     <section className="panel home-block home-asked" aria-labelledby="home-asked-title">

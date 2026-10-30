@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from unittest.mock import patch
 
 from server import db as dbmod
 from server import identity, telemetry, testsupport
@@ -423,6 +424,9 @@ class StaffTests(ApiTestCase):
 
     def test_kiwi_role_mapping_staff_list_and_overrides(self):  # PEOPLE-18, F15, AU-D1-23
         live = "live-course"
+        binding = patch.dict("os.environ", {"KIWI_STAFF_BINDINGS": json.dumps({live: {"t1": "instructor", "t2": "ta", "t3": "viewer", "t5": "instructor"}})})
+        binding.start()
+        self.addCleanup(binding.stop)
 
         def me_for(user_id: str, role: str = "staff", manage: bool = False, view: bool = False, user_role: str = "professor"):
             with fake_kiwi_identity(role, manage, view, user_role, class_id=live, user_id=user_id,
@@ -469,7 +473,7 @@ class StaffTests(ApiTestCase):
             db.execute("""INSERT INTO staff (id, class_id, display_name, role, kiwi_user_id, created_by, created_at)
                        VALUES ('staff-student', ?, 'Student', 'instructor', 's1', 'test', ?)""", (live, dbmod.now()))
         student = me_for("s1", role="student", user_role="student")
-        self.assertEqual(student["role"], "student")
+        self.assertEqual((student["role"], student["roleSource"]), ("instructor", "override"))
         with fake_kiwi_identity("staff", True, True, "professor", class_id=live, user_id="t1") as token:
             status, _ = self.request(f"/api/teacher/staff/{created['staff']['id']}?classId={live}", "DELETE", token=token)
             self.assertEqual(status, 204)

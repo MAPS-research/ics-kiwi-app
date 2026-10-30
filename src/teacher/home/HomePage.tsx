@@ -21,7 +21,7 @@ import type { AttentionItem, HomeData, Permission, ReteachCandidate, ReteachMark
 
 /*
  * Home [F05, TH06, LY01] — the teacher's landing page (§13.1). Desktop: header strip, Needs your action, then
- * Students needing attention | What to re-teach, Assignments | What students asked the AI, glance row.
+ * Students needing attention | What to re-teach, Assignments | What students asked the tutor, glance row.
  * Narrow screens follow the mobile order of §13.1 (CSS order in insights.css).
  */
 

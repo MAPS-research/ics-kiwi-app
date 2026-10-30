@@ -32,7 +32,7 @@ import type { StudentPageProps } from "../StudentApp";
 import type { AiQuestionType, Difficulty, GeneratedItemPublic, PublicPolicy, RunResultView, Tracker } from "../../types";
 
 /*
- * Practice with AI (free practice; AIRUN, §9.4/§12.8). Route: /student/practice/:tool (settings | question | code | kiwi).
+ * Practice exercises (free practice; AIRUN, §9.4/§12.8). Route: /student/practice/:tool (settings | question | code | kiwi).
  * Items come from POST /api/ai/question without answer keys; checks, reveal and the one-shot verification run go through
  * the server. Locked chapters show as "… (Opens later)", Review chapters allow Ask Kiwi only, difficulties above the
  * unlocked level show "(locked)". Settings changes and skipped items are reported as events.

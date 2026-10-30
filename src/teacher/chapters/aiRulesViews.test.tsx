@@ -95,7 +95,7 @@ describe("AI tutor rules editor labels (AIRULES-08, AIRULES-09, NM02–NM07)", (
     const html = editor();
     for (const label of [
       "Instructions for Ask Kiwi (tutoring)", "Instructions for generated practice", "Reference notes for the AI", "Ask Kiwi may", "Reply language",
-      "Lowest difficulty", "Highest difficulty", "Starting difficulty", "Max AI reply length (512–4,000 tokens ≈ 380–3,000 English words)",
+      "Lowest difficulty", "Highest difficulty", "Starting difficulty",
       "Choices per multiple-choice question", "Conversation memory (turns)", "What the AI sees", "Platform rules (always applied)",
       "Fixed guidance when AI is not configured", 'Free practice: allow "What would you like to work on?"', "Save as new version",
     ]) {

@@ -15,7 +15,8 @@ declare global {
 let clientPromise: Promise<KiwiClient> | undefined;
 
 const kiwiOrigin = () => (import.meta.env.VITE_KIWI_ORIGIN || "http://localhost:3001").replace(/\/$/, "");
-export const kiwiTeacherEntryUrl = () => `${kiwiOrigin()}/admin/app/ics-r-lab`;
+// The host owns course selection and its generic app placements.
+export const kiwiTeacherEntryUrl = () => `${kiwiOrigin()}/`;
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -53,7 +54,7 @@ export function getKiwi(): Promise<KiwiClient> {
     const client = window.KiwiApp.create({
       appSlug: "ics-r-lab",
       mode: window.parent !== window ? "live" : "auto",
-      timeoutMs: 15000,
+      timeoutMs: 125000,
     });
     await Promise.race([
       client.ready(),
@@ -69,7 +70,7 @@ export function getKiwi(): Promise<KiwiClient> {
 // ─── Host chat policy (§15.3) ──────────────────────────────────────────────────────────────────
 
 export interface HostMessage {
-  type: "kiwi:updateContext" | "kiwi:setChatAvailability";
+  type: "kiwi:updateContext";
   payload: Record<string, unknown>;
 }
 
@@ -79,11 +80,7 @@ export const CHAT_UNAVAILABLE_REASON = "Ask Kiwi is turned off for this assignme
 export function hostChatMessages(defaultContext: string, policy: HostChatPolicy | null): HostMessage[] {
   const note = policy?.contextNote.trim() ?? "";
   const context = note ? `${defaultContext}\n${note}` : defaultContext;
-  const available = policy ? policy.available : true;
-  return [
-    { type: "kiwi:updateContext", payload: { context, tutoringMode: "guidance" } },
-    { type: "kiwi:setChatAvailability", payload: { available, reason: available ? "" : CHAT_UNAVAILABLE_REASON } },
-  ];
+  return [{ type: "kiwi:updateContext", payload: { context } }];
 }
 
 let hostClient: KiwiClient | null = null;
@@ -91,23 +88,8 @@ let hostDefaultContext = "";
 // The policy of the mounted assignment page, so a default-context refresh (route change) keeps its note.
 let activePolicy: HostChatPolicy | null = null;
 
-function hostTargetOrigin(): string {
-  try {
-    if (document.referrer) return new URL(document.referrer).origin;
-  } catch {
-    // WHY: a malformed referrer falls back to the configured Kiwi origin.
-  }
-  return kiwiOrigin();
-}
-
 function sendToHost(message: HostMessage): void {
-  if (!hostClient) return;
-  if (hostClient.mode === "live" && window.parent !== window) {
-    window.parent.postMessage(message, hostTargetOrigin());
-    return;
-  }
-  // Simulator: only the SDK's own updateContext is understood.
-  if (message.type === "kiwi:updateContext") hostClient.updateContext(String(message.payload.context ?? ""));
+  hostClient?.updateContext(String(message.payload.context ?? ""));
 }
 
 /** StudentApp sets the default context (English course, chapter, page, Lab AI tutor rules) and sends it. */
@@ -119,8 +101,8 @@ export function setHostDefaultContext(client: KiwiClient | null, context: string
 
 /**
  * Pages inside an assignment call this with the assignment's tool policy. Sends
- * `kiwi:updateContext {context: default + "\n" + contextNote, tutoringMode: "guidance"}` and
- * `kiwi:setChatAvailability {available, reason}`; restores the StudentApp default on unmount.
+ * The supported SDK updateContext message carries a hint, never an enforcement claim.
+ * The public SDK has no chat-availability API.
  */
 export function useHostChatPolicy(policy: HostChatPolicy | null): void {
   const active = policy !== null;

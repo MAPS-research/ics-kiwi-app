@@ -18,8 +18,8 @@ import { studentNavItems } from "../student/StudentApp";
 
 describe("naming table constants (§10, FOUNDATION-09)", () => {
   it("defines the teacher AI practice and review labels", () => {
-    expect(LABELS.freePracticeAi).toBe("Free practice (AI)");
-    expect(LABELS.similarPracticeAi).toBe("Similar practice (AI)");
+    expect(LABELS.freePracticeAi).toBe("Free practice");
+    expect(LABELS.similarPracticeAi).toBe("Similar practice");
     expect(LABELS.aiGeneratedPractice).toBe("AI-generated practice");
     expect(LABELS.labAiTutor).toBe("Lab AI tutor");
     expect(LABELS.kiwiLectureAi).toBe("Kiwi lecture AI");
@@ -31,12 +31,12 @@ describe("naming table constants (§10, FOUNDATION-09)", () => {
     expect(gradeStateLabel("released", 16.5, 20)).toBe("Released 16.5/20");
     expect(LABELS.gradedButton).toBe("Graded ✓");
   });
-  it("defines the student labels and uses Practice with AI in the student nav", () => {
-    expect(STUDENT_LABELS.navPractice).toBe("Practice with AI");
+  it("defines the student labels and uses Practice exercises in the student nav", () => {
+    expect(STUDENT_LABELS.navPractice).toBe("Practice exercises");
     expect(STUDENT_LABELS.trySimilarQuestion).toBe("Try a similar question");
     expect(STUDENT_LABELS.waitingForTeacher).toBe("Waiting for teacher");
     const nav = studentNavItems("/student").map((item) => item.label);
-    expect(nav).toContain("Practice with AI");
+    expect(nav).toContain("Practice exercises");
     expect(nav).not.toContain("Guided practice");
   });
   it("never uses the rejected teacher label Similar question (AI)", () => {

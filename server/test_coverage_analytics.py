@@ -286,7 +286,7 @@ class AnalyticsCoverageTests(unittest.TestCase):
         free = analytics.answers_by_question(self.db, self.scope, item_group=f"f:{self.u1}:choice")["questions"]
         self.assertEqual([q["questionId"] for q in free], [self.free_item])
         self.assertEqual(free[0]["origin"], "ai-free")
-        self.assertTrue(free[0]["label"].startswith("Free practice (AI) · "))
+        self.assertTrue(free[0]["label"].startswith("Free practice · "))
         similar = analytics.answers_by_question(self.db, self.scope, item_group=f"s:{self.practice.id}:q1:")["questions"]
         self.assertEqual([(q["questionId"], q["origin"]) for q in similar], [(self.similar_item, "ai-similar")])
         direct = analytics.answers_by_question(self.db, self.scope, question_id=self.free_item)["questions"]
@@ -407,7 +407,7 @@ class AnalyticsCoverageTests(unittest.TestCase):
         self.assertIsNone(status["model"])
         with patch.dict(os.environ, {"KIWI_AI_CONCURRENCY": "many", "KIWI_MODEL_ALLOWLIST": "a, b,,"}):
             status = analytics.ai_status(self.db, C)
-        self.assertEqual((status["concurrency"], status["modelAllowlist"]), (4, ["a", "b"]))
+        self.assertEqual((status["concurrency"], status["modelAllowlist"]), (4, ["kiwi-managed"]))
 
     # v0.5.1 legacy queries ----------------------------------------------------------------------------------------------
     def test_legacy_table_filters_and_sorts(self) -> None:

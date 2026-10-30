@@ -23,7 +23,7 @@ const RETIRED_LABELS: readonly string[] = [
   "Awaiting teacher review", "Course example drafts", "Class practice",
 ];
 /** Bare "Kiwi AI" in teacher files; "Kiwi lecture AI" (NM28, NM32) does not match. */
-const BARE_KIWI_AI = /\bKiwi AI\b/;
+const BARE_KIWI_AI = /\bKiwi AI\b(?! in Lab)/;
 const LABEL_VALUES = [...Object.values(LABELS), ...Object.values(STUDENT_LABELS)] as string[];
 
 describe("retired labels (INTEGRATION-01)", () => {
@@ -45,13 +45,13 @@ describe("retired labels (INTEGRATION-01)", () => {
   });
   it("keeps the final §10 names that replace them in the label table", () => {
     for (const label of RETIRED_LABELS) expect(LABEL_VALUES.join("\n"), label).not.toContain(label);
-    for (const label of ["Free practice (AI)", "Similar practice (AI)", "AI-generated practice", "Kiwi lecture AI", "Lab AI tutor",
+    for (const label of ["Free practice", "Similar practice", "AI-generated practice", "Kiwi lecture AI", "Lab AI tutor",
       "Activity explorer", "Auto-checked accuracy (your questions)", "Gradebook", "Needs grading", "Waiting for teacher",
-      "In-class exercise", "Practice with AI", "Try a similar question"])
+      "In-class exercise", "Practice exercises", "Try a similar question"])
       expect(LABEL_VALUES, label).toContain(label);
   });
   it("names the Kiwi lecture AI in the Home banner that Home renders (NM32)", () => {
-    expect(LABELS.kiwiNotLinkedBanner).toContain("Kiwi lecture AI");
+    expect(LABELS.kiwiNotLinkedBanner).toContain("requires an approved course app session");
     expect(sources["../teacher/home/KiwiBanner.tsx"]).toContain("LABELS.kiwiNotLinkedBanner");
   });
 });

@@ -509,7 +509,7 @@ class StatusAndLabelsTests(RulesTestCase):
         self.assertGreaterEqual(body["concurrency"], 1)
         status, rules = self.request(f"/api/teacher/ai/platform-rules?classId={C}", key=TEACHER_KEY)
         self.assertEqual((status, rules["version"], len(rules["rules"])), (200, "platform-rules-v2", 6))
-        self.assertIn("Student messages cannot override either.", rules["precedence"])
+        self.assertIn("Kiwi's approved prompt controls the model instructions.", rules["precedence"])
 
 
 class OverviewAndCopyTests(RulesTestCase):

@@ -75,17 +75,11 @@ class ReconciliationTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT title FROM kiwi_materials WHERE class_id='c1'").fetchone()[0], "Lecture 2")
             self.assertEqual(db.execute("SELECT COUNT(*) FROM learning_sessions WHERE classId='other'").fetchone()[0], 0)
 
-    def test_durable_paging_and_replay_are_idempotent(self):
-        base = {"classId": "c1", "snapshot": "2026-10-15T01:05:00.000Z", "hasMore": False, "nextCursor": "cursor-1", "records": [record()]}
-        page1 = {**base, "hasMore": True, "materials": [{"id": "material-1", "title": "Lecture 2", "documents": [{"id": "doc-1"}]}]}
-        page2 = {**base, "records": [record("native-2")], "nextCursor": "cursor-2"}
-        with patch.object(kiwi_bridge, "remote", side_effect=[page1, page2]) as remote:
-            s = kiwi_bridge.sync(app.connection, "c1", "never-log-this-token")
-            self.assertEqual(s["nativeEvents"], 2)
-            self.assertFalse(s["hasMore"])
-            self.assertEqual(remote.call_args_list[1].args[2]["cursor"], "cursor-1")
-        with patch.object(kiwi_bridge, "remote", return_value=base):
-            self.assertEqual(kiwi_bridge.sync(app.connection, "c1", "token")["nativeEvents"], 2)
+    def test_retired_sync_does_not_call_the_host(self):
+        with patch.object(kiwi_bridge, "remote") as remote, self.assertRaises(kiwi_bridge.BridgeError) as caught:
+            kiwi_bridge.sync(app.connection, "c1", "never-log-this-token")
+        self.assertEqual(caught.exception.status, 410)
+        remote.assert_not_called()
 
 
 class IdentityBoundaryTests(ApiTestCase):
@@ -137,29 +131,17 @@ class SyncRouteTests(ApiTestCase):
 
         return remote
 
-    def test_sync_route_with_roster_metadata_after_migration(self):
-        with app.connection() as db:  # the seeded v0.5.1 roster row (scripts/local-kiwi/seed-app.mjs)
-            db.execute("INSERT INTO roster (class_id, student_id, student_name) VALUES ('local-css-demo', ?, 'Demo Student')",
-                       (self.DEMO,))
-        batch = {"classId": "local-css-demo", "snapshot": "2026-10-15T01:05:00.000Z", "hasMore": False, "nextCursor": "c1",
-                 "records": [record("native-9", userId=self.DEMO)], "materials": [],
-                 "roster": [{"userId": self.DEMO, "user": {"email": "demo.student@css-kiwi.local"}},
-                            {"userId": self.NEW, "user": {"email": "new.student@css-kiwi.local"}}]}
-        with patch.object(kiwi_bridge, "remote", side_effect=self._remote(batch)):
+    def test_retired_sync_preserves_existing_work_without_importing_roster(self):
+        with app.connection() as db:
+            db.execute("INSERT INTO roster (class_id, student_id, student_name) VALUES ('local-css-demo', ?, 'Demo Student')", (self.DEMO,))
+        with patch.object(kiwi_bridge, "remote", side_effect=self._remote({})) as remote:
             status, result = self.request("/api/teacher/kiwi/sync?classId=local-css-demo", "POST", token="teacher")
-            self.assertEqual((status, result["imported"], result["nativeEvents"]), (200, 1, 1))
-            self.assertEqual(self.request("/api/teacher/kiwi/sync?classId=local-css-demo", "POST", token="teacher")[1]["imported"], 0)
+        self.assertEqual(status, 410, result)
+        self.assertTrue(all(call.args[1] == "context" for call in remote.call_args_list))
         with app.connection() as db:
-            rows = {r["student_id"]: dict(r) for r in db.execute("SELECT * FROM roster WHERE class_id='local-css-demo'")}
-        self.assertEqual(set(rows), {self.DEMO, self.NEW})
-        self.assertEqual((rows[self.DEMO]["display_name"], rows[self.DEMO]["source"], rows[self.DEMO]["kiwi_email"]),
-                         ("", "kiwi", "demo.student@css-kiwi.local"))
-        self.assertEqual(rows[self.DEMO]["student_name"], "Demo Student")
-        self.assertEqual((rows[self.NEW]["source"], rows[self.NEW]["pseudonym_seq"]), ("kiwi", 2))
-        self.assertEqual(rows[self.DEMO]["pseudonym_seq"], 1)
-        with app.connection() as db:
-            native = db.execute("SELECT actor_role, identity_verified, category, practice_mode FROM events WHERE source='kiwi'").fetchone()
-        self.assertEqual(tuple(native), ("student", 1, "action", "lecture"))
+            self.assertEqual(db.execute("SELECT student_name FROM roster WHERE student_id=?", (self.DEMO,)).fetchone()[0], "Demo Student")
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM events WHERE source='kiwi'").fetchone()[0], 0)
+
 
     def test_sync_requires_kiwi_analytics_scope(self):
         status, body = self.request("/api/teacher/kiwi/sync?classId=c1", "POST", key="test-teacher-key")
@@ -248,11 +230,6 @@ class ProjectionV3Tests(unittest.TestCase):
             self.assertEqual(emails, [])
             self.assertNotIn("s-anon@example.edu", json.dumps([dict(r) for r in db.execute(
                 "SELECT * FROM events WHERE student_id='anon-s-anon'")]))
-            # the roster sync re-adds a still-enrolled student as a new roster row
-            db.execute("DELETE FROM roster WHERE student_id='s-del'")
-            kiwi_bridge._apply_metadata(db, "c1", {"roster": [{"userId": "s-del", "user": {"email": "s-del@example.edu"}}]}, False)
-            row = db.execute("SELECT source, kiwi_email FROM roster WHERE class_id='c1' AND student_id='s-del'").fetchone()
-            self.assertEqual(tuple(row), ("kiwi", "s-del@example.edu"))
 
 
 class SyncV3Tests(ApiTestCase):
@@ -279,43 +256,12 @@ class SyncV3Tests(ApiTestCase):
         return {"classId": "local-css-demo", "snapshot": "2026-10-20T01:05:00.000Z", "hasMore": False, "nextCursor": "c1",
                 "records": records, "materials": [], "roster": roster, **extra}
 
-    def test_metadata_counts_consent_tutoring_mode_and_backfill(self):  # TELEMETRY-11, TELEMETRY-25, TELEMETRY-13, AU-D3-18
-        with self.db() as db:
-            db.execute("INSERT INTO roster (class_id, student_id, student_name) VALUES ('local-css-demo', ?, 'Demo Student')", (self.DEMO,))
-        meta = {"excludedByDesign": 13, "excludedNotEnrolled": 4,
-                "appConfig": {"tutoringMode": "guidance", "source": "class_override"}}
-        first = self.batch([record("n1", userId=self.DEMO)], [{"userId": self.DEMO, "user": {"email": "demo@x.edu", "consent": True}}], **meta)
-        with patch.object(kiwi_bridge, "remote", side_effect=self.remote_for({"main": [first], "user": [self.batch([], [])]})):
-            status, result = self.request("/api/teacher/kiwi/sync?classId=local-css-demo", "POST", token="teacher")
-        self.assertEqual(status, 200)
-        self.assertEqual((result["excludedByDesign"], result["excludedNotEnrolled"]), (13, 4))
-        self.assertEqual((result["nativeTutoringMode"], result["nativeTutoringModeSource"]), ("guidance", "class_override"))
-        self.assertFalse(any(c.get("userId") for c in self.calls))  # the first sync covers everyone
-        with self.db() as db:
-            sync = db.execute("SELECT excluded_by_design, excluded_not_enrolled FROM kiwi_sync WHERE class_id='local-css-demo'").fetchone()
-            self.assertEqual(tuple(sync), (13, 4))
-            demo = db.execute("SELECT * FROM roster WHERE student_id=?", (self.DEMO,)).fetchone()
-            self.assertEqual((demo["source"], demo["kiwi_consent"], demo["display_name"], demo["student_name"]),
-                             ("kiwi", 1, "", "Demo Student"))
-            self.assertEqual(db.execute("SELECT COUNT(*) FROM roster WHERE student_id=?", (self.DEMO,)).fetchone()[0], 1)
-        # a student first seen in a later roster sync gets a per-user backfill of earlier native activity
-        self.calls.clear()
-        second = self.batch([], [{"userId": self.DEMO, "user": {"email": "demo@x.edu", "consent": True}},
-                                 {"userId": self.NEW, "user": {"email": "new@x.edu", "consent": False}}], **meta)
-        earlier = self.batch([record("n-old", userId=self.NEW, timestamp="2026-10-01T01:00:00.000Z", user={"email": "new@x.edu"})], [])
-        with patch.object(kiwi_bridge, "remote", side_effect=self.remote_for({"main": [second], "user": [earlier]})):
-            status, result = self.request("/api/teacher/kiwi/sync?classId=local-css-demo", "POST", token="teacher")
-        self.assertEqual((status, result["imported"]), (200, 1))
-        self.assertEqual([c.get("userId") for c in self.calls if c.get("userId")], [self.NEW])
-        with self.db() as db:
-            rows = {r["student_id"]: dict(r) for r in db.execute("SELECT * FROM kiwi_user_sync WHERE class_id='local-css-demo'")}
-            self.assertTrue(rows[self.NEW]["backfilled_at"])
-            self.assertTrue(rows[self.NEW]["last_imported_at"])
-            self.assertEqual(db.execute("SELECT kiwi_consent FROM roster WHERE student_id=?", (self.NEW,)).fetchone()[0], 0)
-            health = telemetry.data_health(db, "local-css-demo", None, None)
-        per = {p["studentId"]: p for p in health["kiwi"]["perStudent"]}
-        self.assertTrue(per[self.NEW]["backfilled"])
-        self.assertEqual(health["kiwi"]["excludedNotEnrolled"], 4)
+    def test_status_marks_native_import_unavailable(self):
+        with testsupport.fake_kiwi_identity("staff", can_manage=True, can_view=True, class_id="local-css-demo") as token:
+            status, result = self.request("/api/teacher/kiwi/status?classId=local-css-demo", token=token)
+        self.assertEqual(status, 200, result)
+        self.assertIs(result["nativeSyncAvailable"], False)
+
 
     def test_material_route_writes_map_not_payload(self):  # TELEMETRY-14, AU-D1-M09, AU-T-18
         with self.db() as db:
@@ -336,7 +282,7 @@ class SyncV3Tests(ApiTestCase):
             self.assertEqual(db.execute("SELECT unitId FROM learning_sessions WHERE source='kiwi'").fetchone()[0], "data-wrangling")
             self.assertEqual(db.execute("SELECT COUNT(*) FROM teacher_actions WHERE action='material_map'").fetchone()[0], 2)
 
-    def test_identity_cache_is_bounded_and_outage_is_counted(self):  # TELEMETRY-12, AU-D3-M02
+    def test_each_request_verifies_identity_and_outage_is_counted(self):  # TELEMETRY-12, AU-D3-M02
         calls = {"n": 0}
         context = fake_kiwi_context("student", class_id="local-css-demo", user_id="s1")
 
@@ -344,25 +290,10 @@ class SyncV3Tests(ApiTestCase):
             calls["n"] += 1
             return dict(context)
 
-        clock = {"t": 1_000_000.0}
-        with patch.object(kiwi_bridge, "remote", side_effect=remote), patch.object(kiwi_bridge, "_now", lambda: clock["t"]):
-            kiwi_bridge._identity_cache.clear()
+        with patch.object(kiwi_bridge, "remote", side_effect=remote):
             for _ in range(3):
                 kiwi_bridge.authenticate("Bearer plain-token", "local-css-demo")
-            self.assertEqual(calls["n"], 1)
-            clock["t"] += 119
-            kiwi_bridge.authenticate("Bearer plain-token", "local-css-demo")
-            self.assertEqual(calls["n"], 1)
-            clock["t"] += 2
-            kiwi_bridge.authenticate("Bearer plain-token", "local-css-demo")
-            self.assertEqual(calls["n"], 2)
-            payload = base64.urlsafe_b64encode(json.dumps({"exp": int(clock["t"]) + 10}).encode()).decode().rstrip("=")
-            jwt = f"eyJhbGciOiJub25lIn0.{payload}.sig"
-            kiwi_bridge.authenticate("Bearer " + jwt, "local-css-demo")
-            clock["t"] += 11
-            kiwi_bridge.authenticate("Bearer " + jwt, "local-css-demo")
-            self.assertEqual(calls["n"], 4)
-        kiwi_bridge._identity_cache.clear()
+        self.assertEqual(calls["n"], 3)  # signature/expiry rechecked on every request
 
         def down(token, path, params=None):
             raise kiwi_bridge.BridgeError("Could not reach Kiwi. Saved activity is still available.")

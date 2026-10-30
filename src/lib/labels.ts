@@ -9,12 +9,12 @@ import type { AiQuestionType, AssignmentKind, GradeStatus, TimePreset, WorkQuest
 export const LABELS = {
   // core rules
   platform: "Kiwi",
-  labAiTutor: "Lab AI tutor", // NM28 teacher side
+  labAiTutor: "Lab AI tutor",
   kiwiLectureAi: "Kiwi lecture AI", // NM28 Kiwi native AI
   askKiwi: "Ask Kiwi", // student side
   localGuidance: "Local guidance",
-  freePracticeAi: "Free practice (AI)", // NM42
-  similarPracticeAi: "Similar practice (AI)", // NM42 (deviation from the fix list kept, §10)
+  freePracticeAi: "Free practice", // NM42
+  similarPracticeAi: "Similar practice", // NM42 (deviation from the fix list kept, §10)
   aiGeneratedPractice: "AI-generated practice", // F12 review page
   generatedPracticeItems: "Generated practice items", // Exports page (CR-P3)
   needsGrading: "Needs grading", // NM16
@@ -130,13 +130,13 @@ export const LABELS = {
   fullActivityTimeline: "Full activity timeline",
   similarExerciseGenerated: "Similar exercise generated",
   openExercise: "Open exercise",
-  aiTutorQuestions: "AI tutor questions (incl. hints)",
+  aiTutorQuestions: "Tutor requests (AI and local hints)",
   whereLabel: "Where",
   whereAll: "All",
   whereLab: "CSS Lab (assignments & practice)",
-  whereKiwi: "Kiwi lectures & scratchpad",
+  whereKiwi: "Kiwi history (legacy)",
   kiwiNotLinked: "Kiwi · Not linked to this course",
-  kiwiNotLinkedBanner: "Kiwi not linked — lecture reading and Kiwi lecture AI chats won't appear.",
+  kiwiNotLinkedBanner: "Standalone mode — Kiwi AI in Lab requires an approved course app session.",
   howToLink: "How to link",
   dismiss: "Dismiss",
   autoCheckedAccuracy: "Auto-checked accuracy (your questions)",
@@ -164,7 +164,7 @@ export const LABELS = {
   needsYourAction: "Needs your action",
   studentsNeedingAttention: "Students needing attention",
   whatToReteach: "What to re-teach (your questions only)",
-  whatStudentsAsked: "What students asked the AI",
+  whatStudentsAsked: "What students asked the tutor",
   thisWeekAtAGlance: "This week at a glance",
   markToReteach: "Mark to re-teach",
 
@@ -173,7 +173,7 @@ export const LABELS = {
   lastSeen: "Last seen",
   lastSeenHelp: "Last seen: the newest event of any kind from this student, page views and time on a page included.",
   lastLearningAction: "Last learning action",
-  learningActionsHelp: "Learning actions are answers, code runs, AI questions and submissions.",
+  learningActionsHelp: "Learning actions are answers, code runs, Tutor requests and submissions.",
   activeHelp: "Active: enrolled students with at least one learning action (an answer, code run, AI question or submission) in this period.",
   noLearningActions: "No learning actions",
   // D8: a homework and its revisions count once
@@ -202,7 +202,7 @@ export const LABELS = {
 /** Student-side labels (NM42). */
 export const STUDENT_LABELS = {
   navAssignments: "Assigned work",
-  navPractice: "Practice with AI",
+  navPractice: "Practice exercises",
   navWorkspace: "R workspace",
   navAskKiwi: "Ask Kiwi",
   navCourse: "Course outline",

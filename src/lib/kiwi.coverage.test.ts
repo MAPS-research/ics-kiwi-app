@@ -94,12 +94,12 @@ describe("kiwiTeacherEntryUrl", () => {
   it("uses the local Kiwi origin by default", async () => {
     vi.stubEnv("VITE_KIWI_ORIGIN", "");
     const kiwi = await freshKiwi();
-    expect(kiwi.kiwiTeacherEntryUrl()).toBe("http://localhost:3001/admin/app/ics-r-lab");
+    expect(kiwi.kiwiTeacherEntryUrl()).toBe("http://localhost:3001/");
   });
   it("uses the configured origin without its trailing slash", async () => {
     vi.stubEnv("VITE_KIWI_ORIGIN", "https://kiwi.example.edu/");
     const kiwi = await freshKiwi();
-    expect(kiwi.kiwiTeacherEntryUrl()).toBe("https://kiwi.example.edu/admin/app/ics-r-lab");
+    expect(kiwi.kiwiTeacherEntryUrl()).toBe("https://kiwi.example.edu/");
   });
 });
 
@@ -116,7 +116,7 @@ describe("getKiwi", () => {
     expect(kiwi.getKiwi()).toBe(first);
     await expect(first).resolves.toBe(client);
     expect(scripts).toHaveLength(0);
-    expect(options).toEqual([{ appSlug: "ics-r-lab", mode: "auto", timeoutMs: 15000 }]);
+    expect(options).toEqual([{ appSlug: "ics-r-lab", mode: "auto", timeoutMs: 125000 }]);
   });
 
   it("asks for live mode when the Lab runs inside a parent frame", async () => {
@@ -221,7 +221,7 @@ describe("host chat messages", () => {
     expect(updates).toEqual(["Course X.", "Course X.\nAssignment: HW 3."]);
   });
 
-  it("posts both messages to the parent frame at the referrer origin in live mode", async () => {
+  it("uses SDK updateContext in live mode without raw postMessage", async () => {
     vi.stubEnv("VITE_KIWI_ORIGIN", "");
     const posted: Array<[unknown, string]> = [];
     vi.stubGlobal("parent", { postMessage: (message: unknown, origin: string) => posted.push([message, origin]) });
@@ -230,12 +230,8 @@ describe("host chat messages", () => {
     const { client, updates } = fakeClient("live");
     kiwi.setHostDefaultContext(client, "Course X.");
     kiwi.useHostChatPolicy({ available: false, contextNote: "" });
-    expect(updates).toEqual([]);
-    expect(posted).toEqual([
-      [{ type: "kiwi:updateContext", payload: { context: "Course X.", tutoringMode: "guidance" } }, "https://kiwi.example.edu"],
-      [{ type: "kiwi:updateContext", payload: { context: "Course X.", tutoringMode: "guidance" } }, "https://kiwi.example.edu"],
-      [{ type: "kiwi:setChatAvailability", payload: { available: false, reason: kiwi.CHAT_UNAVAILABLE_REASON } }, "https://kiwi.example.edu"],
-    ]);
+    expect(updates).toEqual(["Course X.", "Course X."]);
+    expect(posted).toEqual([]);
   });
 
   it.each([
@@ -248,7 +244,7 @@ describe("host chat messages", () => {
     stubDocument(() => undefined, referrer);
     const kiwi = await freshKiwi();
     kiwi.setHostDefaultContext(fakeClient("live").client, "Course X.");
-    expect(origins).toEqual(["https://kiwi.example.edu"]);
+    expect(origins).toEqual([]);
   });
 
   it("uses the simulator path for a live client that is not framed", async () => {

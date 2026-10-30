@@ -587,8 +587,8 @@ class InsightsV06Tests(ApiTestCase):
         self.assertEqual(sorted(r["disambiguation"] for r in teacher["rows"]), ["· IC3 Q1", "· IC4 Q1"])
         everything = self.get("/api/teacher/analytics/table", classId=cls, group="questions", origin="all")
         labels = {r["label"] for r in everything["rows"]}
-        self.assertIn("Free practice (AI) · Ch 03 · Multiple choice (2)", labels)
-        self.assertIn("Similar practice (AI) · IC3 Q1 · Fill in the blank (1)", labels)
+        self.assertIn("Free practice · Ch 03 · Multiple choice (2)", labels)
+        self.assertIn("Similar practice · IC3 Q1 · Fill in the blank (1)", labels)
         folded = next(r for r in everything["rows"] if r["origin"] == "ai-free")
         self.assertEqual(folded["aiItemGroup"], {"unitId": "data-wrangling", "origin": "ai-free", "questionType": "choice", "items": 2})
         self.assertEqual(folded["firstTryCorrectPct"], 50.0)
@@ -673,7 +673,7 @@ class InsightsV06Tests(ApiTestCase):
             testsupport.make_group(db, cls, "section", "Section B", ids[3:])
             hw = testsupport.publish_work(db, cls, kind="practice", title="Week 3 practice", questions=TWO_QUESTIONS)
             for sid in ids:
-                testsupport.make_server_check(db, cls, sid, hw.id, "q1", "mean(x)", sid in ("s1", "s4"))
+                testsupport.make_server_check(db, cls, sid, hw.id, "q1", "mean(x)", sid in ("s1", "s4"), at="2026-10-20T02:00:00+00:00")
                 heartbeat(db, cls, sid, "2026-10-20T03:00:10+00:00", assignment_id=hw.id, question_id="q1")
         m = self.get("/api/teacher/metrics", classId=cls, groupId=a)
         self.assertEqual((m["enrolled"], m["active"]["value"]), (3, 3))

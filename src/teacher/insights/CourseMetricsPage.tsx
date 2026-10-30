@@ -57,7 +57,7 @@ export function shadedBuckets(buckets: readonly TrendBucket[], outages: readonly
 
 export function sourceText(source: CourseMetrics["sources"][number]): string {
   if (source.where === "kiwi" && !source.linked) return LABELS.kiwiNotLinked;
-  return `${formatNumber(source.actions)} logged actions · ${formatNumber(source.codeRuns)} code runs · ${formatNumber(source.aiQuestions)} AI questions`;
+  return `${formatNumber(source.actions)} logged actions · ${formatNumber(source.codeRuns)} code runs · ${formatNumber(source.aiQuestions)} Tutor requests`;
 }
 
 type Trends = { buckets: TrendBucket[]; outages: OutagePeriod[] };

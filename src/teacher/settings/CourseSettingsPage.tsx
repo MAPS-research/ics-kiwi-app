@@ -25,7 +25,7 @@ export type SettingsTab = "course" | "schedule" | "kiwi" | "staff" | "privacy" |
 export const SETTINGS_TABS: readonly { id: SettingsTab; label: string; description: string }[] = [
   { id: "course", label: "Course info", description: "Title, description and grading/AI defaults." },
   { id: "schedule", label: "Class schedule", description: "Class meetings and time zone used by Since last class and This class." },
-  { id: "kiwi", label: "Kiwi connection", description: "Kiwi link status, native chat guidance mode and import counts." },
+  { id: "kiwi", label: "Kiwi connection", description: "Kiwi identity, approved AI prompt and integration limits." },
   { id: "staff", label: "Staff & roles", description: "Instructors, teaching assistants, viewers and researchers, including Kiwi course staff." },
   { id: "privacy", label: "Privacy", description: "Emails, default name mode, research purpose, consent, retention and audit log." },
   { id: "package", label: "Course package", description: "Export this course as a package or start from a course template." },

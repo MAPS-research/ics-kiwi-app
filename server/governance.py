@@ -244,6 +244,7 @@ def kiwi_effective_role(kiwi_role: str, can_manage: bool, can_view: bool) -> str
 
 
 def staff_listing(db: sqlite3.Connection, class_id: str) -> dict:
+    from server import kiwi_api
     staff = [_staff_view(r) for r in db.execute(
         "SELECT * FROM staff WHERE class_id=? ORDER BY revoked_at IS NOT NULL, created_at, id", (class_id,))]
     overrides = {r["kiwi_user_id"]: r for r in db.execute(
@@ -252,10 +253,9 @@ def staff_listing(db: sqlite3.Connection, class_id: str) -> dict:
     for row in db.execute("SELECT * FROM kiwi_staff_seen WHERE class_id=? ORDER BY username, kiwi_user_id", (class_id,)):
         override = overrides.get(row["kiwi_user_id"])
         seen.append({
-            "kiwiUserId": row["kiwi_user_id"], "username": row["username"], "kiwiRole": row["kiwi_role"],
+            "kiwiUserId": row["kiwi_user_id"], "username": "User " + row["kiwi_user_id"][:8] if identity.class_linked(db, class_id) else row["username"], "kiwiRole": row["kiwi_role"],
             "canManageCourse": bool(row["can_manage_course"]), "canViewAnalytics": bool(row["can_view_analytics"]),
-            "effectiveRole": override["role"] if override else kiwi_effective_role(
-                row["kiwi_role"], bool(row["can_manage_course"]), bool(row["can_view_analytics"])),
+            "effectiveRole": override["role"] if override else kiwi_api.staff_binding(class_id, row["kiwi_user_id"]),
             "roleSource": "override" if override else "kiwi", "overrideStaffId": override["id"] if override else None,
             "lastSeenAt": row["last_seen_at"],
         })

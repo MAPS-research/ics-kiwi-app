@@ -14,10 +14,10 @@ const row = (extra: Partial<AnalyticsRow>): AnalyticsRow => ({
 
 describe("Teaching column preset (§13.4 table)", () => {
   it.each([
-    ["students", ["Student", "Last learning action", "Last seen", "Attempts", "Auto-checked accuracy (your questions)", "AI tutor questions (incl. hints)", "Missing work"]],
-    ["chapters", ["Chapter", "Students", "Attempts", "Auto-checked accuracy (your questions)", "Similar practice accuracy (AI)", "AI tutor questions (incl. hints)"]],
+    ["students", ["Student", "Last learning action", "Last seen", "Attempts", "Auto-checked accuracy (your questions)", "Tutor requests (AI and local hints)", "Missing work"]],
+    ["chapters", ["Chapter", "Students", "Attempts", "Auto-checked accuracy (your questions)", "Similar practice accuracy (AI)", "Tutor requests (AI and local hints)"]],
     ["assignments", ["Assignment", "Submitted (whole term)", "Homework avg score", "Auto-checked accuracy (your questions)", "Similar practice accuracy (AI)", "Last seen"]],
-    ["questions", ["Question", "Origin", "Students", "First try correct %", "Attempts", "AI tutor questions (incl. hints)"]],
+    ["questions", ["Question", "Origin", "Students", "First try correct %", "Attempts", "Tutor requests (AI and local hints)"]],
     ["reading", ["Material", "Chapter", "Students", "Views", "Kiwi lecture AI questions", "Last seen"]],
     ["question-activities", ["Student", "Question", "Started", "Active minutes", "Attempts", "Result"]],
   ] as const)("%s has exactly its teaching columns", (group, labels) => {
@@ -62,7 +62,7 @@ describe("explorer chips and queries", () => {
     expect(chips.map((c) => `${c.label}: ${c.value}`)).toEqual(["Work: Free practice only", "Origin: Your questions"]);
     expect(removedValue("origin", "questions")).toBe("all");
     expect(explorerChips({ origin: "all" }, "questions", names).find((c) => c.key === "origin")).toBeUndefined();
-    expect(explorerChips({ groupId: "g1", where: "kiwi" }, "students", names).map((c) => c.value)).toEqual(["Kiwi lectures & scratchpad", "Section A"]);
+    expect(explorerChips({ groupId: "g1", where: "kiwi" }, "students", names).map((c) => c.value)).toEqual(["Kiwi history (legacy)", "Section A"]);
   });
   it("builds the v0.6 table query with the global range", () => {
     expect(explorerApiQuery({ group: "topics", unitId: "u3", work: "free", page: "2" }, explorerGroup("topics"), { from: "A", to: "B" })).toEqual({

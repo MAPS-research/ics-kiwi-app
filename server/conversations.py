@@ -370,7 +370,7 @@ def thread(db: sqlite3.Connection, scope: Scope, key: str) -> dict:
     feedback = _native_feedback(db, scope.class_id, turns[0]["threadId"], turns) if where == "kiwi" else {}
     out_turns = []
     for t in turns:
-        provenance: dict[str, object] = {"where": t["where"], "ai": analytics.provenance_label(t["where"], "local" if t["source"] == "local" else None)}
+        provenance: dict[str, object] = {"where": t["where"], "ai": analytics.provenance_label(t["where"], t["source"])}
         if t["where"] == "lab":
             provenance["policyLabel"] = analytics.policy_label(db, scope.class_id, t["policyVersionId"], course)
         if t["model"]:

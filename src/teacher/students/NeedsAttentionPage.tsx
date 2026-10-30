@@ -29,14 +29,14 @@ export const RULE_TITLES: Readonly<Record<AttentionRule["id"], string>> = {
 };
 /** One line under a rule that says what it counts (B-m01, D8); rules without an entry need none. */
 export const RULE_HELP: Readonly<Partial<Record<AttentionRule["id"], string>>> = {
-  no_activity: "Answers, code runs, AI questions and submissions count; page views and time on a page do not. The reason shows when the student was last seen.",
+  no_activity: "Answers, code runs, Tutor requests and submissions count; page views and time on a page do not. The reason shows when the student was last seen.",
   missing_work: LABELS.missingWorkHelp,
 };
 export const PARAM_LABELS: Readonly<Record<string, string>> = {
   days: "Days",
   count: "Count",
   errors: "Code errors",
-  questions: "AI questions",
+  questions: "Tutor requests",
   pct: "Below %",
   minChecked: "Minimum checks",
 };

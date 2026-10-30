@@ -82,7 +82,7 @@ def _ai():
 
 
 def default_model() -> str:
-    return os.environ.get("KIWI_DEMO_MODEL", "gpt-5.4-mini")
+    return "kiwi-managed"
 
 
 # ─── Chapter resources (packages, datasets, AI reference material) ────────────────────────────
@@ -235,7 +235,7 @@ def assemble_with_meta(db: sqlite3.Connection, class_id: str, resolved: Resolved
         messages.append({"role": "assistant", "content": str(turn.get("response", ""))})
     if context.get("prompt"):
         messages.append({"role": "user", "content": str(context["prompt"])})
-    body: dict[str, object] = {"model": config.get("model") or default_model(), "input": messages,
+    body: dict[str, object] = {"model": default_model(), "input": messages,
                                "max_output_tokens": int(config.get("maxOutputTokens") or 2400), "store": False}
     if config.get("reasoningEffort") not in (None, "default"):
         body["reasoning"] = {"effort": config["reasoningEffort"]}
@@ -366,7 +366,7 @@ def log_call(db: sqlite3.Connection, ident: Any, class_id: str, *, action: str, 
              policy_group(db, resolved) if resolved else "", section, condition,
              resolved.version_id if resolved else None, resolved.source if resolved else "platform",
              ai_policy.PLATFORM_RULES_VERSION, (request or {}).get("model") if request else None,
-             config.get("reasoningEffort") if request else None, (request or {}).get("max_output_tokens") if request else None,
+             None, None,  # Kiwi controls reasoning and output limits; its API does not report them.
              config.get("historyTurns") if request else None, prompt_hash(request) if request else "",
              developer_text(request) if request else "", dbmod.json_dumps(context), status, error_code, error_message[:2000],
              attempt, parent_call_id, stamp, None if status == "pending" else stamp, raw[:RAW_OUTPUT_LIMIT],
@@ -702,8 +702,8 @@ def chat(req: Any) -> dict:
         finish_call(db, call_id, status=status, meta=usage, raw_output=text, guard_status=guard_status,
                     guard_matches=leak_guard.matches_json(result) if result else [])
         turn_id = _record_turn(db, ident, cls, data, unit_id, surface, thread_id, prompt, final, meta, call_id, resolved,
-                               body.get("model"), "lab-ai", guard_status, flagged, legacy, access)
-    return {"response": final, "source": "lab-ai", "chatTurnId": turn_id, "aiCallId": call_id,
+                               body.get("model"), "kiwi-ai", guard_status, flagged, legacy, access)
+    return {"response": final, "source": "kiwi-ai", "chatTurnId": turn_id, "aiCallId": call_id,
             "policyLabel": resolved.scope_label, "guard": {"status": guard_status}, "flagged": flagged,
             "helpLevel": help_level}
 
@@ -760,7 +760,7 @@ def _record_turn(db: sqlite3.Connection, ident: Any, cls: str, data: dict, unit_
         flag_reason, flag_source, actor_role, is_preview, identity_verified, section_group_id, condition_group_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (cls, student_id, thread_id, question_id, prompt, response, stamp, unit_id, assignment_id, item_id, surface,
-         dbmod.json_dumps(context), call_id, resolved.version_id, model if source == "lab-ai" else None, source,
+         dbmod.json_dumps(context), call_id, resolved.version_id, model if source != "local" else None, source,
          guard_status, int(flagged), "final_answer" if flagged else "", "guard" if flagged else "", ident.actor_role,
          int(bool(ident.preview)), int(bool(ident.verified)), section, condition))
     turn_id = int(cur.lastrowid)
@@ -768,7 +768,7 @@ def _record_turn(db: sqlite3.Connection, ident: Any, cls: str, data: dict, unit_
     server_event(db, ident, "ai_question", {
         "chatTurnId": turn_id, "aiCallId": call_id, "unitId": unit_id, "assignmentId": assignment_id or None,
         "itemId": item_id or None, "threadId": thread_id, "surface": event_surface, "prompt": prompt, "response": response,
-        "aiProvider": "openai" if source == "lab-ai" else "local", "model": model if source == "lab-ai" else None,
+        "aiProvider": "kiwi" if source == "kiwi-ai" else "openai" if source == "lab-ai" else "local", "model": model if source != "local" else None,
         "policyVersionId": resolved.version_id, "guardStatus": guard_status, "effectiveAccess": access},
         question_id=question_id or (item_id or None), surface=event_surface)
     return turn_id
@@ -876,7 +876,7 @@ def chat_history(db: sqlite3.Connection, class_id: str, student_id: str, thread_
         WHERE class_id=? AND student_id=? AND thread_id=? ORDER BY id DESC LIMIT 30""",
         (class_id, student_id, thread_id)).fetchall()
     return [{"id": r["id"], "prompt": r["prompt"], "response": r["response"], "createdAt": r["created_at"],
-             "source": "local" if r["source"] == "local" else "lab-ai",
+             "source": r["source"] if r["source"] in ("local", "kiwi-ai") else "lab-ai",
              "policyLabel": policy_label(db, class_id, r["policy_version_id"]), "flagged": bool(r["flagged"]),
              "guardStatus": r["guard_status"] or "not_applicable"} for r in reversed(rows)]
 

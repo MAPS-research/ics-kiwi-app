@@ -879,7 +879,7 @@ def _question_key(q: ExplorerQuery) -> str:
 
 
 def _item_counts(db: sqlite3.Connection, scope: Scope, q: ExplorerQuery) -> dict[str, int]:
-    """Distinct generated items per folded key (``Free practice (AI) · Ch 03 · Multiple choice (12)``)."""
+    """Distinct generated items per folded key (``Free practice · Ch 03 · Multiple choice (12)``)."""
     population, params = pop_sql(scope)
     filters, fparams = _event_filters(q, for_group="questions")
     key = _question_key(q)
@@ -922,7 +922,7 @@ def _question_rows(db: sqlite3.Connection, scope: Scope, q: ExplorerQuery, cours
         elif kind == "f":
             unit, _, qtype = rest.rpartition(":")
             count = items.get(k, 0)
-            label = f"Free practice (AI) · {chapter_short(course, unit)} · {QUESTION_TYPE_LABELS.get(qtype, qtype or 'Practice')} ({count})"
+            label = f"Free practice · {chapter_short(course, unit)} · {QUESTION_TYPE_LABELS.get(qtype, qtype or 'Practice')} ({count})"
             row.update(id=k, origin="ai-free", unitId=unit, questionType=qtype, label=label, title=label,
                        aiItemGroup={"unitId": unit, "origin": "ai-free", "questionType": qtype, "items": count})
             row["serverAccuracy"] = _pct(a.get("aiCorrect"), a.get("aiChecked"))
@@ -932,7 +932,7 @@ def _question_rows(db: sqlite3.Connection, scope: Scope, q: ExplorerQuery, cours
             aid, qid, qtype = (parts + ["", "", ""])[:3]
             count = items.get(k, 0)
             ref = question_ref(index, aid, qid) or "Homework"
-            label = f"Similar practice (AI) · {ref} · {QUESTION_TYPE_LABELS.get(qtype, qtype or 'Practice')} ({count})"
+            label = f"Similar practice · {ref} · {QUESTION_TYPE_LABELS.get(qtype, qtype or 'Practice')} ({count})"
             row.update(id=k, origin="ai-similar", assignmentId=aid, questionId=qid,
                        unitId=index[aid].unit_id if aid in index else "", questionType=qtype, label=label, title=label,
                        aiItemGroup={"unitId": index[aid].unit_id if aid in index else "", "origin": "ai-similar",
@@ -944,7 +944,7 @@ def _question_rows(db: sqlite3.Connection, scope: Scope, q: ExplorerQuery, cours
             gi = item_rows.get(item_id)
             item = _loads(gi["item_json"], {}) if gi else {}
             origin = "ai-similar" if gi is not None and gi["origin"] == "similar" else "ai-free"
-            prefix = "Similar practice (AI)" if origin == "ai-similar" else "Free practice (AI)"
+            prefix = "Similar practice" if origin == "ai-similar" else "Free practice"
             label = f"{prefix} · {_clip(item.get('prompt') or item.get('title') or item_id, 70)}"
             row.update(id=k, origin=origin, questionId=item_id, unitId=gi["unit_id"] if gi else "", label=label, title=label,
                        questionType=gi["question_type"] if gi else "", difficulty=gi["difficulty"] if gi else None,
@@ -1153,7 +1153,7 @@ def answers_by_question(db: sqlite3.Connection, scope: Scope, *, assignment_id: 
             gi = db.execute("SELECT * FROM generated_items WHERE class_id = ? AND id = ?", (scope.class_id, owner)).fetchone()
             item = _loads(gi["item_json"], {}) if gi else {}
             origin = "ai-similar" if gi is not None and gi["origin"] == "similar" else "ai-free"
-            label = ("Similar practice (AI)" if origin == "ai-similar" else "Free practice (AI)") + f" · {owner[-6:]}"
+            label = ("Similar practice" if origin == "ai-similar" else "Free practice") + f" · {owner[-6:]}"
             prompt = str(item.get("prompt") or "")
             choices = [str(c) for c in item.get("choices") or []]
         rows = db.execute(
@@ -1268,7 +1268,7 @@ def provenance_label(where: str, source: str | None = None) -> str:
     """Teacher-side AI names (§10 NM28): Lab replies are "Lab AI tutor", native replies "Kiwi lecture AI"."""
     if where == "kiwi":
         return "Kiwi lecture AI"
-    return "Local guidance" if source == "local" else "Lab AI tutor"
+    return "Local guidance" if source == "local" else "Kiwi AI in Lab" if source == "kiwi-ai" else "Lab AI tutor"
 
 
 def grade_status_label(status: str | None, score: float | None, maximum: float) -> str:
@@ -1474,18 +1474,18 @@ def _timeline_event(db: sqlite3.Connection, class_id: str, course: dict, index: 
     info = index.get(aid)
     qid = row["question_id"] or ""
     if row["item_id"]:
-        question_label = "AI item"
+        question_label = "Practice item"
     elif info and qid and qid in info.questions:
         question_label = f"Q{info.questions[qid][0]}"
     elif qid and (row["event_type"] == "question_generated" or row["practice_mode"] in ("similar", "free")):
         # a legacy AI-generated exercise id (q-<uuid>) is not a question of the assignment: show its title instead
-        question_label = str(payload.get("title") or "")[:120] or "AI item"
+        question_label = str(payload.get("title") or "")[:120] or "Practice item"
     else:
         question_label = qid if info and qid else ""
     where = "kiwi" if row["source"] == "kiwi" else "lab"
     provenance: dict[str, object] = {"where": where}
     if kind in ("ai_turn", "ai_failed"):
-        provenance["ai"] = provenance_label(where, "local" if payload.get("aiProvider") == "local" else None)
+        provenance["ai"] = ("Kiwi AI in Lab" if payload.get("aiProvider") == "kiwi" else provenance_label(where, "local" if payload.get("aiProvider") == "local" else None))
         if where == "lab":
             provenance["policyLabel"] = policy_label(db, class_id, payload.get("policyVersionId", row["policy_version_id"]), course)
             if payload.get("model"):
@@ -1791,7 +1791,7 @@ def ai_status(db: sqlite3.Connection, class_id: str) -> dict:
     from server import ai, ai_policy, ai_runtime
 
     limits = readers.settings(db, class_id).get("ai", {})
-    allow = [m.strip() for m in os.environ.get("KIWI_MODEL_ALLOWLIST", "").split(",") if m.strip()]
+    allow = [ai_runtime.default_model()]
     try:
         concurrency = int(os.environ.get("KIWI_AI_CONCURRENCY", "4"))
     except ValueError:

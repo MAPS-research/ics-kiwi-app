@@ -3,6 +3,7 @@ import { Download, GraduationCap, History, MessageSquare } from "lucide-react";
 import { EmptyState } from "../../components/EmptyState";
 import { PageHeader } from "../../components/PageHeader";
 import { StatusBadge, type BadgeTone } from "../../components/StatusBadge";
+import { aiProvenanceLabel } from "../insights/EventContent";
 import { api } from "../../lib/api";
 import { downloadBlob } from "../../lib/csv";
 import { formatDateTime, formatDue, formatPercent, formatRelative } from "../../lib/format";
@@ -16,7 +17,7 @@ import type { GradebookCell, Permission, StudentProfile } from "../../types";
 
 /*
  * Student profile [F08, PEOPLE-01/22, TH09]: header (Last seen · Last learning action · Missing · Avg), assignments with grading and timeline
- * links, recent errors, recent AI questions, practice by chapter. Viewers see neither grading links nor the case file.
+ * links, recent errors, recent Tutor requests, practice by chapter. Viewers see neither grading links nor the case file.
  */
 
 export function profileHeaderText(header: StudentProfile["header"], now: number = Date.now()): string {
@@ -191,14 +192,14 @@ export function StudentProfileView({
           )}
         </section>
         <section className="panel work-panel">
-          <h2 className="panel-heading">Recent AI questions</h2>
+          <h2 className="panel-heading">Recent tutor requests</h2>
           {profile.recentAiQuestions.length ? (
             <ul className="link-list">
               {profile.recentAiQuestions.map((q, i) => {
                 const href = teacherPaths.aiConversations({ mode: "coding", thread: q.threadKey });
                 return (
                   <li key={`${q.at}-${i}`}>
-                    <StatusBadge tone="info">{q.where === "lab" ? LABELS.labAiTutor : LABELS.kiwiLectureAi}</StatusBadge>{" "}
+                    <StatusBadge tone="info">{aiProvenanceLabel(q.where === "kiwi" ? "kiwi" : q.source || "lab-ai")}</StatusBadge>{" "}
                     {q.flagged && <StatusBadge tone="warning">Flagged</StatusBadge>}{" "}
                     <a href={href} onClick={(e) => (e.preventDefault(), navigate(href))}>
                       {q.prompt || "(empty prompt)"}
@@ -209,7 +210,7 @@ export function StudentProfileView({
               })}
             </ul>
           ) : (
-            <EmptyState>No AI questions yet.</EmptyState>
+            <EmptyState>No tutor requests yet.</EmptyState>
           )}
         </section>
       </div>

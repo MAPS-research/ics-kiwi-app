@@ -1,6 +1,6 @@
 {
   "name": "ics-kiwi-app",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,16 +9,16 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 8100",
     "test": "vitest run",
-    "test:server": "python3 -m unittest discover -s server -p 'test_*.py'",
-    "test:bridge": "node scripts/local-kiwi/run-bridge-tests.mjs",
-    "test:scripts": "node --test scripts/local-kiwi/config.test.mjs",
+    "test:server": ".venv/bin/python -m unittest discover -s server -p 'test_*.py'",
+    "test:bridge": "node --test scripts/sdk-contract.test.mjs",
+    "test:scripts": "node --test scripts/sdk-contract.test.mjs",
     "postinstall": "npm run prepare:webr",
     "prepare:webr": "node scripts/copy-webr.mjs",
-    "demo:setup": "node scripts/local-kiwi/setup.mjs",
-    "demo:start": "node scripts/local-kiwi/start.mjs",
-    "demo:stop": "node scripts/local-kiwi/start.mjs stop",
-    "demo:status": "node scripts/local-kiwi/start.mjs status",
-    "demo:seed": "node scripts/local-kiwi/seed-app.mjs",
+    "demo:setup": "node scripts/retired-demo.mjs",
+    "demo:start": "node scripts/retired-demo.mjs",
+    "demo:stop": "node scripts/retired-demo.mjs",
+    "demo:status": "node scripts/retired-demo.mjs",
+    "demo:seed": "node scripts/retired-demo.mjs",
     "coverage": "vitest run --coverage --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.include=src/**"
   },
   "dependencies": {

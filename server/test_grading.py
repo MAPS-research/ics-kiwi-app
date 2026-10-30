@@ -284,7 +284,7 @@ class GradeSaveTests(GradingApiCase):
         self.assertTrue(all(not h["actorLabel"].startswith("staff-") for h in saved["history"]))
         self.assertEqual(saved["history"][0]["action"], "autocheck")
 
-    def test_grade04_kiwi_grader_label_is_the_username(self):
+    def test_grade04_linked_grader_label_hides_historical_username(self):
         with self.db() as db, dbmod.write_tx(db):
             db.execute("INSERT INTO kiwi_links (class_id, name) VALUES (?, ?)", (LIVE, LIVE))
         self.create_course(LIVE)
@@ -298,7 +298,8 @@ class GradeSaveTests(GradingApiCase):
                                            key=None, cls=LIVE, token=token)
             self.assertEqual(status, 200, saved)
             queue = self.queue(key=None, cls=LIVE, token=token)
-        self.assertEqual(saved["history"][-1]["actorLabel"], "ta@css-kiwi.local")
+        self.assertTrue(saved["history"][-1]["actorLabel"].startswith("S-"))
+        self.assertNotIn("ta@css-kiwi.local", json.dumps(saved["history"]))
         self.assertNotIn("kiwi-ta-7", json.dumps(saved["history"]))
         self.assertEqual(queue["counts"]["toGrade"], 0)
 

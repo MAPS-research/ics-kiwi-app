@@ -132,7 +132,7 @@ export function guardNotice(status: GuardView["status"] | undefined | null): str
 }
 
 export function sourceLabel(source: "lab-ai" | "local" | string): string {
-  return source === "local" ? LOCAL_GUIDANCE_LABEL : LAB_AI_LABEL;
+  return source === "local" ? LOCAL_GUIDANCE_LABEL : source === "kiwi-ai" ? "Kiwi AI" : source === "lab-ai" ? "Lab AI (historical)" : LAB_AI_LABEL;
 }
 
 export function itemSourceLabel(source: GeneratedItemPublic["source"]): string {

@@ -12,7 +12,7 @@ import { useTeacher, type TeacherPageProps } from "../shell/TeacherContext";
 import type { AiRuleScope, AiStatus, Course, Difficulty, Group, PlatformRule, PolicyConfig, PolicyLint, PolicyVersion } from "../../types";
 import {
   AI_TYPES, cellLabel, CONTEXT_FIELD_OPTIONS, difficultyOptions, FIELD_LABELS, HELP_LEVEL_OPTIONS, isDirty, lintDraft, mergeLint,
-  modelOptions, REASONING_OPTIONS, resetLabel, scopeFromRoute, scopeRouteId, scopeTitle, setRubricLevel, shouldConfirmSwitch,
+  resetLabel, scopeFromRoute, scopeRouteId, scopeTitle, setRubricLevel, shouldConfirmSwitch,
   statusBarText, toggleContextField, toggleType, typeCheckboxLabel, UNSAVED_PROMPT, validateDraft, type RuleScope,
   type RulesOverview,
 } from "./policyForm";
@@ -277,33 +277,13 @@ export function AiRulesEditorView(props: AiRulesEditorViewProps) {
               </label>
               {(
                 [
-                  ["maxOutputTokens", LABELS.maxReplyLength, 512, 4000, 128],
+
                   ["historyTurns", FIELD_LABELS.historyTurns, 2, 12, 1],
                 ] as [NumberKey, string, number, number, number][]
               ).map(([key, label, min, max, step]) => (
                 <NumberField key={key} label={label} value={draft[key]} min={min} max={max} step={step} disabled={dis} error={errors[key]} onChange={(v) => set(key, v)} />
               ))}
-              <label>
-                {FIELD_LABELS.model}
-                <select value={draft.model ?? ""} disabled={dis} onChange={(e) => set("model", e.target.value || null)}>
-                  {modelOptions(status).map((o) => (
-                    <option key={o.value || "default"} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                  {draft.model && !(status?.modelAllowlist ?? []).includes(draft.model) && <option value={draft.model}>{draft.model}</option>}
-                </select>
-              </label>
-              <label>
-                {FIELD_LABELS.reasoningEffort}
-                <select value={draft.reasoningEffort} disabled={dis} onChange={(e) => set("reasoningEffort", e.target.value as PolicyConfig["reasoningEffort"])}>
-                  {REASONING_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <p className="muted">Kiwi controls the AI model, reasoning settings and reply limit through its approved prompt. Lab rules are sent as task data. Each request must fit Kiwi's 8,000-character context limit.</p>
             </div>
             <fieldset className="policy-types">
               <legend>{FIELD_LABELS.contextFields}</legend>

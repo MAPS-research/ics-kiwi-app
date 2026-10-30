@@ -156,7 +156,7 @@ class GuardPipelineTests(AirunCase):
                 status, reply = self.chat(prompt, surface=surface, thread=f"thread-{index}", **extra)
                 self.assertEqual(status, 200, reply)
                 self.assertEqual(reply["response"], expected)
-                self.assertEqual((reply["guard"]["status"], reply["flagged"], reply["source"]), ("redacted", True, "lab-ai"))
+                self.assertEqual((reply["guard"]["status"], reply["flagged"], reply["source"]), ("redacted", True, "kiwi-ai"))
                 self.assertEqual(fake.count, 2)  # one rewrite request
                 self.assertIn(leak_guard.RETRY_INSTRUCTION, fake.calls[1]["request"]["input"][-1]["content"])
                 call = self.rows("SELECT * FROM ai_calls WHERE id=?", (reply["aiCallId"],))[0]
@@ -250,10 +250,10 @@ class ProvenanceTests(AirunCase):
             status, reply = self.chat("How should I start?", surface="assignment", assignmentId=hw.id, questionId="q1",
                                       code="x <- c(2, 4, 6)")
         self.assertEqual(status, 200, reply)
-        self.assertEqual((reply["policyLabel"], reply["source"]), ("Ch 02 rules v1", "lab-ai"))
+        self.assertEqual((reply["policyLabel"], reply["source"]), ("Ch 02 rules v1", "kiwi-ai"))
         call = self.rows("SELECT * FROM ai_calls WHERE id=?", (reply["aiCallId"],))[0]
         self.assertEqual((call["status"], call["model"], call["policy_version_id"], call["action"], call["surface"]),
-                         ("ok", "gpt-5.4-mini", version_id, "chat", "assignment"))
+                         ("ok", "kiwi-managed", version_id, "chat", "assignment"))
         self.assertEqual(len(call["prompt_hash"]), 64)
         self.assertEqual((call["input_tokens"], call["output_tokens"], call["openai_response_id"]), (120, 40, "resp-1"))
         self.assertIsNotNone(call["latency_ms"])
@@ -262,14 +262,14 @@ class ProvenanceTests(AirunCase):
         turn = self.rows("SELECT * FROM chat_turns WHERE id=?", (reply["chatTurnId"],))[0]
         self.assertEqual((turn["unit_id"], turn["assignment_id"], turn["surface"], turn["ai_call_id"], turn["policy_version_id"],
                           turn["model"], turn["source"]),
-                         ("r-basics", hw.id, "assignment", call["id"], version_id, "gpt-5.4-mini", "lab-ai"))
+                         ("r-basics", hw.id, "assignment", call["id"], version_id, "kiwi-managed", "kiwi-ai"))
         context = json.loads(turn["context_json"])
         self.assertEqual((context["assignmentKind"], context["question"], context["code"]), ("homework", LIVE_PROMPT, "x <- c(2, 4, 6)"))
         event = self.rows("SELECT * FROM events WHERE event_type='ai_question'")[0]
         self.assertEqual((event["chat_turn_id"], event["ai_call_id"], event["policy_version_id"], event["checked_by"]),
                          (turn["id"], call["id"], version_id, ""))
         payload = json.loads(event["payload_json"])
-        self.assertEqual((payload["surface"], payload["aiProvider"], payload["effectiveAccess"]), ("assignment", "openai", "open"))
+        self.assertEqual((payload["surface"], payload["aiProvider"], payload["effectiveAccess"]), ("assignment", "kiwi", "open"))
 
     def test_airun_05_no_api_key_returns_local_guidance_with_model_null(self):
         with patch.object(app.ai, "available", return_value=False), patch.object(app.ai, "invoke", Fake()) as fake:

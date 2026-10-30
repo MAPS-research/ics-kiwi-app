@@ -55,7 +55,7 @@ export function defaultHostContext(course: Course, path: string, policy: Pick<Pu
   const chapter = course.units.find((u) => u.id === course.currentUnitId)?.title ?? "not set";
   const help = policy?.helpLevel ? HELP_LEVELS[policy.helpLevel] ?? policy.helpLevel : "not set";
   const types = policy?.allowedTypes?.length ? policy.allowedTypes.map((t) => questionTypeLabel(t)).join(", ") : "not set";
-  return `English-language R course: ${course.title}. Chapter: ${chapter}. Page: ${path}. Lab AI tutor rules for this chapter: help level ${help}, question types ${types}. Native Kiwi chat follows Kiwi's guidance mode.`;
+  return `English-language R course: ${course.title}. Chapter: ${chapter}. Page: ${path}. Lab AI tutor rules for this chapter: help level ${help}, question types ${types}. Kiwi controls its own chat panel.`;
 }
 
 export interface DemoChoice { studentId: string; studentName: string }

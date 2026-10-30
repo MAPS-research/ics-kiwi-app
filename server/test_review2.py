@@ -320,6 +320,8 @@ class LinkedResearchPackageTests(ApiTestCase):
         with self.db() as db:
             testsupport.add_roster(db, cls, "kiwi-s1", source="kiwi", display_name="Zelda Realname")
             testsupport.add_roster(db, cls, "kiwi-s2", source="kiwi", display_name="Bobby Tables", kiwi_email="bobby@realmail.edu")
+            with dbmod.write_tx(db):
+                db.execute("UPDATE roster SET display_name='Bobby Tables', kiwi_email='bobby@realmail.edu' WHERE class_id=? AND student_id='kiwi-s2'", (cls,))
             _consent(db, cls, "kiwi-s1", "yes")
             testsupport.make_chat_turn(db, cls, "kiwi-s1", "Bobby Tables (bobby@realmail.edu) told me the answer",
                                        "Ask Bobby Tables how.")
