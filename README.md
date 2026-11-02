@@ -1,10 +1,12 @@
-# CSS Kiwi Lab v0.7.1
+# CSS Kiwi Lab v0.7.2
 
 R practice, assignments, grading and Lab activity for SOCS-SH 190.
 
 **Development branch: `codex/kiwi-sdk-v0.7.0`. This SDK migration is not merged into `main`.** The previous v0.6 implementation is on `codex/css-lab-v0.6.0`; its patched-host deployment is retired.
 
-[Agent setup](set_up_for_agent.md) · [Integration contract](docs/architecture-v0.7.0.md) · [SDK feedback](docs/handoff/v0.7.0-sdk-feedback.md) · [Changelog](CHANGELOG.md) · [Browser review](docs/reviews/2026-11-02-v0.7.1.md)
+[Agent setup](set_up_for_agent.md) · [Integration contract](docs/architecture-v0.7.0.md) · [SDK feedback](docs/handoff/v0.7.0-sdk-feedback.md) · [Changelog](CHANGELOG.md) · [Browser review](docs/reviews/2026-11-02-v0.7.2.md)
+
+v0.7.2 将教师 Chapters 页改为顶部搜索、显示筛选、排序和章节选择，下方一次只编辑一个章节。切换章节保留未保存内容；排序仅影响选择列表，实际教学顺序通过章节位置按钮调整后保存。课程进度设置收在可展开的 Course pacing 中。
 
 v0.7.1 在 Kiwi 内只保留「作业、练习、课程大纲」三个 Lab 入口。聊天使用 Kiwi 悬浮窗，自由实验使用 Kiwi Scratchpad；每道题仍有独立的 **R editor**，用于保存代码、记录运行和提交答案。旧独立 R 草稿可从课程大纲恢复，原有作业和成绩保留。Scratchpad 的 R 选项需要课程开启 R 功能；SDK 目前不支持把其代码或运行结果自动关联到 Lab 题目。
 

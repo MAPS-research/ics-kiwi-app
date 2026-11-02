@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, type LiHTMLAttributes } from "react";
-import { Archive, ArrowDown, ArrowUp, GripVertical, Pencil, Plus, Save, Trash2, Undo2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Archive, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Pencil, Plus, Save, Trash2, Undo2 } from "lucide-react";
 import { PageHeader, SectionTabs } from "../../components/PageHeader";
 import { StatusBadge } from "../../components/StatusBadge";
 import { api } from "../../lib/api";
@@ -12,7 +12,7 @@ import { useTeacher, type TeacherPageProps } from "../shell/TeacherContext";
 import type { Course, CourseInput, FileMeta, Unit, UnitAccess } from "../../types";
 import {
   ACCESS_OPTIONS, AI_REFERENCE_OFF_NOTE, aiReferenceMessage, canonicalJson, canUseAsAiReference, chapterNumber, chapterRuleLink, effectiveAccessLabel, formatBytes,
-  moveUnit, moveUnitTo, SCOPE_OPTIONS, thisWeekToast, toggleDataset, togglePackage, type ChapterSummary, type ChapterSummaryUnit,
+  moveUnit, SCOPE_OPTIONS, thisWeekToast, toggleDataset, togglePackage, type ChapterSummary, type ChapterSummaryUnit,
 } from "./policyForm";
 
 /*
@@ -26,6 +26,27 @@ import {
  */
 
 const MAX_UPLOAD_BYTES = 3 * 1024 * 1024;
+
+export interface ChapterBrowse {
+  query: string;
+  visibility: "all" | "visible" | "hidden";
+  sort: "course" | "week" | "title";
+}
+const DEFAULT_BROWSE: ChapterBrowse = { query: "", visibility: "all", sort: "course" };
+
+/** Browsing never mutates the course order used for pacing and saving. */
+export function browseChapters(units: readonly Unit[], browse: ChapterBrowse): Unit[] {
+  const query = browse.query.trim().toLocaleLowerCase();
+  return units.map((unit, index) => ({ unit, index }))
+    .filter(({ unit }) => (browse.visibility === "all" || (unit.access === "hidden") === (browse.visibility === "hidden"))
+      && (!query || `${unit.title} ${unit.goal}`.toLocaleLowerCase().includes(query)))
+    .sort((a, b) => {
+      if (browse.sort === "week") return (a.unit.week ?? Infinity) - (b.unit.week ?? Infinity) || a.index - b.index;
+      if (browse.sort === "title") return a.unit.title.localeCompare(b.unit.title, undefined, { numeric: true, sensitivity: "base" }) || a.index - b.index;
+      return a.index - b.index;
+    })
+    .map(({ unit }) => unit);
+}
 
 /** Toggle a chapter file's AI-reference flag (ASSESS files API) [AIRULES-12]. */
 export function toggleAiReference(classId: string, file: Pick<FileMeta, "id">, aiReference: boolean): Promise<FileMeta> {
@@ -129,7 +150,7 @@ function Link({ href, children }: { href: string; children: string }) {
 }
 
 export function ChapterCardView({
-  unit, index, total, course, summary, readOnly, busy, onUnit, onMove, onRemove, onToggleAiReference, onUpload, dragHandlers,
+  unit, index, total, course, summary, readOnly, busy, onUnit, onMove, onRemove, onToggleAiReference, onUpload,
   canOpenAssignments = true,
 }: {
   unit: Unit;
@@ -144,7 +165,6 @@ export function ChapterCardView({
   onRemove: () => void;
   onToggleAiReference: (file: FileMeta, value: boolean) => void;
   onUpload: (file: File) => void;
-  dragHandlers?: Pick<LiHTMLAttributes<HTMLLIElement>, "draggable" | "onDragStart" | "onDragOver" | "onDrop">;
   /** roles without viewAssignments (viewer, researcher) see the count as text, not a link (§3.1) */
   canOpenAssignments?: boolean;
 }) {
@@ -156,18 +176,19 @@ export function ChapterCardView({
   const hidden = unit.access === "hidden";
   const setRuntime = (patch: Partial<Unit["runtime"]>) => onUnit({ ...unit, runtime: { ...unit.runtime, ...patch } });
   return (
-    <li className={`panel airules-chapter${hidden ? " is-archived" : ""}`} {...(readOnly ? {} : dragHandlers)}>
+    <li className={`panel airules-chapter${hidden ? " is-archived" : ""}`}>
+      <h2 className="airules-selected-title">{unit.title || "Untitled chapter"}</h2>
       <div className="airules-chapter-head">
-        {!readOnly && <GripVertical size={16} className="airules-grip" aria-hidden="true" />}
         <span className="small-pill">Chapter {number}</span>
         {isCurrent && <StatusBadge tone="info">{LABELS.thisWeeksChapter}</StatusBadge>}
         <StatusBadge tone={unit.effectiveAccess === "open" ? "success" : "neutral"}>{hidden ? "Hidden from students" : effectiveAccessLabel(unit.effectiveAccess)}</StatusBadge>
         {!readOnly && (
           <span className="airules-chapter-move">
-            <button type="button" className="icon-button" disabled={busy || index === 0} aria-label={`Move chapter ${number} up`} onClick={() => onMove(-1)}>
+            <span className="muted">Course position {index + 1} of {total}</span>
+            <button type="button" className="icon-button" title="Move earlier in course order" disabled={busy || index === 0} aria-label={`Move chapter ${number} up`} onClick={() => onMove(-1)}>
               <ArrowUp size={15} aria-hidden="true" />
             </button>
-            <button type="button" className="icon-button" disabled={busy || index === total - 1} aria-label={`Move chapter ${number} down`} onClick={() => onMove(1)}>
+            <button type="button" className="icon-button" title="Move later in course order" disabled={busy || index === total - 1} aria-label={`Move chapter ${number} down`} onClick={() => onMove(1)}>
               <ArrowDown size={15} aria-hidden="true" />
             </button>
           </span>
@@ -336,13 +357,98 @@ export function ChaptersView({
   onUpload: (unitId: string, file: File) => void;
   canOpenAssignments?: boolean;
 }) {
-  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [browse, setBrowse] = useState<ChapterBrowse>(DEFAULT_BROWSE);
+  const [selectedId, setSelectedId] = useState(draft.currentUnitId || draft.units[0]?.id || "");
+  const matches = browseChapters(draft.units, browse);
+  // Keep the active editor mounted while a title/access edit moves it outside the filter.
+  const selected = draft.units.find((u) => u.id === selectedId) ?? matches[0] ?? null;
+  const selectedIndex = matches.findIndex((u) => u.id === selected?.id);
+  const courseIndex = draft.units.findIndex((u) => u.id === selected?.id);
   const byUnit = new Map((summary?.units ?? []).map((u) => [u.unitId, u]));
   const current = saved.units.find((u) => u.id === saved.currentUnitId);
   const setUnit = (unit: Unit) => onDraft({ ...draft, units: draft.units.map((u) => (u.id === unit.id ? unit : u)) });
+  const changeBrowse = (patch: Partial<ChapterBrowse>) => {
+    const next = { ...browse, ...patch };
+    const nextMatches = browseChapters(draft.units, next);
+    setBrowse(next);
+    if (!nextMatches.some((u) => u.id === selected?.id)) setSelectedId(nextMatches[0]?.id ?? "");
+  };
+  const addChapter = () => {
+    const unit = newUnit();
+    onDraft({ ...draft, units: [...draft.units, unit] });
+    setBrowse(DEFAULT_BROWSE);
+    setSelectedId(unit.id);
+  };
+  const removeChapter = () => {
+    const units = draft.units.filter((u) => u.id !== selected?.id);
+    const remaining = browseChapters(units, browse);
+    setSelectedId(remaining[Math.max(0, Math.min(selectedIndex, remaining.length - 1))]?.id ?? "");
+    onDraft({ ...draft, units });
+  };
   return (
     <>
-      <section className="panel work-panel airules-section airules-chapters-top" aria-label="Course pacing">
+      <section className="panel chapter-browser" aria-label="Browse chapters">
+        <div className="chapter-browser-heading">
+          <div>
+            <h2>Choose a chapter</h2>
+            <p className="muted">{readOnly ? "View one chapter at a time." : "Edit one chapter at a time. Switching keeps your unsaved changes."}</p>
+          </div>
+          {!readOnly && <div className="chapter-browser-actions">
+            <button type="button" className="outline-button" disabled={busy || draft.units.length >= 30} onClick={addChapter}>
+              <Plus size={16} aria-hidden="true" />Add chapter
+            </button>
+            <button type="button" className="primary-button" disabled={busy || !dirty} onClick={onSave}>
+              <Save size={16} aria-hidden="true" />{busy ? "Saving…" : "Save chapters"}
+            </button>
+          </div>}
+        </div>
+        <div className="chapter-browser-filters">
+          <label className="work-label">Search chapters
+            <input type="search" value={browse.query} placeholder="Title or learning goal" onChange={(e) => changeBrowse({ query: e.target.value })} />
+          </label>
+          <label className="work-label">Show
+            <select value={browse.visibility} onChange={(e) => changeBrowse({ visibility: e.target.value as ChapterBrowse["visibility"] })}>
+              <option value="all">All chapters</option>
+              <option value="visible">Not hidden</option>
+              <option value="hidden">Hidden from students</option>
+            </select>
+          </label>
+          <label className="work-label">Sort by
+            <select value={browse.sort} onChange={(e) => changeBrowse({ sort: e.target.value as ChapterBrowse["sort"] })}>
+              <option value="course">Course order</option>
+              <option value="week">Week</option>
+              <option value="title">Title (A–Z)</option>
+            </select>
+          </label>
+        </div>
+        <div className="chapter-browser-picker">
+          <label className="work-label">Select chapter
+            <select value={selected?.id ?? ""} disabled={!selected && !matches.length} onChange={(e) => setSelectedId(e.target.value)}>
+              {!selected && !matches.length && <option value="">No matching chapters</option>}
+              {selected && selectedIndex < 0 && <option value={selected.id}>{selected.title || "Untitled chapter"} · currently editing</option>}
+              {matches.map((unit) => <option key={unit.id} value={unit.id}>
+                {unit.title || "Untitled chapter"}{unit.week ? ` · Week ${unit.week}` : ""}{unit.access === "hidden" ? " · Hidden" : ""}
+              </option>)}
+            </select>
+          </label>
+          <div className="chapter-browser-step">
+            <button type="button" className="outline-button" aria-label="Previous chapter in results" disabled={selectedIndex <= 0}
+              onClick={() => setSelectedId(matches[selectedIndex - 1].id)}><ChevronLeft size={16} aria-hidden="true" />Previous</button>
+            <button type="button" className="outline-button" aria-label="Next chapter in results" disabled={selectedIndex < 0 || selectedIndex >= matches.length - 1}
+              onClick={() => setSelectedId(matches[selectedIndex + 1].id)}>Next<ChevronRight size={16} aria-hidden="true" /></button>
+          </div>
+        </div>
+        <div className="chapter-browser-status">
+          <p className="muted" role="status">{matches.length} of {pluralize(draft.units.length, "chapter")}{selectedIndex >= 0 ? ` · Selected ${selectedIndex + 1} of ${matches.length}` : ""}</p>
+          {dirty && <span className="chapter-unsaved">Unsaved changes</span>}
+          {(browse.query || browse.visibility !== "all") && <button type="button" className="text-button" onClick={() => changeBrowse({ query: "", visibility: "all" })}>Clear filters</button>}
+        </div>
+        {selected && selectedIndex < 0 && <p className="muted">This chapter no longer matches your filters. It stays open so you can finish editing.</p>}
+        <p className="chapter-sort-note muted">Sort changes this picker only.{!readOnly && " Use the chapter’s position arrows to change course order, then save."}</p>
+      </section>
+      <details className="panel chapter-pacing">
+        <summary>Course pacing <span className="muted">· {current?.title || "No current chapter"}</span></summary>
+        <section className="airules-chapters-top" aria-label="Course pacing">
         {readOnly ? (
           <p className="airules-this-week">
             <strong>{LABELS.thisWeeksChapter}:</strong> {current ? current.title : "—"}
@@ -374,45 +480,35 @@ export function ChaptersView({
           This week's chapter saves as soon as you pick it. Chapters after it show "{LABELS.opensLater}" to students when free practice is limited to current
           and earlier chapters; assigned work stays available.
         </p>
-      </section>
-      <ol className="airules-chapter-list" aria-label="Chapters">
-        {draft.units.map((unit, index) => (
+        </section>
+      </details>
+      {selected ? <ol className="airules-chapter-list" aria-label="Selected chapter">
           <ChapterCardView
-            key={unit.id}
-            unit={unit}
-            index={index}
+            key={selected.id}
+            unit={selected}
+            index={courseIndex}
             total={draft.units.length}
             course={draft}
-            summary={byUnit.get(unit.id) ?? null}
+            summary={byUnit.get(selected.id) ?? null}
             readOnly={readOnly}
             canOpenAssignments={canOpenAssignments}
             busy={busy}
             onUnit={setUnit}
-            onMove={(delta) => onDraft({ ...draft, units: moveUnit(draft.units, index, delta) })}
-            onRemove={() => onDraft({ ...draft, units: draft.units.filter((u) => u.id !== unit.id) })}
+            onMove={(delta) => onDraft({ ...draft, units: moveUnit(draft.units, courseIndex, delta) })}
+            onRemove={removeChapter}
             onToggleAiReference={onToggleAiReference}
-            onUpload={(file) => onUpload(unit.id, file)}
-            dragHandlers={{
-              draggable: true,
-              onDragStart: () => setDragFrom(index),
-              onDragOver: (e) => e.preventDefault(),
-              onDrop: () => {
-                if (dragFrom !== null && dragFrom !== index) onDraft({ ...draft, units: moveUnitTo(draft.units, dragFrom, index) });
-                setDragFrom(null);
-              },
-            }}
+            onUpload={(file) => onUpload(selected.id, file)}
           />
-        ))}
-      </ol>
-      {!readOnly && (
+      </ol> : <section className="panel work-panel chapter-empty">
+        <h2>No matching chapters</h2>
+        <p className="muted">Try a different title or clear the filters to see all chapters.</p>
+        <button type="button" className="outline-button" onClick={() => changeBrowse({ query: "", visibility: "all" })}>Show all chapters</button>
+      </section>}
+      {!readOnly && selected && (
         <div className="work-actions airules-sticky-actions">
-          <button type="button" className="outline-button" disabled={busy || draft.units.length >= 30} onClick={() => onDraft({ ...draft, units: [...draft.units, newUnit()] })}>
-            <Plus size={16} aria-hidden="true" />
-            Add chapter
-          </button>
           <button type="button" className="primary-button" disabled={busy || !dirty} onClick={onSave}>
             <Save size={16} aria-hidden="true" />
-            Save chapters
+            {busy ? "Saving…" : "Save chapters"}
           </button>
           {dirty && <span className="muted">Unsaved changes</span>}
         </div>

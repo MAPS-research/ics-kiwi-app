@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.2] - 2026-11-02
+
+- Replace the teacher Chapters page's full stack of editors with top search, visibility filter, sort and chapter picker, plus Previous/Next navigation and one selected editor. Move Add/Save actions to the top and fold course pacing into a disclosure.
+- Keep unsaved edits across chapter selection. An edited chapter remains open when its title or access no longer matches the filter; new chapters open immediately. Browsing order never changes saved course order, and explicit position buttons remain available.
+- Keep browsing controls usable for read-only staff while preserving editing permissions. Preserve chapter files, notes, assignments and existing save/archive rules.
+- Clarify the Review-only access label without implying a separate Ask Kiwi tool.
+- [Independent browser review](docs/reviews/2026-11-02-v0.7.2.md) records the tested teacher/student flows, desktop/narrow layouts and remaining limitations.
+
 ## [0.7.1] - 2026-11-02
 
 - Consolidate embedded student and preview navigation to assignments, practice and course outline. Use Kiwi's floating chat and Scratchpad; remove the second Lab chat from embedded assignment and practice pages.

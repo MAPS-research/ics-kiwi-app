@@ -6,7 +6,7 @@ from server import ai, auth, course_config, identity, readers
 from server import db as dbmod
 from server.router import ApiError, Auth, Request, Response, route, valid_id
 
-VERSION = "0.7.1"
+VERSION = "0.7.2"
 
 
 @route("GET", "/api/health", auth=Auth.PUBLIC)

@@ -1,5 +1,15 @@
 # CSS Kiwi Lab interaction decisions
 
+## v0.7.2 — teacher chapter selection, 2026-11-02
+
+Teachers choose a chapter before editing. The top toolbar contains search by title/goal, a visibility filter, sorting by course order/week/title, a chapter selector and Previous/Next controls. Only one chapter editor renders below it. Add and Save are available at the top; Course pacing is a separate disclosure so choosing an editor cannot be confused with changing the current teaching chapter.
+
+Browsing uses a derived list and never rewrites course order. The selected editor's explicit position arrows remain responsible for that change. Unsaved fields live in the course draft and survive switching chapters. When an edit changes whether the selected chapter matches a filter, keep it open and label it as currently editing. An empty search offers filter reset. Adding a chapter clears filters and selects the new draft. Read-only staff can use browsing controls but cannot mutate course fields.
+
+Keep the existing Kiwi theme and fonts. At narrow widths search and the chapter picker use full rows; Show/Sort share a row and Previous/Next remain visible touch controls. The toolbar is not sticky, to avoid consuming the small viewport; the existing save action remains available below the single editor. No new host API, data migration or AI behavior is introduced.
+
+See the [v0.7.2 independent review](docs/reviews/2026-11-02-v0.7.2.md) for actual visual checks and limitations.
+
 ## v0.7.1 — embedded tools, 2026-11-02
 
 The primary surface is Kiwi's course iframe on desktop, with pointer and keyboard input. It must also remain usable in a narrow phone viewport. Keep the existing Montserrat typography, purple interaction theme, spacing and semantic result colors. The theme source remains Kiwi UI `fbc29beab4c6063c07fcf273d89e7237fad850b7`; this revision changes navigation and wording, not palette or typography.

@@ -51,7 +51,7 @@ export const REASONING_OPTIONS: readonly { value: PolicyConfig["reasoningEffort"
 export const ACCESS_OPTIONS: readonly { value: UnitAccess; label: string }[] = [
   { value: "default", label: LABELS.accessFollowsScope },
   { value: "open", label: LABELS.accessOpen },
-  { value: "review", label: `${LABELS.accessReview} (Ask Kiwi, no new practice)` },
+  { value: "review", label: `${LABELS.accessReview} (no new practice)` },
   { value: "hidden", label: LABELS.accessHidden },
 ];
 export const SCOPE_OPTIONS: readonly { value: FreePracticeScope; label: string }[] = [

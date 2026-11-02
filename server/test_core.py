@@ -265,7 +265,7 @@ class CourseTests(ApiTestCase):
 
     def test_health_and_me(self):
         status, health = self.request("/api/health")
-        self.assertEqual((status, health["version"], health["runtime"]), (200, "0.7.1", "browser-webR"))
+        self.assertEqual((status, health["version"], health["runtime"]), (200, "0.7.2", "browser-webR"))
         self.assertEqual(self.last_headers.get("Cache-Control"), "no-store")
         self.assertEqual(self.last_headers.get("X-Content-Type-Options"), "nosniff")
         self.assertTrue(re.fullmatch(r"[0-9a-f]{32}", self.last_headers.get("X-Request-Id", "")))

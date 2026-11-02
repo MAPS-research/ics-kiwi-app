@@ -282,6 +282,93 @@
 }
 
 /* ── chapters page ───────────────────────────────────────────────────────────────────────── */
+.chapter-browser,
+.chapter-pacing,
+.chapter-empty {
+  max-width: 1040px;
+  min-width: 0;
+  margin-top: 16px;
+}
+.chapter-browser {
+  padding: 18px;
+}
+.chapter-browser-heading,
+.chapter-browser-actions,
+.chapter-browser-status,
+.chapter-browser-step {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.chapter-browser-heading {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.chapter-browser-heading h2,
+.airules-selected-title {
+  font-size: 18px;
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+.chapter-browser-heading p,
+.chapter-browser-status p {
+  margin: 0;
+  font-size: 13px;
+}
+.chapter-browser-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 12px;
+}
+.chapter-browser-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+.chapter-browser .work-label {
+  min-width: 0;
+  margin: 0;
+}
+.chapter-browser input,
+.chapter-browser select {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  min-height: 44px;
+}
+.chapter-browser button {
+  min-height: 44px;
+}
+.chapter-browser-status {
+  margin-top: 12px;
+  font-size: 13px;
+}
+.chapter-unsaved {
+  color: var(--kiwi-primary);
+  font-weight: 600;
+}
+.chapter-sort-note {
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+.chapter-pacing {
+  padding: 14px 18px;
+}
+.chapter-pacing > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.chapter-pacing > summary .muted {
+  font-weight: 400;
+}
+.chapter-pacing > section {
+  margin-top: 16px;
+}
 .airules-chapters-top {
   display: flex;
   flex-wrap: wrap;
@@ -316,18 +403,17 @@
   gap: 8px;
   flex-wrap: wrap;
 }
-.airules-grip {
-  color: var(--kiwi-text-secondary);
-  cursor: grab;
-}
 .airules-chapter-move {
   margin-left: auto;
   display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+  font-size: 12px;
 }
 .airules-chapter-move .icon-button {
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
 }
 .airules-chapter-fields {
   display: grid;
@@ -453,6 +539,28 @@ ol.course-outline {
 
 /* ── narrow screens (390 px: no horizontal page scroll) ─────────────────────────────────── */
 @media (max-width: 767px) {
+  .chapter-browser-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .chapter-browser-filters > :first-child {
+    grid-column: 1 / -1;
+  }
+  .chapter-browser-picker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .chapter-browser-step {
+    justify-content: space-between;
+  }
+  .chapter-browser-actions {
+    margin-top: 4px;
+  }
+  .airules-chapter-move {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .airules-chapter-move > .muted {
+    margin-right: auto;
+  }
   .airules-grid-3,
   .airules-facts,
   .airules-chapter-fields,

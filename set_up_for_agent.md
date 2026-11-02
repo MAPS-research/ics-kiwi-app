@@ -1,4 +1,4 @@
-# CSS Kiwi Lab v0.7.1 agent setup
+# CSS Kiwi Lab v0.7.2 agent setup
 
 Work branch: `codex/kiwi-sdk-v0.7.0`; not merged into `main`. This replaces the v0.6 deployment runbook, including its host-patching exceptions.
 

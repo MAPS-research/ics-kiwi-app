@@ -5,7 +5,7 @@ import type { AiRuleScope, AiStatus, AiTestSample, Course, FileMeta, PolicyConfi
 import { CourseOutlineView } from "../../student/pages/CourseOutlinePage";
 import { AiRulesEditorView, type AiRulesEditorViewProps, type PlatformRulesData } from "./AiRulesEditorPage";
 import { AiRulesOverviewView } from "./AiRulesOverviewPage";
-import { ChaptersView, chaptersDirty, mergeThisWeek, toggleAiReference } from "./ChaptersPage";
+import { ChapterCardView, ChaptersView, browseChapters, chaptersDirty, mergeThisWeek, toggleAiReference } from "./ChaptersPage";
 import { SavedChecksPanelView } from "./SavedChecksPanel";
 import { EMPTY_SAMPLE, sampleBody, TestRulePanelView } from "./TestRulePanel";
 import { ComparisonView, VersionHistoryView } from "./VersionHistory";
@@ -207,8 +207,10 @@ describe("read-only rules for TAs and viewers (AIRULES-13)", () => {
         onSave={() => undefined} onToggleAiReference={() => undefined} onUpload={() => undefined} />,
     );
     expect(html).toMatch(/<strong>This week's chapter:<\/strong> 02 · r-basics/);
-    expect(buttons(html)).toEqual([]);
-    expect(controls(html).every((c) => /\bdisabled=""/.test(c))).toBe(true);
+    expect(buttons(html)).toEqual(["Previous", "Next"]);
+    const fields = controls(html);
+    expect(fields.slice(0, 4).every((c) => !/\bdisabled=""/.test(c))).toBe(true); // browsing remains available
+    expect(fields.slice(4).every((c) => /\bdisabled=""/.test(c))).toBe(true); // course edits remain forbidden
     expect(html).not.toContain('type="file"');
   });
 });
@@ -254,26 +256,52 @@ describe("Chapters page (AIRULES-04, AIRULES-12)", () => {
       <ChaptersView draft={COURSE} saved={COURSE} summary={summary} readOnly={false} busy={false} dirty={false} onDraft={() => undefined} onThisWeek={() => undefined}
         onSave={() => undefined} onToggleAiReference={() => undefined} onUpload={() => undefined} {...over} />,
     );
-  it("puts This week's chapter and Free practice scope at the top (LY03, NM43)", () => {
+  it("shows the chapter picker first and only renders the selected chapter editor", () => {
     const html = chapters();
     expect(html).toMatch(/This week's chapter<select[^>]*>/);
     expect(html).toContain('<option value="r-basics" selected="">02 · r-basics</option>');
     expect(html).toContain("Free practice scope");
     expect(html).toContain(">Current and earlier chapters (recommended)</option>");
-    expect(html).toContain(">Review only (Ask Kiwi, no new practice)</option>");
+    expect(html).toContain(">Review only (no new practice)</option>");
     expect(html).toContain(">Follows free practice scope</option>");
     expect(html).toContain("Opens later");
     expect(html).toContain("Assignments (3)");
     expect(html).toContain("AI tutor: Customized v4");
     expect(html).toContain("Lecture materials (1)");
-    expect(html).toContain("Uses default AI rules");
+    expect(html.match(/class="panel airules-chapter"/g)).toHaveLength(1);
+    expect(html).not.toContain('aria-label="Chapter 01 title"');
+    expect(html).not.toContain('aria-label="Chapter 03 title"');
+    expect(html.indexOf("Sort by")).toBeLessThan(html.indexOf("Course pacing"));
     expect(html).toContain("Activity this week");
     expect(html).toContain('aria-label="Move chapter 02 up"');
   });
   it("offers Archive for referenced chapters and Remove only for unreferenced ones (AU-D1-M04)", () => {
-    const list = buttons(chapters());
+    const noop = () => undefined;
+    const list = buttons(COURSE.units.map((u, i) => render(<ChapterCardView unit={u} index={i} total={3} course={COURSE}
+      summary={summary.units.find((s) => s.unitId === u.id) ?? null} readOnly={false} busy={false} onUnit={noop} onMove={noop}
+      onRemove={noop} onToggleAiReference={noop} onUpload={noop} />)).join(""));
     expect(list.filter((b) => b === "Archive chapter")).toHaveLength(2);
     expect(list.filter((b) => b === "Remove chapter")).toHaveLength(1);
+  });
+  it("sorts browsing results without changing saved course order or losing chapters", () => {
+    const units = [unit("z", 0, { title: "Module 10", week: null }), unit("b", 1, { title: "Module 2", week: 3 }),
+      unit("a", 2, { title: "module 1", week: 1 }), unit("c", 3, { title: "Module 2", week: 3 })];
+    const before = structuredClone(units);
+    const browse = { query: "", visibility: "all" as const, sort: "title" as const };
+    expect(browseChapters(units, browse).map((u) => u.id)).toEqual(["a", "b", "c", "z"]);
+    expect(browseChapters(units, { ...browse, sort: "week" }).map((u) => u.id)).toEqual(["a", "b", "c", "z"]);
+    expect(browseChapters(units, { ...browse, sort: "course" }).map((u) => u.id)).toEqual(["z", "b", "a", "c"]);
+    expect(units).toEqual(before);
+  });
+  it("filters hidden chapters and searches titles or goals without removing them from the draft", () => {
+    const units = [unit("a", 0, { title: "Vectors", goal: "Summarize data" }), unit("b", 1, { title: "Inference", access: "hidden" }),
+      unit("c", 2, { title: "Plots", week: null })];
+    const browse = { query: "", visibility: "all" as const, sort: "course" as const };
+    expect(browseChapters(units, { ...browse, visibility: "hidden" }).map((u) => u.id)).toEqual(["b"]);
+    expect(browseChapters(units, { ...browse, visibility: "visible" }).map((u) => u.id)).toEqual(["a", "c"]);
+    expect(browseChapters(units, { ...browse, query: "  SUMMARIZE " }).map((u) => u.id)).toEqual(["a"]);
+    expect(browseChapters(units, { ...browse, query: "missing chapter" })).toEqual([]);
+    expect(units).toHaveLength(3);
   });
   it("offers Use as AI reference only for md/qmd/txt chapter files (AIRULES-12)", () => {
     const html = chapters();
