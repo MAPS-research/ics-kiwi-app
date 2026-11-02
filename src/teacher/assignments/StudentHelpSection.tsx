@@ -27,17 +27,17 @@ export function StudentHelpSection({
         <legend>Student help for this assignment</legend>
         <label className="checkbox-label">
           <input type="checkbox" checked={policy.rWorkspace} onChange={(e) => set({ rWorkspace: e.target.checked })} />
-          R workspace
+          R editor for each question
         </label>
         <label className="checkbox-label">
           <input type="checkbox" checked={policy.allowRunPredict} onChange={(e) => set({ allowRunPredict: e.target.checked })} />
           Allow running code for Predict output questions
         </label>
         <label className="assess-help-select">
-          Ask Kiwi
+          {linked ? "Suggested chat help" : "Ask Kiwi"}
           <select value={policy.askKiwi} onChange={(e) => set({ askKiwi: e.target.value as AskKiwiMode })}>
             {ASK_KIWI_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <option key={option.value} value={option.value}>{linked && option.value === "off" ? "No assignment help requested" : linked && option.value === "hints_only" ? "Hints only (guidance)" : option.label}</option>
             ))}
           </select>
         </label>
@@ -46,7 +46,7 @@ export function StudentHelpSection({
           Similar practice ({STUDENT_LABELS.trySimilarQuestion})
         </label>
       </fieldset>
-      {kind === "homework" && protection && <p className="assess-notice" role="note">{protection}</p>}
+      {!linked && kind === "homework" && protection && <p className="assess-notice" role="note">{protection}</p>}
       {linked && <p className="muted">{KIWI_PANEL_HELP}</p>}
     </section>
   );

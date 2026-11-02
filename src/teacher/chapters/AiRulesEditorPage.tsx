@@ -173,6 +173,7 @@ export function AiRulesEditorView(props: AiRulesEditorViewProps) {
         )}
       </section>
       <PlatformRulesView platform={platform} lint={lint} />
+      {course.linked && <p className="muted">These rules apply to Lab-generated exercises and the standalone Lab tutor. Students in Kiwi use its floating chat. Lab shares the current question and suggested help level, but cannot enforce these rules in that chat or import its history.</p>}
       {draft && (
         <section className="panel work-panel airules-section" aria-labelledby="ai-rules-form-title">
           <h2 id="ai-rules-form-title" className="airules-form-title">

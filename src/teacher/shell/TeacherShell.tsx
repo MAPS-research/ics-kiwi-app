@@ -242,6 +242,9 @@ export function TeacherShell({ kiwi, children }: { kiwi: KiwiClient | null; chil
           topBar={topBar}
           notice={notice}
         >
+          {course?.linked && /^\/teacher\/(home|grading|students|insights)(\/|$)/.test(path) && (
+            <p className="muted">Activity counts and exports cover Lab work only. Kiwi’s floating chat and Scratchpad history are not included.</p>
+          )}
           {children}
         </TeacherShellView>
       </NameModeProvider>

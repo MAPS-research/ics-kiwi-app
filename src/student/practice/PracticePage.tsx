@@ -3,6 +3,8 @@ import { ArrowRight, Eye, Plus, Settings2 } from "lucide-react";
 import { CheckFeedback } from "../../components/CheckFeedback";
 import { ResponseText } from "../../components/ResponseText";
 import { api } from "../../lib/api";
+import { useHostLearningContext } from "../../lib/kiwi";
+import { learningContext } from "../../lib/learningContext";
 import { questionTypeLabel, STUDENT_LABELS } from "../../lib/labels";
 import { navigate, studentHref } from "../../lib/navigation";
 import {
@@ -104,7 +106,7 @@ export function PracticeSettingsView({ chapters, types, difficulties, settings, 
       )}
       {policy && (
         <p className="muted">
-          {policy.aiAvailable ? "Ask Kiwi uses your teacher's chapter rules." : "Ready-made template exercises are available; the AI is not available right now."}
+          {policy.aiAvailable ? "Exercises follow your teacher's chapter rules." : "Ready-made template exercises are available; the AI is not available right now."}
           {limit > 0 && usedToday !== null ? ` ${Math.max(0, limit - usedToday)} of ${limit} exercises left today.` : ""}
         </p>
       )}
@@ -159,7 +161,7 @@ export function PracticeItemView({ item, answer, result, revealed, busy, canChec
         <>
           <pre className="question-code">{item.starterCode}</pre>
           <button className="outline-button" onClick={onOpenCode}>
-            Complete in R workspace <ArrowRight size={16} />
+            Complete in R editor <ArrowRight size={16} />
           </button>
         </>
       ) : item.type === "explain" ? (
@@ -196,12 +198,21 @@ export function PracticeItemView({ item, answer, result, revealed, busy, canChec
 const PRACTICE_TABS: [string, string][] = [
   ["settings", "Practice settings"],
   ["question", "Question"],
-  ["code", "R workspace"],
+  ["code", "R editor"],
   ["kiwi", "Ask Kiwi"],
 ];
 
-export function PracticePage({ classId, studentId, course, track, params }: StudentPageProps) {
-  const tool = params.tool || "settings";
+export function practiceTabs(hosted: boolean, hasQuestion: boolean): [string, string][] {
+  return PRACTICE_TABS.filter(([id]) => !hosted || (id !== "kiwi" && (id !== "code" || hasQuestion)));
+}
+
+export function practiceTool(requested: string | undefined, hosted: boolean, hasQuestion: boolean): string {
+  if (hosted && requested === "kiwi") return hasQuestion ? "question" : "settings";
+  if (hosted && requested === "code" && !hasQuestion) return "settings";
+  return requested || "settings";
+}
+
+export function PracticePage({ classId, studentId, course, track, params, hosted = false }: StudentPageProps) {
   const storageKey = `kiwi-practice-v6-${classId}-${studentId}`;
   const initial = useRef<Stored | null>(null);
   if (initial.current === null) {
@@ -212,6 +223,7 @@ export function PracticePage({ classId, studentId, course, track, params }: Stud
     }
   }
   const [item, setItem] = useState<GeneratedItemPublic | null>(initial.current?.item || null);
+  const tool = practiceTool(params.tool, hosted, Boolean(item));
   const [settings, setSettings] = useState<PracticeSettings>(
     initial.current?.settings || { unitId: firstUsableChapter(course, "practice", course.currentUnitId), type: "choice", difficulty: 2, focusNote: "" },
   );
@@ -302,7 +314,7 @@ export function PracticePage({ classId, studentId, course, track, params }: Stud
       setAttempts(0);
       shownAt.current = Date.now();
       setUsedToday((n) => (n === null ? n : n + 1));
-      if (next.starterCode || next.code) setCode(next.starterCode || next.code || "");
+      setCode(next.starterCode || next.code || "");
       void track("question_viewed", { itemId: next.id, unitId: next.unitId, questionTitle: next.title }, next.id);
       navigate("/student/practice/question");
     } catch (e) {
@@ -350,6 +362,10 @@ export function PracticePage({ classId, studentId, course, track, params }: Stud
     }
   };
   const unit = course.units.find((u) => u.id === (item?.unitId || settings.unitId));
+  useHostLearningContext(hosted && item && tool !== "settings" ? learningContext({
+    title: item.title, chapter: unit?.title, question: item, code, answer,
+    run: run?.code === code ? run : null,
+  }) : "");
   const difficulties = policy ? difficultyOptions(policy, unlockedMax) : [];
   return (
     <div className="student-content">
@@ -364,7 +380,7 @@ export function PracticePage({ classId, studentId, course, track, params }: Stud
         </div>
       </div>
       <nav className="page-tabs" aria-label="Practice pages">
-        {PRACTICE_TABS.map(([id, label]) => (
+        {practiceTabs(hosted, Boolean(item)).map(([id, label]) => (
           <a
             key={id}
             href={studentHref(`/student/practice/${id}`)}

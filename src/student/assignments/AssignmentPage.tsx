@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Timer } from "lucide-react";
 import { api, ApiError } from "../../lib/api";
-import { useHostChatPolicy } from "../../lib/kiwi";
+import { useHostChatPolicy, useHostLearningContext } from "../../lib/kiwi";
+import { learningContext } from "../../lib/learningContext";
 import { assignmentKindLabel, LABELS, pluralize, STUDENT_LABELS } from "../../lib/labels";
 import { getBrowserSession, navigate, studentHref } from "../../lib/navigation";
 import { studentPaths, type StudentTool } from "../../lib/routes";
@@ -36,7 +37,7 @@ import type {
 export const GRADED_HOMEWORK_NOTE = "Graded homework — do not give final answers or complete solution code.";
 export const NOT_AVAILABLE = "Not available for this assignment";
 export const TOOL_LABELS: Readonly<Record<StudentTool, string>> = {
-  answer: "Answer & submit", code: "R workspace", kiwi: "Ask Kiwi", similar: STUDENT_LABELS.trySimilarQuestion,
+  answer: "Answer & submit", code: "R editor", kiwi: "Ask Kiwi", similar: STUDENT_LABELS.trySimilarQuestion,
 };
 const TOOL_ORDER: readonly StudentTool[] = ["answer", "code", "kiwi", "similar"];
 
@@ -49,8 +50,8 @@ export function hostPolicyFor(work: Pick<StudentAssignment, "kind" | "title" | "
 }
 
 /** Tabs rendered for the tool policy [F02, AU-D1-03]. */
-export function allowedTools(policy: ToolPolicy): StudentTool[] {
-  return TOOL_ORDER.filter((tool) => tool === "answer" || (tool === "code" && policy.rWorkspace) || (tool === "kiwi" && policy.askKiwi !== "off")
+export function allowedTools(policy: ToolPolicy, hosted = false): StudentTool[] {
+  return TOOL_ORDER.filter((tool) => tool === "answer" || (tool === "code" && policy.rWorkspace) || (tool === "kiwi" && !hosted && policy.askKiwi !== "off")
     || (tool === "similar" && policy.similarPractice));
 }
 
@@ -180,6 +181,7 @@ export function timeLimitIntro(minutes: number): string {
 }
 
 export interface AssignmentPageViewProps {
+  hosted?: boolean;
   work: StudentAssignment;
   course: Course;
   tool: StudentTool;
@@ -225,8 +227,11 @@ function RevisionLink({ work }: { work: Pick<StudentAssignment, "state" | "revis
 
 export function AssignmentPageView(props: AssignmentPageViewProps) {
   const { work, course, tool, question, answers, busy } = props;
-  useHostChatPolicy(hostPolicyFor(work));
-  const tools = allowedTools(work.toolPolicy);
+  const hostPolicy = hostPolicyFor(work);
+  useHostChatPolicy(props.hosted && hostPolicy && !hostPolicy.available
+    ? { ...hostPolicy, contextNote: `${hostPolicy.contextNote}\nThe teacher requests no assignment help. This is guidance; Kiwi controls its chat availability.` }
+    : hostPolicy);
+  const tools = allowedTools(work.toolPolicy, props.hosted);
   const homework = work.kind === "homework";
   const myAttempts = homework ? props.submissions.length : 0;
   const lines = dueLines(work);
@@ -324,9 +329,9 @@ function downloadBase64(name: string, type: string, data: string): void {
   URL.revokeObjectURL(href);
 }
 
-export function AssignmentPage({ classId, course, studentId, studentName, track, params, route }: StudentPageProps) {
+export function AssignmentPage({ classId, course, studentId, studentName, track, params, route, hosted = false }: StudentPageProps) {
   const workId = params.assignmentId || "";
-  const tool = (TOOL_ORDER.includes(params.tool as StudentTool) ? params.tool : "answer") as StudentTool;
+  const tool = (TOOL_ORDER.includes(params.tool as StudentTool) && !(hosted && params.tool === "kiwi") ? params.tool : "answer") as StudentTool;
   const query = new URL(route, "http://lab.local").searchParams;
   const [work, setWork] = useState<StudentAssignment | null>(null);
   const [submissions, setSubmissions] = useState<StudentSubmission[]>([]);
@@ -336,6 +341,7 @@ export function AssignmentPage({ classId, course, studentId, studentName, track,
   const [notice, setNotice] = useState("");
   const [save, setSave] = useState<{ savedAt: number | null; pending: number; failing: boolean }>({ savedAt: null, pending: 0, failing: false });
   const [code, setCode] = useState("");
+  const [loadedCodeKey, setLoadedCodeKey] = useState("");
   const [run, setRun] = useState<(RunResultView & { code: string }) | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -352,6 +358,15 @@ export function AssignmentPage({ classId, course, studentId, studentName, track,
   const question = current?.questions.find((q) => q.id === query.get("q")) || current?.questions[0];
   const localKey = `kiwi-work-${classId}-${studentId}-${workId}`;
   const codeKey = `kiwi-code-${classId}-${studentId}-${workId}-${question?.id}`;
+  const questionVisible = current && question && !(current.kind === "homework" && current.timeLimit && !current.currentAttempt);
+  useHostLearningContext(hosted && questionVisible ? learningContext({
+    title: current.title,
+    chapter: course.units.find((u) => u.id === current.unitId)?.title,
+    question,
+    code: loadedCodeKey === codeKey ? code : undefined,
+    answer: answers[question.id],
+    run: loadedCodeKey === codeKey && run?.code === code ? run : null,
+  }) : "");
 
   const taskTrack: Tracker = useCallback(
     (type, payload, qid) => track(type, { ...payload, assignmentId: workId, unitId: current?.unitId }, qid),
@@ -409,6 +424,7 @@ export function AssignmentPage({ classId, course, studentId, studentName, track,
       stored = null; // WHY: blocked storage falls back to the starter code
     }
     setCode(stored ?? question?.starterCode ?? "");
+    setLoadedCodeKey(codeKey);
     setRun(null);
     setFeedback(null);
   }, [codeKey, question?.starterCode]);
@@ -606,7 +622,7 @@ export function AssignmentPage({ classId, course, studentId, studentName, track,
       {error && <p className="error-text" role="alert">{error}</p>}
       {message && <p className="work-message" role="status">{message}</p>}
       {current && question ? (
-        <AssignmentPageView work={current} course={course} tool={tool} question={question} answers={answers} feedback={feedback}
+        <AssignmentPageView work={current} course={course} tool={tool} question={question} answers={answers} feedback={feedback} hosted={hosted}
           hints={hints[question.id] ?? []} submissions={submissions} busy={busy} notice={notice} savedText={savedLabel(save)} toolContent={toolContent}
           refusal={refusal}
           onOpen={open} onAnswer={setAnswer} onCheck={() => void check()} onSubmit={() => void submit()} onStart={() => void start()}

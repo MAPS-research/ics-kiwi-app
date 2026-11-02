@@ -12,6 +12,7 @@ import { AssignmentListPage } from "./assignments/AssignmentListPage";
 import { AssignmentPage } from "./assignments/AssignmentPage";
 import { PracticePage } from "./practice/PracticePage";
 import { WorkspacePage } from "./pages/WorkspacePage";
+import { ScratchDraftPage } from "./pages/ScratchDraftPage";
 import { AskKiwiPage } from "./pages/AskKiwiPage";
 import { CourseOutlinePage } from "./pages/CourseOutlinePage";
 import type { Course, KiwiClient, PublicPolicy, Tracker } from "../types";
@@ -31,18 +32,20 @@ export interface StudentPageProps {
   route: string;
   params: Record<string, string>;
   preview: boolean;
+  /** Embedded in the real Kiwi host, which owns chat and the general Scratchpad. */
+  hosted?: boolean;
 }
 
 export interface StudentNavItem { href: string; match: string; label: string; icon: LucideIcon }
 /** Student navigation; `base` is "/student" or "/preview/student". */
-export function studentNavItems(base: string): StudentNavItem[] {
+export function studentNavItems(base: string, hosted = false): StudentNavItem[] {
   return [
     { href: `${base}/assignments`, match: `${base}/assignments`, label: STUDENT_LABELS.navAssignments, icon: BookOpen },
     { href: `${base}/practice/settings`, match: `${base}/practice`, label: STUDENT_LABELS.navPractice, icon: Sparkles },
     { href: `${base}/code`, match: `${base}/code`, label: STUDENT_LABELS.navWorkspace, icon: Code2 },
     { href: `${base}/kiwi`, match: `${base}/kiwi`, label: STUDENT_LABELS.navAskKiwi, icon: MessagesSquare },
     { href: `${base}/course`, match: `${base}/course`, label: STUDENT_LABELS.navCourse, icon: GraduationCap },
-  ];
+  ].filter((item) => !hosted || (item.href !== `${base}/code` && item.href !== `${base}/kiwi`));
 }
 
 const HELP_LEVELS: Readonly<Record<string, string>> = {
@@ -110,12 +113,17 @@ export function StudentApp({
   useEffect(() => {
     setHostDefaultContext(kiwi, defaultHostContext(course, path, policy));
   }, [kiwi, course, path, policy]);
+  useEffect(() => () => {
+    kiwi?.updateContext("");
+    setHostDefaultContext(null, "");
+  }, [kiwi]);
 
   const resolved = resolveStudentRoute(path);
-  const nav = studentNavItems(base);
+  const hosted = mode === "live";
+  const nav = studentNavItems(base, hosted);
   const current = nav.find((item) => path.startsWith(item.match));
   const completed = course.units.filter((u) => u.status === "completed").length;
-  const pageProps: StudentPageProps = { classId, course, studentId, studentName, track, route, params: resolved?.params ?? {}, preview };
+  const pageProps: StudentPageProps = { classId, course, studentId, studentName, track, route, params: resolved?.params ?? {}, preview, hosted };
   const identityKey = `${classId}-${studentId}`;
   const page = (() => {
     switch (resolved?.id) {
@@ -124,9 +132,9 @@ export function StudentApp({
       case "practice":
         return <PracticePage key={identityKey} {...pageProps} />;
       case "workspace":
-        return <WorkspacePage key={identityKey} {...pageProps} />;
+        return hosted ? <ScratchDraftPage key={identityKey} classId={classId} studentId={studentId} kiwi={kiwi} /> : <WorkspacePage key={identityKey} {...pageProps} />;
       case "askKiwi":
-        return <AskKiwiPage key={identityKey} {...pageProps} />;
+        return hosted ? <AssignmentListPage key={identityKey} {...pageProps} /> : <AskKiwiPage key={identityKey} {...pageProps} />;
       case "courseOutline":
         return <CourseOutlinePage key={identityKey} {...pageProps} />;
       default:
@@ -135,7 +143,7 @@ export function StudentApp({
   })();
 
   return (
-    <div className={`app-shell role-student${preview ? " is-preview" : ""}`}>
+    <div className={`app-shell role-student${hosted ? " is-hosted" : ""}${preview ? " is-preview" : ""}`}>
       <aside className="sidebar">
         <KiwiBrand />
         <nav className="sidebar-scroll" aria-label="Student navigation">

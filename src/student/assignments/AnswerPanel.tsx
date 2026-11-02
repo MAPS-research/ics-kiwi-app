@@ -208,7 +208,7 @@ export function AnswerPanel({
       ) : (
         <textarea rows={6} className={question.type === "complete" ? "work-answer mono" : "work-answer"} aria-label="Current question answer" value={value}
           onChange={(e) => onAnswer(e.target.value)} spellCheck={question.type === "complete" ? false : undefined}
-          placeholder={question.type === "complete" ? "Write your completed code (run it in the R workspace first)" : "Write your answer"} />
+          placeholder={question.type === "complete" ? "Write your completed code (run it in the R editor first)" : "Write your answer"} />
       )}
       {feedback && (
         <div role="status" className={`feedback ${feedback.correct === null ? "" : feedback.correct ? "correct" : "incorrect"}`}>

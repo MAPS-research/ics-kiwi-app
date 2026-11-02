@@ -1,4 +1,4 @@
-# CSS Kiwi Lab v0.7.0 agent setup
+# CSS Kiwi Lab v0.7.1 agent setup
 
 Work branch: `codex/kiwi-sdk-v0.7.0`; not merged into `main`. This replaces the v0.6 deployment runbook, including its host-patching exceptions.
 
@@ -23,6 +23,8 @@ npm install
 Create `.env` from `.env.example` only if none exists. Keep existing secrets out of logs. Set a long `KIWI_TEACHER_KEY`; do not use a public default. Then `npm run dev:all` and open `http://127.0.0.1:8100/entry`.
 
 Standalone mode uses local templates/guidance. Setting an OpenAI key has no effect. Do not claim a local reply came from Kiwi AI.
+
+Inside Kiwi, use its floating chat and Scratchpad. Lab retains question-bound R editors; the separate Lab chat and general workspace appear only in standalone mode. Old scratch drafts are read-only recovery under Course outline. Scratchpad R requires the host's normal `RLanguageClass` feature grant. The SDK has no editor/run-result handoff, so never replace or patch the host IDE to connect assignment answers.
 
 ## Kiwi registration
 

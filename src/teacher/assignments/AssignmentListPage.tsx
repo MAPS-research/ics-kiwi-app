@@ -144,7 +144,7 @@ export function AssignmentRow({ item, course, permissions, busy, timeZone, load,
   const chapter = course.units.find((u) => u.id === item.unitId)?.title || item.unitId;
   const canGrade = permissions.includes("grade");
   // Decision D2: published homework shows its actual answer-protection state (needs the server's solutionsVisibility).
-  const protection = homework && published && item.solutionsVisibility
+  const protection = !course.linked && homework && published && item.solutionsVisibility
     ? protectionNote({ ...item, solutionsVisibility: item.solutionsVisibility, revisions: item.revisions }, timeZone)
     : null;
   const meta = parts.map((part) => {

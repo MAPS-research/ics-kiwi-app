@@ -53,7 +53,7 @@ export function withDatesPatch(input: AssignmentInput, patch: Partial<Assignment
   return next;
 }
 export const NO_END_NOTE =
-  "Late work has no end date, so this homework never closes: solutions stay hidden and Ask Kiwi keeps its answers protected until you set an end date, a close date or archive it.";
+  "Late work has no end date, so this homework never closes. Lab solutions stay hidden until you set an end date, a close date or archive it. Kiwi controls its own chat.";
 export const AUTO_LATE_NOTE = `Default for new homework: late work is accepted for ${LATE_WINDOW_DAYS} days after the due date (marked late), then the homework closes.`;
 
 export function defaultToolPolicy(kind: AssignmentKind): ToolPolicy {
@@ -73,7 +73,7 @@ export const QUESTION_TYPE_OPTIONS: readonly WorkQuestionType[] = ["text", "choi
 /** Hint under `Solutions visible: After the due date` (decision D2: solutions wait for the late window too). */
 export const AFTER_DUE_HINT = "Shown when the homework closes: after the due date and any late window.";
 export const KIWI_PANEL_HELP =
-  "This setting controls Ask Kiwi inside the Lab. The official SDK cannot disable Kiwi's own chat panel; that panel remains under Kiwi's control. The Lab never sends it assignment answer keys.";
+  "Students use Kiwi’s floating chat. This setting sends guidance with the current question; it cannot disable the chat or enforce a help level in Kiwi. It also controls the standalone Lab tutor. The Lab never sends assignment answer keys to Kiwi’s chat.";
 export const FROZEN_BANNER =
   "Students have started this assignment. Questions are locked to keep their attempts and grades consistent.";
 

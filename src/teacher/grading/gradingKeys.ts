@@ -108,7 +108,12 @@ const ASK_KIWI_TEXT: Readonly<Record<AskKiwiMode, string>> = {
   worked_examples: "worked examples",
 };
 /** "Ask Kiwi: hints only · 2 questions asked". */
-export function askKiwiLine(process: Pick<ProcessSummary, "askKiwiMode" | "aiQuestions">): string {
+export function askKiwiLine(process: Pick<ProcessSummary, "askKiwiMode" | "aiQuestions">, linked = false): string {
+  if (linked) {
+    const help = process.askKiwiMode === "off" ? "none requested" : ASK_KIWI_TEXT[process.askKiwiMode] ?? process.askKiwiMode;
+    const saved = process.aiQuestions > 0 ? ` · ${process.aiQuestions} saved Lab tutor requests` : "";
+    return `Suggested chat help: ${help}${saved} · Host chat history is not available in Lab.`;
+  }
   return `${LABELS.askKiwi}: ${ASK_KIWI_TEXT[process.askKiwiMode] ?? process.askKiwiMode} · ${pluralize(process.aiQuestions, "question")} asked`;
 }
 

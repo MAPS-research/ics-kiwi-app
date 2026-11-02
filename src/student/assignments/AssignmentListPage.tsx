@@ -82,7 +82,7 @@ export function AssignmentListView({ works, course, loaded }: { works: StudentWo
   );
 }
 
-export function AssignmentListPage({ classId, course }: StudentPageProps) {
+export function AssignmentListPage({ classId, course, hosted }: StudentPageProps) {
   const [works, setWorks] = useState<StudentWorkOption[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -98,6 +98,7 @@ export function AssignmentListPage({ classId, course }: StudentPageProps) {
   }, [classId]);
   return (
     <div className="student-content">
+      {hosted && <p className="muted">Use Kiwi’s floating chat for help and Scratchpad for free experiments. Open a question’s R editor to save code with your work.</p>}
       <div className="page-intro">
         <div>
           <h1>Your assigned work</h1>

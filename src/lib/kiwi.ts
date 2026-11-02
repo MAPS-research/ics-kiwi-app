@@ -77,9 +77,9 @@ export interface HostMessage {
 export const CHAT_UNAVAILABLE_REASON = "Ask Kiwi is turned off for this assignment.";
 
 /** Messages that apply a page's chat policy (or, with `policy = null`, restore the StudentApp default). Pure. */
-export function hostChatMessages(defaultContext: string, policy: HostChatPolicy | null): HostMessage[] {
+export function hostChatMessages(defaultContext: string, policy: HostChatPolicy | null, learningContext = ""): HostMessage[] {
   const note = policy?.contextNote.trim() ?? "";
-  const context = note ? `${defaultContext}\n${note}` : defaultContext;
+  const context = [defaultContext, note, learningContext].filter(Boolean).join("\n");
   return [{ type: "kiwi:updateContext", payload: { context } }];
 }
 
@@ -87,6 +87,11 @@ let hostClient: KiwiClient | null = null;
 let hostDefaultContext = "";
 // The policy of the mounted assignment page, so a default-context refresh (route change) keeps its note.
 let activePolicy: HostChatPolicy | null = null;
+let activeLearningContext = "";
+
+function publishHostContext(): void {
+  sendToHost(hostChatMessages(hostDefaultContext, activePolicy, activeLearningContext)[0]);
+}
 
 function sendToHost(message: HostMessage): void {
   hostClient?.updateContext(String(message.payload.context ?? ""));
@@ -96,7 +101,7 @@ function sendToHost(message: HostMessage): void {
 export function setHostDefaultContext(client: KiwiClient | null, context: string): void {
   hostClient = client;
   hostDefaultContext = context;
-  sendToHost(hostChatMessages(context, activePolicy)[0]);
+  publishHostContext();
 }
 
 /**
@@ -112,10 +117,28 @@ export function useHostChatPolicy(policy: HostChatPolicy | null): void {
     if (!active) return;
     const current: HostChatPolicy = { available, contextNote };
     activePolicy = current;
-    for (const message of hostChatMessages(hostDefaultContext, current)) sendToHost(message);
+    publishHostContext();
     return () => {
       if (activePolicy === current) activePolicy = null;
-      for (const message of hostChatMessages(hostDefaultContext, null)) sendToHost(message);
+      publishHostContext();
     };
   }, [active, available, contextNote]);
+}
+
+/** Keep the host's floating chat in sync with visible work, without creating a second chat. */
+export function useHostLearningContext(context: string): void {
+  useEffect(() => {
+    // Remove the previous question immediately; debounce typing, not stale context.
+    activeLearningContext = "";
+    publishHostContext();
+    const timer = setTimeout(() => {
+      activeLearningContext = context;
+      publishHostContext();
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      activeLearningContext = "";
+      publishHostContext();
+    };
+  }, [context]);
 }

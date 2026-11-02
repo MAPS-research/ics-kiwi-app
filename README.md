@@ -1,10 +1,12 @@
-# CSS Kiwi Lab v0.7.0
+# CSS Kiwi Lab v0.7.1
 
 R practice, assignments, grading and Lab activity for SOCS-SH 190.
 
 **Development branch: `codex/kiwi-sdk-v0.7.0`. This SDK migration is not merged into `main`.** The previous v0.6 implementation is on `codex/css-lab-v0.6.0`; its patched-host deployment is retired.
 
-[Agent setup](set_up_for_agent.md) · [Integration contract](docs/architecture-v0.7.0.md) · [SDK feedback](docs/handoff/v0.7.0-sdk-feedback.md) · [Changelog](CHANGELOG.md) · [Browser review](docs/reviews/2026-10-29-v0.7.0.md)
+[Agent setup](set_up_for_agent.md) · [Integration contract](docs/architecture-v0.7.0.md) · [SDK feedback](docs/handoff/v0.7.0-sdk-feedback.md) · [Changelog](CHANGELOG.md) · [Browser review](docs/reviews/2026-11-02-v0.7.1.md)
+
+v0.7.1 在 Kiwi 内只保留「作业、练习、课程大纲」三个 Lab 入口。聊天使用 Kiwi 悬浮窗，自由实验使用 Kiwi Scratchpad；每道题仍有独立的 **R editor**，用于保存代码、记录运行和提交答案。旧独立 R 草稿可从课程大纲恢复，原有作业和成绩保留。Scratchpad 的 R 选项需要课程开启 R 功能；SDK 目前不支持把其代码或运行结果自动关联到 Lab 题目。
 
 ## v0.7 接入规则
 
@@ -14,9 +16,9 @@ App 不获取 Kiwi 名单、姓名、邮箱或原生聊天/IDE/PDF 活动流。�
 
 当前 App token 不包含教师角色。Lab 管理员必须在服务器的 `KIWI_STAFF_BINDINGS` 中按课程 UUID、用户 UUID 明确授权；前端的角色字段不作为权限依据。
 
-`Ask Kiwi` 和 AI 练习生成由 Kiwi 的 `contextual-chat` API 执行。Lab 不接收或使用 OpenAI key。独立模式只有明确标注的固定指导与本地题库。Kiwi 的模型、推理档位和输出长度由 Kiwi 管理；Lab 教师规则作为任务数据发送，不宣称它们是独立的 system/developer 消息。
+AI 练习生成由 Kiwi 的 `contextual-chat` API 执行。Kiwi 内不再显示第二套 Lab 聊天；官方 SDK `updateContext` 仅向宿主聊天提供当前可见题目、学生草稿和当前代码的运行结果。Lab 不接收或使用 OpenAI key。独立模式保留明确标注的固定指导、本地题库和 R 草稿区。Kiwi 的模型、推理档位和输出长度由 Kiwi 管理。
 
-SDK 目前不能关闭 Kiwi 自带的聊天面板。“Ask Kiwi Off”只控制 Lab 内的功能。Lab 不向宿主聊天发送作业答案。
+SDK 目前不能关闭 Kiwi 自带的聊天面板，也不能强制它遵循 Lab 帮助级别。教师设置是建议；旧 Lab 聊天策略仍适用于独立模式。Lab 不向宿主聊天发送答案键、评分标准或教师评语，也不导入宿主聊天和 Scratchpad 的活动历史。
 
 ## Local quick start
 

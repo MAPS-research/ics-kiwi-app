@@ -44,6 +44,9 @@ describe("queue labels", () => {
   it("summarizes help and process", () => {
     expect(askKiwiLine({ askKiwiMode: "hints_only", aiQuestions: 2 })).toBe("Ask Kiwi: hints only · 2 questions asked");
     expect(askKiwiLine({ askKiwiMode: "off", aiQuestions: 1 })).toBe("Ask Kiwi: off · 1 question asked");
+    expect(askKiwiLine({ askKiwiMode: "hints_only", aiQuestions: 0 }, true))
+      .toBe("Suggested chat help: hints only · Host chat history is not available in Lab.");
+    expect(askKiwiLine({ askKiwiMode: "hints_only", aiQuestions: 2 }, true)).toContain("2 saved Lab tutor requests");
   });
 });
 

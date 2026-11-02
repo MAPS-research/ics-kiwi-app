@@ -512,6 +512,32 @@
     font-size: 22px;
     margin-bottom: 4px;
   }
+  /* Kiwi already supplies the brand; keep all three Lab destinations visible on phones. */
+  .role-student.is-hosted .sidebar {
+    padding: 0;
+  }
+  .role-student.is-hosted .brand {
+    display: none;
+  }
+  .role-student.is-hosted .sidebar .sidebar-scroll {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 6px 10px;
+    overflow: visible;
+  }
+  .role-student.is-hosted .sidebar a.nav-item,
+  .role-student.is-hosted .sidebar a.nav-item:not(.active) {
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    min-height: 58px;
+    height: auto;
+    padding: 6px 4px;
+    gap: 4px;
+    white-space: normal;
+    text-align: center;
+  }
 }
 
 /* RV6-m16: editor fields in a row line up at the top (labels with a hint under them no longer push their neighbours) */

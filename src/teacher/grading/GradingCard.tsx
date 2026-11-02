@@ -20,6 +20,7 @@ import {
  */
 
 export interface GradingCardViewProps {
+  linked?: boolean;
   detail: SubmissionDetail;
   draft: CardDraft;
   canRelease: boolean;
@@ -137,7 +138,7 @@ function QuestionBlock({ question, item, index, detail, draft, error, open, lock
   );
 }
 
-export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy, timeZone, error, status, onChange, onSave, onUnrelease }: GradingCardViewProps) {
+export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy, timeZone, error, status, onChange, onSave, onUnrelease, linked = false }: GradingCardViewProps) {
   const who = { studentLabel: detail.studentLabel, assignmentTitle: detail.assignment.title, attempt: detail.submission.attempt };
   const state = cardStatus(detail);
   const primary = primaryAction(detail.assignment.gradesVisibility, canRelease);
@@ -153,6 +154,7 @@ export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy,
   const released = detail.submission.gradeStatus === "released";
   // review 2 (CORRECTNESS-01): saving a draft would withdraw a released grade; only roles that release grades may do that
   const locked = released && !canRelease;
+  const processLabel = linked ? "See Lab work process" : LABELS.seeWorkProcess;
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     if (!isSaveAndNextShortcut(e) || busy || invalid || locked) return;
     e.preventDefault();
@@ -186,9 +188,9 @@ export function GradingCardView({ detail, draft, canRelease, canUnrelease, busy,
         </div>
       </header>
       <p className="grading-process">
-        <span>{askKiwiLine(detail.process)}</span>
-        <a className="text-button" href={detail.process.timelineUrl} onClick={go(detail.process.timelineUrl)} aria-label={cardControlLabel(LABELS.seeWorkProcess, who)}>
-          {LABELS.seeWorkProcess} <ArrowRight size={15} aria-hidden="true" />
+        <span>{askKiwiLine(detail.process, linked)}</span>
+        <a className="text-button" href={detail.process.timelineUrl} onClick={go(detail.process.timelineUrl)} aria-label={cardControlLabel(processLabel, who)}>
+          {processLabel} <ArrowRight size={15} aria-hidden="true" />
         </a>
       </p>
       {evidenceFlags.length > 0 && (

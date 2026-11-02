@@ -1,5 +1,7 @@
 import { Check } from "lucide-react";
 import { LABELS } from "../../lib/labels";
+import { navigate, studentHref } from "../../lib/navigation";
+import { readScratchDraft } from "./ScratchDraftPage";
 import type { StudentPageProps } from "../StudentApp";
 import type { Course, Unit } from "../../types";
 
@@ -15,7 +17,7 @@ export function outlineBadge(unit: Pick<Unit, "effectiveAccess">): string {
   return "";
 }
 
-export function CourseOutlineView({ course }: { course: Course }) {
+export function CourseOutlineView({ course, hosted = false }: { course: Course; hosted?: boolean }) {
   const units = course.units.filter((u) => u.effectiveAccess !== "hidden");
   return (
     <ol className="course-outline">
@@ -41,7 +43,7 @@ export function CourseOutlineView({ course }: { course: Course }) {
             </div>
             <h2>{u.title}</h2>
             <p className="muted">{u.goal}</p>
-            {u.effectiveAccess === "review" && <p className="muted">Ask Kiwi is available for review; new practice is closed.</p>}
+            {u.effectiveAccess === "review" && <p className="muted">{hosted ? "Review this chapter with Kiwi’s floating chat; new practice is closed." : "Ask Kiwi is available for review; new practice is closed."}</p>}
           </li>
         );
       })}
@@ -49,7 +51,7 @@ export function CourseOutlineView({ course }: { course: Course }) {
   );
 }
 
-export function CourseOutlinePage({ course }: StudentPageProps) {
+export function CourseOutlinePage({ course, hosted, classId, studentId }: StudentPageProps) {
   return (
     <div className="student-content">
       <div className="page-intro">
@@ -58,7 +60,10 @@ export function CourseOutlinePage({ course }: StudentPageProps) {
           <p className="muted">{course.description}</p>
         </div>
       </div>
-      <CourseOutlineView course={course} />
+      <CourseOutlineView course={course} hosted={hosted} />
+      {hosted && readScratchDraft(classId, studentId) !== null && (
+        <p className="muted"><a href={studentHref("/student/code")} onClick={(e) => { e.preventDefault(); navigate("/student/code"); }}>Recover an earlier R workspace draft</a></p>
+      )}
     </div>
   );
 }

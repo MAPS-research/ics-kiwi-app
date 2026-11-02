@@ -83,7 +83,7 @@ describe("tool policy tabs (ASSESS-10)", () => {
   it("shows only Answer & submit when every tool is off", () => {
     expect(allowedTools(locked)).toEqual(["answer"]);
     const html = view(homework({ toolPolicy: locked }));
-    expect(html).not.toContain("R workspace");
+    expect(html).not.toContain("R editor");
     expect(html).not.toContain("Try a similar question");
     expect(html).not.toContain(">Ask Kiwi<");
     expect(html).toContain("Submit assignment");
@@ -93,10 +93,19 @@ describe("tool policy tabs (ASSESS-10)", () => {
   });
   it("renders the allowed tabs and disables Run for predict questions unless allowed", () => {
     const html = view(homework({ toolPolicy: { rWorkspace: true, allowRunPredict: true, askKiwi: "hints_only", similarPractice: true } }));
-    for (const label of ["Answer &amp; submit", "R workspace", "Ask Kiwi", "Try a similar question"]) expect(html).toContain(label);
+    for (const label of ["Answer &amp; submit", "R editor", "Ask Kiwi", "Try a similar question"]) expect(html).toContain(label);
     expect(runAllowed({ type: "predict" }, locked)).toBe(false);
     expect(runAllowed({ type: "predict" }, { ...locked, allowRunPredict: true })).toBe(true);
     expect(runAllowed({ type: "complete" }, locked)).toBe(true);
+  });
+  it("keeps question-bound R and submissions, but no second chat in Kiwi", () => {
+    const work = homework();
+    expect(allowedTools(work.toolPolicy, true)).toEqual(["answer", "code"]);
+    const html = view(work, { hosted: true });
+    expect(html).toContain("R editor");
+    expect(html).toContain("Submit assignment");
+    expect(html).not.toContain(">Ask Kiwi<");
+    expect(html).not.toContain("R workspace");
   });
 });
 

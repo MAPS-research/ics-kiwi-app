@@ -28,6 +28,18 @@ The old .local checkouts, containers, data and running services are not reset by
 
 The [SDK developer feedback record](handoff/v0.7.0-sdk-feedback.md) separates proposed SDK/API capabilities, host bugs, AI extensions and withdrawn boundary violations. It includes pinned source evidence and proposed acceptance checks; these are pending upstream discussion, not approved changes or live-host test results.
 
+## v0.7.1 embedded tool consolidation
+
+Rechecked the upstream development branches on 2026-11-02: Kiwi remains `e31b21f2429330dab8b2a3b0897511c9c83d242c`, Kiwi UI remains `fbc29beab4c6063c07fcf273d89e7237fad850b7`, and SDK is 0.2.0. The current `CLAUDE.md`, `KIWI-APPS.md`, SDK bundle, App API DTOs and JWT documentation were reviewed. No host source was patched and no direct host database access was used. The dedicated review course's R feature was enabled through Kiwi's official feature-flag API.
+
+Live student/preview pages use Kiwi's floating chat and Scratchpad. The Lab's top-level chat/scratch pages are removed from navigation; live assignment/practice pages have no second chat. Question-bound R remains for drafts, execution evidence and submissions. Old scratch keys are read-only recovery, accessible from Course outline when a draft exists. Standalone mode retains local tools.
+
+Official `updateContext` carries a bounded, explicit selection of visible question fields and the student's current answer, code and matching run output. Timed homework questions are not sent before the attempt starts. Answer keys, hints, rubrics, grades and teacher feedback are excluded. Question context is cleared on switching/leaving, and code from a previous question is not reused. Assignment help is a textual hint only; neither disabling host chat nor enforcing a help level is supported. Host chat and Scratchpad actions do not enter Lab activity counts.
+
+Kiwi's Scratchpad already supports R when `RLanguageClass` is granted for the course/user. SDK 0.2.0 offers no current-user editor handoff/run-result contract, so Lab cannot use Scratchpad as a drop-in question editor. The proposed optional interface is documented as SDK-04, without restoring the retired native-activity export.
+
+The [v0.7.1 review](reviews/2026-11-02-v0.7.1.md) records the actual host tests; the v0.7.0 results below remain historical.
+
 ## Request and authorization path
 
 1. Official iframe SDK performs its handshake and supplies context. Standalone simulator/demo context grants no Kiwi privileges.

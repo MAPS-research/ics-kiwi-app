@@ -137,7 +137,7 @@ function message(e: unknown): string {
 }
 
 export function ToGradePage({ route }: TeacherPageProps) {
-  const { classId, me } = useTeacher();
+  const { classId, me, course } = useTeacher();
   const query = new URL(route, "http://lab.local").searchParams;
   const show = parseShow(query.get("show"));
   const view: View = query.get("view") === "question" ? "question" : "student";
@@ -335,6 +335,7 @@ export function ToGradePage({ route }: TeacherPageProps) {
     return (
       <div key={id} data-card={id}>
         <GradingCardView
+          linked={course?.linked}
           detail={detail}
           draft={drafts[id] ?? draftFromDetail(detail)}
           canRelease={canRelease}

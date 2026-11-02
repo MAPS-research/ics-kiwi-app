@@ -291,3 +291,37 @@ describe("useHostChatPolicy", () => {
     expect(updates.at(-1)).toBe("Course X.\nSecond page.");
   });
 });
+
+describe("floating chat question context", () => {
+  it("keeps current work across shell refreshes and removes it before switching questions", async () => {
+    vi.useFakeTimers();
+    const kiwi = await freshKiwi();
+    const { client, updates } = fakeClient("live");
+    kiwi.setHostDefaultContext(client, "Course X.");
+    kiwi.useHostChatPolicy({ available: true, contextNote: "Hints only." });
+    kiwi.useHostLearningContext("Question 1; code: mean(x)");
+    const cleanupQuestion1 = effects.cleanups.pop()!;
+    await vi.advanceTimersByTimeAsync(200);
+    expect(updates.at(-1)).toBe("Course X.\nHints only.\nQuestion 1; code: mean(x)");
+    kiwi.setHostDefaultContext(client, "Course X, R editor.");
+    expect(updates.at(-1)).toContain("Question 1; code: mean(x)");
+    cleanupQuestion1();
+    kiwi.useHostLearningContext("Question 2");
+    expect(updates.at(-1)).toBe("Course X, R editor.\nHints only.");
+    await vi.advanceTimersByTimeAsync(200);
+    expect(updates.at(-1)).toBe("Course X, R editor.\nHints only.\nQuestion 2");
+    effects.cleanups.splice(0).forEach((cleanup) => cleanup());
+    expect(updates.at(-1)).toBe("Course X, R editor.");
+  });
+  it("does not publish a question after its page has unmounted", async () => {
+    vi.useFakeTimers();
+    const kiwi = await freshKiwi();
+    const { client, updates } = fakeClient("live");
+    kiwi.setHostDefaultContext(client, "Course X.");
+    kiwi.useHostLearningContext("Abandoned question");
+    effects.cleanups.pop()!();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(updates.at(-1)).toBe("Course X.");
+    expect(updates.join("\n")).not.toContain("Abandoned question");
+  });
+});

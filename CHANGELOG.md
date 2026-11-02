@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.1] - 2026-11-02
+
+- Consolidate embedded student and preview navigation to assignments, practice and course outline. Use Kiwi's floating chat and Scratchpad; remove the second Lab chat from embedded assignment and practice pages.
+- Keep question-bound R editing, execution, answer persistence and submissions. Label it **R editor**. Practice exposes the editor after a question exists. Earlier standalone scratch drafts remain recoverable, read-only, under Course outline; original storage keys and historical records are preserved.
+- Send a bounded projection of the visible question and current student's code, answer and matching run to the host through official SDK `updateContext`. Clear it when switching questions or leaving. Never send answer keys, rubrics, grades or teacher feedback.
+- Clarify that teacher help settings are guidance for host chat, without enforcement or host activity import. Document the missing current-user Scratchpad handoff API in [SDK feedback](docs/handoff/v0.7.0-sdk-feedback.md#sdk-04当前用户的题目代码交接与运行结果回传).
+- [Independent browser review](docs/reviews/2026-11-02-v0.7.1.md) records actual Kiwi-host student/teacher checks and remaining limitations.
+
 ## [0.7.0] - 2026-10-29
 
 - Replace the v0.6 private host bridge with official SDK handshake/navigation, RS256 App tokens verified through public JWKS, and explicit Lab-owned teacher grants. No host database access, roster/name/email lookup or injected UI.
