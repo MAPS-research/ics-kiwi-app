@@ -2,14 +2,18 @@
 
 Authentication follows Kiwi docs/jwt-configuration.md. The SDK's explicit
 getToken() supplies an app token; signatures are verified against the configured
-host's public JWKS. Only opaque IDs are retained. Roles are Lab-owned grants,
-because the upstream app token does not assert a course role.
+host's public JWKS. Only opaque IDs are retained. The token does not assert a
+course role, so the caller's role and permissions come from Kiwi's
+GET /api/kiwi-apps/<slug>/me when the app holds class:info:read;
+KIWI_STAFF_BINDINGS remains an operator override.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import threading
+import time
 from contextvars import ContextVar
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
@@ -18,8 +22,12 @@ from urllib.request import Request, HTTPRedirectHandler, build_opener
 from server.contracts import AiError
 
 APP_SLUG = "ics-r-lab"
+CALLER_SCOPE = "class:info:read"
+CALLER_CACHE_SECONDS = 60
+STAFF_KIWI_ROLES = ("professor", "ta", "admin")
 current_identity: ContextVar = ContextVar("kiwi_request_identity", default=None)
 _clients: dict = {}
+_callers: dict = {}
 _lock = threading.Lock()
 
 
@@ -93,10 +101,78 @@ def authenticate(header: str, class_id: str | None) -> dict:
         raise KiwiError("The Kiwi token belongs to another course", 403)
     class_id = claims["classId"]
     role = staff_binding(class_id, claims["sub"])
+    caller = kiwi_caller(header[7:], claims)
+    kiwi_role = caller["role"] if caller else None
+    permissions = caller["permissions"] if caller else {}
+    # auth._resolve_kiwi turns these into a Lab role: an override, then the
+    # binding (labRole), then Kiwi's role and permissions.
     return {"classId": class_id, "userId": claims["sub"], "username": "User " + claims["sub"][:8],
-            "userRole": role or "student", "labRole": role,
-            "canTeach": role is not None, "canManageCourse": role == "instructor",
-            "canViewAnalytics": role is not None, "scopes": claims.get("scopes", [])}
+            "userRole": kiwi_role or role or "student", "labRole": role,
+            "canTeach": role is not None or kiwi_role in STAFF_KIWI_ROLES,
+            "canManageCourse": role == "instructor" or permissions.get("canManageMaterials", False),
+            "canViewAnalytics": role is not None or permissions.get("canViewAnalytics", False),
+            "scopes": caller["scopes"] if caller else claims.get("scopes", [])}
+
+
+def _now() -> float:
+    """Wall clock for caller-cache expiry (patched by tests)."""
+    return time.time()
+
+
+def _grants(scopes: list, scope: str) -> bool:
+    # Kiwi's requireScope rule: an exact match or a `prefix:*` wildcard.
+    return any(s == scope or (s.endswith(":*") and scope.startswith(s[:-1])) for s in scopes)
+
+
+def _valid_caller(caller: object, claims: dict) -> bool:
+    permissions = caller.get("permissions") if isinstance(caller, dict) else None
+    return (isinstance(caller, dict) and caller.get("userId") == claims["sub"]
+            and caller.get("classId") == claims["classId"] and caller.get("appSlug") == APP_SLUG
+            and isinstance(caller.get("role"), str) and isinstance(permissions, dict)
+            and all(isinstance(permissions.get(k), bool) for k in ("canManageMaterials", "canViewAnalytics"))
+            and isinstance(caller.get("scopes"), list) and all(isinstance(s, str) for s in caller["scopes"]))
+
+
+def kiwi_caller(token: str, claims: dict) -> dict | None:
+    """The caller's class role and permissions as Kiwi reports them now.
+
+    None when the course has not granted class:info:read, or the host predates
+    the endpoint (404): then only KIWI_STAFF_BINDINGS can grant staff access.
+    Kiwi re-checks membership, app enablement and scopes on each call, so an
+    answer is reused for at most CALLER_CACHE_SECONDS. Any other failure fails
+    closed rather than treating staff as students.
+    """
+    if not _grants(claims.get("scopes", []), CALLER_SCOPE):
+        return None
+    key = hashlib.sha256(token.encode()).hexdigest()
+    now = _now()
+    with _lock:
+        cached = _callers.get(key)
+    if cached and cached[0] > now:
+        return cached[1]
+    request = Request(origin() + f"/api/kiwi-apps/{APP_SLUG}/me",
+                      headers={"Authorization": "Bearer " + token, "Accept": "application/json"})
+    try:
+        with urlopen(request, timeout=10) as response:
+            caller = json.loads(response.read(100_001))
+    except HTTPError as exc:
+        status = exc.code
+        exc.close()
+        if status in (401, 403):
+            raise KiwiError("Kiwi no longer grants you access to this course app. Reopen the Lab from your Kiwi course.",
+                            status) from None
+        if status != 404:
+            raise KiwiError("Kiwi could not confirm your course role. Try again shortly.") from None
+        caller = None
+    except (URLError, TimeoutError, OSError, ValueError):
+        raise KiwiError("Kiwi could not confirm your course role. Try again shortly.") from None
+    if caller is not None and not _valid_caller(caller, claims):
+        raise KiwiError("Kiwi returned an unexpected course role. Try again shortly.")
+    with _lock:
+        if len(_callers) >= 256:
+            _callers.clear()
+        _callers[key] = (min(now + CALLER_CACHE_SECONDS, float(claims["exp"])), caller)
+    return caller
 
 
 def staff_binding(class_id: str, user_id: str) -> str | None:

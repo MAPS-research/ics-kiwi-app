@@ -6,7 +6,7 @@ import { appManifest, requiredScopes } from './app-manifest.mjs';
 test('registration uses generic placements and minimum scopes', () => {
   const manifest = appManifest('https://lab.example.edu', '0.7.0');
   assert.deepEqual(manifest.uis.map(ui => ui.placement), ['class-tab', 'class-admin-panel']);
-  assert.deepEqual(requiredScopes, ['context:student_learning:read', 'llm:prompt:lab-tutor']);
+  assert.deepEqual(requiredScopes, ['context:student_learning:read', 'llm:prompt:lab-tutor', 'class:info:read']);
   assert(requiredScopes.includes(`llm:prompt:${manifest.prompts[0].promptId}`));
   assert(!('registrationSecret' in manifest));
 });
