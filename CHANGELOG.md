@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Take Lab staff roles from Kiwi's `GET /api/kiwi-apps/ics-r-lab/me` when the course grants `class:info:read`: the caller's Kiwi course role and effective material/analytics permissions map to instructor, TA or viewer, re-checked by Kiwi on each call and reused for at most 60 s. `KIWI_STAFF_BINDINGS` becomes an optional override and remains the only staff source on hosts without the endpoint. Kiwi 401/403 rejects the request; other host failures fail closed instead of treating staff as students. `class:info:read` joins the required scopes. Needs the Kiwi branch `feat/app-api-me`; not yet covered by an independent browser review.
+
 ## [0.7.2] - 2026-11-02
 
 - Replace the teacher Chapters page's full stack of editors with top search, visibility filter, sort and chapter picker, plus Previous/Next navigation and one selected editor. Move Add/Save actions to the top and fold course pacing into a disclosure.

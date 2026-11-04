@@ -16,7 +16,7 @@ v0.7.1 在 Kiwi 内只保留「作业、练习、课程大纲」三个 Lab 入�
 
 App 不获取 Kiwi 名单、姓名、邮箱或原生聊天/IDE/PDF 活动流。学生在 Lab 内使用匿名标签；Data Hub 记录 Lab 自身活动。原有作业、答案、成绩和历史记录保留，历史 Kiwi 导入标记为已停止的旧来源。
 
-当前 App token 不包含教师角色。Lab 管理员必须在服务器的 `KIWI_STAFF_BINDINGS` 中按课程 UUID、用户 UUID 明确授权；前端的角色字段不作为权限依据。
+App token 不包含教师角色。课程授予 `class:info:read` 时，Lab 后端用调用者的 token 请求 Kiwi 的 `GET /api/kiwi-apps/ics-r-lab/me`，按 Kiwi 课程角色和权限（`canManageMaterials`、`canViewAnalytics`）确定 Lab 角色；教师和助教只需在 Kiwi 课程中维护。`KIWI_STAFF_BINDINGS` 仍可按课程 UUID、用户 UUID 覆盖；没有该接口的宿主只能靠它授权。前端的角色字段不作为权限依据。
 
 AI 练习生成由 Kiwi 的 `contextual-chat` API 执行。Kiwi 内不再显示第二套 Lab 聊天；官方 SDK `updateContext` 仅向宿主聊天提供当前可见题目、学生草稿和当前代码的运行结果。Lab 不接收或使用 OpenAI key。独立模式保留明确标注的固定指导、本地题库和 R 草稿区。Kiwi 的模型、推理档位和输出长度由 Kiwi 管理。
 
@@ -52,8 +52,8 @@ Use the named `codex/kiwi-sdk-v0.7.0` branch for these instructions. `main` and 
 1. Use a Kiwi deployment with RS256 signing and `/.well-known/jwks.json`. The Lab accepts only RS256 App tokens for `ics-r-lab`, the current course and an unexpired caller. It does not accept a host signing secret or a browser-supplied teacher role.
 2. Preview the registration document: `node scripts/register-kiwi-app.mjs --app-url https://lab.example.edu`. This prints the manifest and required scopes without changing anything.
 3. A Kiwi administrator creates the whitelist entry for `ics-r-lab` and supplies its registration secret. Set `KIWI_REGISTRATION_SECRET` only in the registration process environment; invoke the same command with `--kiwi-api https://kiwi-api.example.edu --register` to call the official registration endpoint. No direct database fallback exists.
-4. The administrator approves `lab-tutor` and enables the app and these scopes for the course: `context:student_learning:read`, `llm:prompt:lab-tutor`.
-5. Set Lab `KIWI_API_ORIGIN`, `VITE_KIWI_ORIGIN`, `KIWI_CONTEXT_PROMPT_ID=lab-tutor` and `KIWI_STAFF_BINDINGS`. Example binding: `{"course-uuid":{"teacher-user-uuid":"instructor"}}`. Supported Lab roles: `instructor`, `ta`, `viewer`, `researcher`. IDs must come from the authorized operator; there is no roster lookup.
+4. The administrator approves `lab-tutor` and enables the app and these scopes for the course: `context:student_learning:read`, `llm:prompt:lab-tutor`, `class:info:read`.
+5. Set Lab `KIWI_API_ORIGIN`, `VITE_KIWI_ORIGIN` and `KIWI_CONTEXT_PROMPT_ID=lab-tutor`. Staff roles come from Kiwi through `GET /api/kiwi-apps/ics-r-lab/me`, which needs `class:info:read`: a Kiwi TA with material or analytics permission becomes a Lab TA, material permission makes an instructor, analytics permission alone a viewer. Other Kiwi course staff can open the Lab and get a role on Staff & roles. `KIWI_STAFF_BINDINGS` remains an operator override, and the only staff source on a host without that endpoint. Example binding: `{"course-uuid":{"teacher-user-uuid":"instructor"}}`. Supported Lab roles: `instructor`, `ta`, `viewer`, `researcher`. IDs must come from the authorized operator; there is no roster lookup.
 6. Open the app using Kiwi's generic course tab or class admin app menu. The manifest uses `class-tab` and `class-admin-panel`; no host files are edited.
 
 The Lab backend uses the documented REST form of the SDK's contextual-chat operation so it can apply assignment policies, persist conversations and validate output before returning it to a student. Only the caller's App token is forwarded to the configured Kiwi origin. Provider credentials, model selection, private-context assembly and billing remain on Kiwi. This is not the iframe-proxied SDK operation: the explicit SDK `getToken()` path authenticates this backend.
