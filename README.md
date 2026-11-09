@@ -2,7 +2,7 @@
 
 R practice, assignments, grading and Lab activity for SOCS-SH 190.
 
-**Development branch: `codex/kiwi-sdk-v0.7.0`. This SDK migration is not merged into `main`.** The previous v0.6 implementation is on `codex/css-lab-v0.6.0`; its patched-host deployment is retired.
+**`main` carries this SDK migration (v0.7), developed on `codex/kiwi-sdk-v0.7.0`.** The previous v0.6 implementation is on `codex/css-lab-v0.6.0`; its patched-host deployment is retired.
 
 [Agent setup](set_up_for_agent.md) · [Integration contract](docs/architecture-v0.7.0.md) · [SDK feedback](docs/handoff/v0.7.0-sdk-feedback.md) · [Changelog](CHANGELOG.md) · [Browser review](docs/reviews/2026-11-02-v0.7.2.md)
 
@@ -27,7 +27,7 @@ SDK 目前不能关闭 Kiwi 自带的聊天面板，也不能强制它遵循 Lab
 Requires Node 20.19+ (or 22.12+), Python 3.10+, and a browser. The development servers listen on loopback; they are for this computer, not a class-wide deployment.
 
 ```bash
-git clone --branch codex/kiwi-sdk-v0.7.0 https://github.com/MAPS-research/ics-kiwi-app.git
+git clone https://github.com/MAPS-research/ics-kiwi-app.git
 cd ics-kiwi-app
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
@@ -45,7 +45,7 @@ Open `http://127.0.0.1:8100/entry`. Students can choose a local demo identity; t
 
 Keep one API process per database. For isolated testing use `KIWI_DB_PATH` and a different API/UI port; export `KIWI_API_PORT` for both processes. `npm run dev:all` prefers `.venv/bin/python`; `KIWI_PYTHON` overrides it.
 
-Use the named `codex/kiwi-sdk-v0.7.0` branch for these instructions. `main` and the old v0.6 branch do not contain this SDK migration.
+Use `main` for these instructions. The old v0.6 branch does not contain this SDK migration.
 
 ## Connect an unmodified Kiwi host
 

@@ -1,6 +1,6 @@
 # v0.7.0 — official Kiwi App integration
 
-Date: 2026-10-29. Branch: `codex/kiwi-sdk-v0.7.0`. This document describes that branch, not `main` or `codex/css-lab-v0.6.0`. It supersedes v0.6's patched-host integration, including the exception recorded in §14.6 and decision D5.
+Date: 2026-10-29. Branch: `codex/kiwi-sdk-v0.7.0`. This document describes that branch, now merged into `main`, not `codex/css-lab-v0.6.0`. It supersedes v0.6's patched-host integration, including the exception recorded in §14.6 and decision D5.
 
 ## Upstream evidence
 
