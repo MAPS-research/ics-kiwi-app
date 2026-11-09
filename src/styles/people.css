@@ -1,0 +1,96 @@
+/* people workstream styles (owned by PEOPLE; imported by src/main.tsx). Use the Kiwi theme tokens from src/theme.css. */
+
+.block { display: block; }
+/* B-m04: a radio never touches its text. Two classes (.radio-label.block) outrank .block alone, so a block-level radio
+   label keeps its flex layout and gap; every other .block user is unchanged. */
+.radio-label { display: inline-flex; align-items: center; gap: 8px; }
+.radio-label.block { display: flex; align-items: flex-start; margin: 6px 0; }
+.radio-label.block > input[type="radio"] { margin-top: 3px; flex: none; }
+.radio-label-text { min-width: 0; overflow-wrap: anywhere; }
+.muted-row td { color: var(--kiwi-text-secondary); }
+
+/* Roster */
+.people-filters { flex-wrap: wrap; gap: 12px; margin-top: 0; }
+.people-filters .work-label { min-width: 160px; flex: 1 1 160px; }
+.roster-table td .status-badge { margin-left: 6px; }
+/* RV6-m15: group names and "Activities recorded" wrap instead of being clipped at the table edge */
+.data-table td.roster-wrap-cell { white-space: normal; min-width: 110px; }
+.data-table td.roster-profile-cell { min-width: 130px; }
+/* K-m05: the activity and missing-work explanations are visible text, not hover-only tooltips */
+.roster-column-help { margin: 12px 0 0; max-width: 100ch; font-size: 12px; line-height: 1.5; }
+@media (max-width: 767px) { .data-table td.roster-seen-cell { min-width: 150px; } }   /* two lines on phones, no overflow at 1280 */
+.data-table th .th-note { display: block; font-size: 11px; font-weight: 400; color: var(--kiwi-text-secondary); white-space: normal; }
+.roster-missing summary { cursor: pointer; width: max-content; }
+.roster-missing ul { margin: 4px 0 0; padding-left: 16px; font-size: 12px; line-height: 1.45; white-space: normal; overflow-wrap: anywhere; }
+.roster-import summary { cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.roster-import textarea { width: 100%; box-sizing: border-box; font-family: var(--kiwi-font-family-mono); }
+.mapping-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 12px 0; }
+.mapping-grid > p { grid-column: 1 / -1; margin: 0; }
+.radio-row { border: 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 0; margin: 0; }
+.radio-row legend { font-weight: 600; margin-right: 8px; float: left; }
+.people-edit { display: grid; gap: 10px; }
+/* RV6-m11: demo link in the roster edit dialog (standalone courses) */
+.people-demo-link { display: grid; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--kiwi-border-light); }
+.people-demo-link p { margin: 0; }
+.people-demo-link input { font-family: var(--kiwi-font-family-mono); font-size: 12px; }
+
+/* Groups */
+.inline-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.inline-form .work-label { flex: 1 1 180px; min-width: 0; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.checkbox-row { display: flex; flex-wrap: wrap; gap: 8px 16px; border: 0; padding: 0; margin: 8px 0; }
+.checkbox-row legend { font-weight: 600; width: 100%; margin-bottom: 4px; }
+.checkbox-list { list-style: none; padding: 0; margin: 0; max-height: 50vh; overflow-y: auto; }
+.checkbox-list li { padding: 4px 0; border-bottom: 1px solid var(--kiwi-border-light); }
+.members-editor .muted { margin-top: 0; }
+
+/* Student profile */
+.profile-summary { font-size: 1.05rem; margin: 0 0 4px; }
+.profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.profile-grid code.block { white-space: pre-wrap; word-break: break-word; color: var(--kiwi-error); background: var(--kiwi-bg-subtle); padding: 4px 6px; border-radius: 4px; margin-top: 2px; }
+.profile-header .work-actions { flex-wrap: wrap; }
+
+/* Exports */
+.export-list { list-style: none; padding: 0; margin: 0; }
+.export-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--kiwi-border-light); }
+.export-row > div:first-child { flex: 1 1 260px; min-width: 0; }
+.export-row p { margin: 2px 0 0; }
+.exports-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 4px 24px; align-items: start; }
+.exports-filter-panel summary { cursor: pointer; }
+.exports-filters { margin-top: 12px; }
+.exports-filters .checkbox-row { margin: 0; }
+.exports-filters .work-label input, .exports-filters .work-label select { width: 100%; box-sizing: border-box; }
+
+/* Course settings */
+.meeting-list { display: grid; gap: 8px; }
+.meeting-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+/* S-m04: on phones each meeting's fields wrap; a card keeps them visibly together */
+@media (max-width: 600px) {
+  .meeting-row { padding: 8px; border: 1px solid var(--kiwi-border-default); border-radius: 8px; }
+}
+.meeting-row .work-label { flex: 1 1 120px; min-width: 0; }
+.key-notice { border: 1px solid var(--kiwi-primary); border-radius: 8px; padding: 12px; margin-top: 12px; background: var(--kiwi-bg-selected); word-break: break-all; }
+.key-notice code { font-size: 1rem; }
+.warning-list { color: var(--kiwi-warning); margin: 8px 0; padding-left: 20px; }
+.package-result { margin-top: 12px; }
+/* K-m06: Course package import options — one column; the checkbox label matches the 13 px form labels and lines up with
+   its box. `.checkbox-label.form-check` (two classes) outranks the 16 px default of a bare .checkbox-label. */
+.package-import-options { display: grid; gap: 10px; justify-items: start; margin: 13px 0 16px; }
+.package-import-options > .work-label { margin: 0; width: min(220px, 100%); }
+.checkbox-label.form-check { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; line-height: 1.4; color: var(--kiwi-text-secondary); }
+.checkbox-label.form-check > input[type="checkbox"] { margin: 0; flex: none; }
+/* Decision D4: template notes under each chapter in the import preview. */
+.package-notes { margin: 4px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.45; max-width: 60ch; overflow-wrap: anywhere; }
+/* S-m11: the chapter column carries the template notes, so it gets most of the width */
+.package-result .package-chapter-col { min-width: 280px; width: 60%; }
+@media (max-width: 600px) { .package-result .package-chapter-col { min-width: 200px; } }
+.audit-table td:last-child { max-width: 420px; word-break: break-word; }
+
+@media (max-width: 767px) {
+  .people-filters .work-label, .inline-form .work-label { flex-basis: 100%; }
+  .export-row .work-actions { width: 100%; }
+}
+
+/* File pickers: the native input stays focusable but invisible inside its styled label. */
+.file-picker { position: relative; overflow: hidden; }
+.file-picker input[type="file"] { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }

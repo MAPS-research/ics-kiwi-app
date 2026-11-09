@@ -1,0 +1,103 @@
+/* telemetry workstream styles (owned by TELEMETRY; imported by src/main.tsx). Use the Kiwi theme tokens from src/theme.css. */
+
+/* Data health (/teacher/insights/data-health) */
+.data-health {
+  display: grid;
+  gap: 16px;
+}
+.health-range {
+  margin: 0;
+}
+.health-section h2 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+.health-stat {
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--kiwi-bg-paper);
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.health-stat > span {
+  color: var(--kiwi-text-secondary);
+  font-size: 13px;
+}
+.health-stat strong {
+  font-size: 22px;
+  color: var(--kiwi-text-primary);
+  line-height: 1.1;
+}
+.health-stat small {
+  color: var(--kiwi-text-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.health-outages,
+.health-kiwi {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+/* R workbench: plots, warnings, environment controls */
+.r-plots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+.r-plot {
+  width: 504px;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 8px;
+  background: #ffffff;
+}
+.r-warnings {
+  margin: 6px 0 0;
+  color: var(--kiwi-warning);
+}
+.workspace-chapter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.workspace-chapter select {
+  max-width: 100%;
+}
+
+/* Student telemetry status banner (RV6-m13: banner styling, stays visible while scrolling) */
+.telemetry-saving {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 10px 14px;
+  border: 1px solid var(--kiwi-warning);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--kiwi-warning-bg);
+}
+.telemetry-saving p {
+  margin: 0;
+  color: var(--kiwi-text-primary);
+  font-size: 13px;
+}
+
+@media (max-width: 767px) {
+  .health-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -3,11 +3,12 @@
  * Montserrat is self-hosted so local debugging needs no font service.
  */
 @font-face {
-  font-family: 'Montserrat';
+  font-family: "Montserrat";
   font-style: normal;
   font-display: swap;
   font-weight: 100 900;
-  src: url('@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2') format('woff2');
+  src: url("@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2")
+    format("woff2");
 }
 
 :root {
@@ -26,8 +27,8 @@
   --kiwi-success: #2e7d32;
   --kiwi-error: #d32f2f;
   --kiwi-warning: #ef6c00;
-  --kiwi-font-family: 'Montserrat', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --kiwi-font-family-mono: 'SFMono-Regular', Consolas, Monaco, monospace;
+  --kiwi-font-family: "Montserrat", sans-serif;
+  --kiwi-font-family-mono: "SFMono-Regular", Consolas, Monaco, monospace;
   --kiwi-editor-bg: #1e1e1e;
   --kiwi-editor-bg-light: #252526;
   --kiwi-editor-fg: #d4d4d4;

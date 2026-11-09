@@ -1,0 +1,539 @@
+/* grade workstream styles (owned by GRADE; imported by src/main.tsx). Use the Kiwi theme tokens from src/theme.css. */
+
+/* ── shared bits ─────────────────────────────────────────────────────────────────────────────── */
+.segmented {
+  display: inline-flex;
+  align-self: end;
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.segmented .outline-button {
+  border: 0;
+  border-radius: 0;
+  min-height: 34px;
+}
+.segmented .outline-button + .outline-button {
+  border-left: 1px solid var(--kiwi-border-default);
+}
+.segmented .outline-button[aria-pressed="true"] {
+  background: var(--kiwi-bg-selected);
+  color: var(--kiwi-primary);
+}
+.checkbox-label {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+}
+.grading-preview-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--kiwi-text-secondary);
+  margin: -8px 0 8px;
+}
+
+/* ── To grade: cards ─────────────────────────────────────────────────────────────────────────── */
+.grading-filters .filter-chips {
+  margin-top: 12px;
+}
+.grading-card {
+  background: var(--kiwi-bg-paper);
+  scroll-margin-top: 72px;
+}
+.grading-card:focus-within {
+  border-color: var(--kiwi-primary-light);
+}
+.grading-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.grading-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.grading-card-header .muted {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+.grading-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
+}
+.grading-flag-link {
+  text-decoration: none;
+}
+.grading-process {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  margin: 10px 0 4px;
+  font-size: 12px;
+  color: var(--kiwi-text-secondary);
+}
+.grading-process .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.grading-flags {
+  margin: 8px 0;
+  padding: 8px 12px 8px 28px;
+  border-left: 3px solid var(--kiwi-warning);
+  background: var(--kiwi-bg-subtle);
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+}
+.grading-flags a {
+  color: var(--kiwi-text-primary);
+}
+.grading-question {
+  margin: 10px 0;
+  border: 1px solid var(--kiwi-border-light);
+  border-radius: 8px;
+  padding: 0 12px;
+}
+.grading-question > summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.grading-question[open] > summary {
+  border-bottom: 1px solid var(--kiwi-border-light);
+}
+.grading-prompt {
+  margin: 10px 0;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+.grading-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.grading-compare > div,
+.grading-rubric {
+  background: var(--kiwi-bg-subtle);
+  border-radius: 7px;
+  padding: 10px 12px;
+  font-size: 13px;
+  min-width: 0;
+}
+.grading-compare strong,
+.grading-rubric strong {
+  display: block;
+  font-size: 11px;
+  color: var(--kiwi-text-secondary);
+  text-transform: none;
+}
+.grading-compare pre {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--kiwi-font-family-mono);
+  font-size: 12px;
+}
+.grading-rubric {
+  margin-top: 10px;
+}
+.grading-rubric p {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+}
+.grading-score-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 12px 0;
+}
+.grading-points,
+.grading-comment,
+.grading-feedback {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--kiwi-text-secondary);
+}
+.grading-points-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--kiwi-text-primary);
+}
+.grading-points input {
+  width: 84px;
+}
+.grading-comment {
+  flex: 1 1 260px;
+}
+.grading-comment textarea,
+.grading-feedback textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  font-weight: 400;
+  color: var(--kiwi-text-primary);
+}
+.grading-footer {
+  border-top: 1px solid var(--kiwi-border-light);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.grading-total {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.grading-adjustment {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--kiwi-text-secondary);
+}
+.grading-actions {
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.grading-earlier,
+.grading-history {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--kiwi-text-secondary);
+}
+.grading-earlier summary,
+.grading-history summary {
+  cursor: pointer;
+}
+.grading-earlier ul,
+.grading-history ol {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+
+/* ── By question ─────────────────────────────────────────────────────────────────────────────── */
+.by-question-header h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+.by-question-header pre {
+  white-space: pre-wrap;
+  font-family: var(--kiwi-font-family-mono);
+  font-size: 12px;
+}
+.by-question-groups {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.by-question-group {
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 8px;
+  padding: 12px;
+}
+.by-question-answer {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--kiwi-bg-subtle);
+  font-family: var(--kiwi-font-family-mono);
+  font-size: 13px;
+  white-space: pre-wrap;           /* S-m05: code keeps its line breaks */
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow: auto;
+}
+.by-question-members {
+  margin: 4px 0 6px;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
+.by-question-member-released { color: var(--kiwi-text-secondary); }
+.by-question-released-note {
+  margin: 4px 0 8px;
+  font-size: 13px;
+  color: var(--kiwi-text-secondary);
+}
+.by-question-group .grading-score-row {
+  align-items: flex-end;
+  margin-bottom: 0;
+}
+
+/* ── Gradebook ───────────────────────────────────────────────────────────────────────────────── */
+.gradebook-toolbar {
+  align-items: flex-end;
+}
+.gradebook-export {
+  position: relative;
+  margin-left: auto;
+}
+.gradebook-export > summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.gradebook-export > summary::-webkit-details-marker {
+  display: none;
+}
+.gradebook-export > .menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  min-width: 240px;
+  background: var(--kiwi-bg-paper);
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  padding: 8px;
+}
+.gradebook-export .menu-item {
+  display: block;
+  text-decoration: none;
+}
+.gradebook-note {
+  margin: -6px 0 10px;
+  font-size: 12px;
+}
+.gradebook-table th[scope="col"] {
+  white-space: normal;
+  min-width: 140px;
+}
+.gradebook-table th[scope="row"] small {
+  display: block;
+  font-weight: 400;
+}
+.gradebook-cell a {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  text-decoration: none;
+}
+.gradebook-cell.cell-muted .status-badge {
+  opacity: 0.75;
+  font-weight: 600;
+}
+
+/* ── Release & export ────────────────────────────────────────────────────────────────────────── */
+.release-panel h2,
+.export-panel h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.release-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.release-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--kiwi-border-light);
+  border-radius: 8px;
+}
+.release-row.is-selected {
+  border-color: var(--kiwi-primary-light);
+  background: var(--kiwi-bg-hover);
+}
+.release-row-title {
+  flex: 1 1 260px;
+  text-align: left;
+  font-weight: 600;
+}
+.release-row-meta {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.release-drafts {
+  margin-top: 14px;
+  font-size: 13px;
+}
+.release-drafts h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.release-drafts ul {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+
+/* ── Exercise results ────────────────────────────────────────────────────────────────────────── */
+.results-meta {
+  align-self: end;
+  margin: 0 0 8px auto;
+  font-size: 12px;
+}
+.results-questions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.results-question {
+  border: 1px solid var(--kiwi-border-default);
+  border-radius: 10px;
+  padding: 14px;
+  min-width: 0;
+}
+.results-question h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.results-question h3 {
+  margin: 10px 0 4px;
+  font-size: 12px;
+  color: var(--kiwi-text-secondary);
+}
+.results-stats {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 13px;
+}
+.results-stats dt {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.results-stats dd {
+  margin: 0;
+}
+.results-wrong ul,
+.results-stuck ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  display: grid;
+  gap: 3px;
+}
+.results-wrong code {
+  overflow-wrap: anywhere;
+  font-family: var(--kiwi-font-family-mono);
+}
+
+@media (max-width: 767px) {
+  /* §3.6 / LY05: at 390 px the first card or row starts within the first screen — two filters per row. */
+  .grading-filters .table-toolbar,
+  .gradebook-toolbar,
+  .exercise-results > .table-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 10px;
+    margin: 8px 0;
+  }
+  .grading-filters .table-toolbar label,
+  .gradebook-toolbar label,
+  .exercise-results > .table-toolbar label {
+    min-width: 0;
+    max-width: none;
+  }
+  .grading-filters .filter-chips {
+    margin-top: 0;
+  }
+  .grading-preview-toggle {
+    margin: 0 0 6px;
+  }
+  .gradebook-note {
+    display: none;
+  }
+  .results-meta {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+  .grading-compare {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gradebook-export {
+    margin-left: 0;
+  }
+  .gradebook-export > .menu-list {
+    left: 0;
+    right: auto;
+    max-width: calc(100vw - 32px);
+  }
+  .segmented {
+    width: 100%;
+  }
+  .segmented .outline-button {
+    flex: 1;
+    min-width: 0;
+    padding: 0 6px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
+/* RV6-m20: the "Released only" checkbox sits next to its label (table-toolbar labels are grid columns otherwise) */
+.table-toolbar label.release-only-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 38px;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.table-toolbar label.release-only-label input {
+  width: auto;
+}
+/* RV6-M11: the line under the card buttons that says what releasing means for this homework */
+.grading-release-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+/* RV6-m15: gradebook on phones — groups fold under the student name; in-class cells wrap; headers sit on the data */
+.gradebook-table thead th {
+  vertical-align: bottom;
+}
+.data-table td.gradebook-inclass {
+  white-space: normal;
+  min-width: 150px;
+}
+.gradebook-table th[scope="row"] small.gradebook-groups {
+  display: none;
+}
+@media (max-width: 767px) {
+  .gradebook-table .gradebook-group-col {
+    display: none;
+  }
+  .gradebook-table th[scope="row"] small.gradebook-groups {
+    display: block;
+    max-width: 130px;
+    white-space: normal;
+  }
+  .gradebook-table th[scope="col"] {
+    min-width: 120px;
+  }
+}

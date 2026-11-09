@@ -1,0 +1,16 @@
+
+> frontend@0.1.0 test:run
+> vitest run src/components/CssLabTeacherEntry.review.test.tsx
+
+
+ RUN  v5.0.0 /Users/nutshell/Documents/GitHub/ics-kiwi-app/.local/kiwi-ui
+
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  18:57:06
+   Duration  1.90s (import 77%, tests 10%, environment 8%, transform 3%, setup 2%)
+
+
+
+Exit: 0

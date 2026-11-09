@@ -1,7 +1,8 @@
+import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 
 const commands = [
-  ['python3', ['server/app.py']],
+  [process.env.KIWI_PYTHON || (existsSync('.venv/bin/python') ? '.venv/bin/python' : 'python3'), ['server/app.py']],
   ['npm', ['run', 'dev']],
 ];
 const children = commands.map(([command, args]) => spawn(command, args, { stdio: 'inherit' }));
