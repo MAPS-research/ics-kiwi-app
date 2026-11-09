@@ -1,4 +1,5 @@
-export const requiredScopes = ['context:student_learning:read', 'llm:prompt:lab-tutor'];
+// class:info:read lets the Lab backend read the caller's course role from Kiwi (GET /api/kiwi-apps/ics-r-lab/me).
+export const requiredScopes = ['context:student_learning:read', 'llm:prompt:lab-tutor', 'class:info:read'];
 
 // Kiwi administrators review and approve this prompt through Kiwi's normal UI.
 // Registration never self-approves prompts or writes the host database.

@@ -252,10 +252,14 @@ def staff_listing(db: sqlite3.Connection, class_id: str) -> dict:
     seen = []
     for row in db.execute("SELECT * FROM kiwi_staff_seen WHERE class_id=? ORDER BY username, kiwi_user_id", (class_id,)):
         override = overrides.get(row["kiwi_user_id"])
+        # Kiwi's role as of the member's last visit; requests always use the live answer from Kiwi.
+        effective = override["role"] if override else (
+            kiwi_api.staff_binding(class_id, row["kiwi_user_id"])
+            or kiwi_effective_role(row["kiwi_role"], bool(row["can_manage_course"]), bool(row["can_view_analytics"])))
         seen.append({
             "kiwiUserId": row["kiwi_user_id"], "username": "User " + row["kiwi_user_id"][:8] if identity.class_linked(db, class_id) else row["username"], "kiwiRole": row["kiwi_role"],
             "canManageCourse": bool(row["can_manage_course"]), "canViewAnalytics": bool(row["can_view_analytics"]),
-            "effectiveRole": override["role"] if override else kiwi_api.staff_binding(class_id, row["kiwi_user_id"]),
+            "effectiveRole": effective,
             "roleSource": "override" if override else "kiwi", "overrideStaffId": override["id"] if override else None,
             "lastSeenAt": row["last_seen_at"],
         })

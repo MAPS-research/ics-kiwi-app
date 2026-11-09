@@ -35,6 +35,14 @@ class OfficialApiTests(unittest.TestCase):
 
             def do_GET(self):
                 owner.paths.append(self.path)
+                if self.path.startswith("/api/kiwi-apps/"):
+                    owner.caller_headers.append(dict(self.headers))
+                    self.send_response(owner.caller_status)
+                    if owner.caller_status == 302:
+                        self.send_header("Location", owner.host + "/must-not-follow")
+                    self.end_headers()
+                    self.wfile.write(owner.caller_reply)
+                    return
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(json.dumps({"keys": owner.keys}).encode())
@@ -65,7 +73,11 @@ class OfficialApiTests(unittest.TestCase):
         type(self).status = 200
         type(self).reply = json.dumps({"output": "Try inspecting is.na(x).", "promptId": "lab-tutor",
                                      "contextIncluded": ["relevant_materials"], "contextOmitted": []}).encode()
+        type(self).caller_headers, type(self).caller_status = [], 200
+        type(self).caller_reply = self.caller()
         kiwi_api._clients.clear()
+        kiwi_api._callers.clear()
+        self.addCleanup(kiwi_api._callers.clear)
         env = patch.dict(os.environ, {"KIWI_API_ORIGIN": self.host, "KIWI_CONTEXT_PROMPT_ID": "lab-tutor",
                                      "KIWI_STAFF_BINDINGS": "{}", "KIWI_JWT_ISSUER": ""})
         env.start()
@@ -82,6 +94,16 @@ class OfficialApiTests(unittest.TestCase):
     def token(self, *, kid=True, key=None, **changes):
         return jwt.encode(self.claims(**changes), key or self.key, algorithm="RS256",
                           headers={"kid": "test-key"} if kid else {})
+
+    def caller_token(self, **changes):
+        return self.token(scopes=["class:info:read", "context:student_learning:read", "llm:prompt:lab-tutor"], **changes)
+
+    @staticmethod
+    def caller(role="professor", manage=True, view=True, **changes):
+        """A GET /api/kiwi-apps/ics-r-lab/me reply for the default token."""
+        return json.dumps({"userId": "opaque-user", "classId": "course-1", "appSlug": "ics-r-lab", "role": role,
+                           "permissions": {"canManageMaterials": manage, "canViewAnalytics": view},
+                           "scopes": ["class:info:read", "context:student_learning:read"], **changes}).encode()
 
     def activate(self, **changes):
         token = self.token(**changes)
@@ -134,6 +156,67 @@ class OfficialApiTests(unittest.TestCase):
         self.assertNotIn("secret@example.edu", json.dumps(context))
         with patch.dict(os.environ, {"KIWI_STAFF_BINDINGS": json.dumps({"course-1": {"opaque-user": "instructor"}})}):
             self.assertEqual(kiwi_api.authenticate("Bearer " + token, "course-1")["labRole"], "instructor")
+
+    def test_kiwi_reports_the_callers_course_role(self):
+        token = self.caller_token()
+        cases = ((("professor", True, True), (True, True, True)), (("ta", False, True), (True, False, True)),
+                 (("admin", True, True), (True, True, True)), (("student", False, False), (False, False, False)))
+        for (role, manage, view), (teach, can_manage, can_view) in cases:
+            kiwi_api._callers.clear()
+            type(self).caller_reply = self.caller(role, manage, view)
+            with self.subTest(role=role):
+                context = kiwi_api.authenticate("Bearer " + token, "course-1")
+                self.assertEqual((context["userRole"], context["labRole"]), (role, None))
+                self.assertEqual((context["canTeach"], context["canManageCourse"], context["canViewAnalytics"]),
+                                 (teach, can_manage, can_view))
+                self.assertEqual(context["scopes"], ["class:info:read", "context:student_learning:read"])
+        self.assertEqual(self.paths.count("/api/kiwi-apps/ics-r-lab/me"), len(cases))
+        self.assertEqual(self.caller_headers[0]["Authorization"], "Bearer " + token)
+
+    def test_kiwi_is_asked_only_when_the_course_granted_class_info(self):
+        kiwi_api.authenticate("Bearer " + self.token(), "course-1")
+        kiwi_api.authenticate("Bearer " + self.token(scopes=["class:*"]), "course-1")
+        self.assertEqual(self.paths.count("/api/kiwi-apps/ics-r-lab/me"), 1)
+
+    def test_caller_answer_is_reused_only_briefly(self):
+        token = self.caller_token()
+        kiwi_api.authenticate("Bearer " + token, "course-1")
+        kiwi_api.authenticate("Bearer " + token, "course-1")
+        self.assertEqual(len(self.caller_headers), 1)
+        later = time.time() + kiwi_api.CALLER_CACHE_SECONDS + 1
+        with patch.object(kiwi_api, "_now", return_value=later):
+            kiwi_api.authenticate("Bearer " + token, "course-1")
+        self.assertEqual(len(self.caller_headers), 2)
+
+    def test_revoked_access_and_host_errors_fail_closed(self):
+        for http, expected in ((401, 401), (403, 403), (500, 503), (302, 503)):
+            kiwi_api._callers.clear()
+            type(self).caller_status = http
+            with self.subTest(http=http), self.assertRaises(kiwi_api.KiwiError) as caught:
+                kiwi_api.authenticate("Bearer " + self.caller_token(), "course-1")
+            self.assertEqual(caught.exception.status, expected)
+        self.assertNotIn("/must-not-follow", self.paths)
+
+    def test_host_without_the_endpoint_keeps_only_bindings(self):
+        type(self).caller_status = 404
+        token = self.caller_token()
+        context = kiwi_api.authenticate("Bearer " + token, "course-1")
+        self.assertEqual((context["userRole"], context["canTeach"]), ("student", False))
+        kiwi_api._callers.clear()
+        with patch.dict(os.environ, {"KIWI_STAFF_BINDINGS": json.dumps({"course-1": {"opaque-user": "ta"}})}):
+            context = kiwi_api.authenticate("Bearer " + token, "course-1")
+        self.assertEqual((context["labRole"], context["canTeach"]), ("ta", True))
+
+    def test_unexpected_caller_replies_are_rejected(self):
+        bad = (self.caller(userId="someone-else"), self.caller(classId="other"), self.caller(appSlug="other"),
+               self.caller(role=None), self.caller(permissions={"canManageMaterials": "yes"}),
+               self.caller(scopes="class:info:read"), b"[]", b"<html>oops</html>")
+        for reply in bad:
+            kiwi_api._callers.clear()
+            type(self).caller_reply = reply
+            with self.subTest(reply=reply[:40]), self.assertRaises(kiwi_api.KiwiError) as caught:
+                kiwi_api.authenticate("Bearer " + self.caller_token(), "course-1")
+            self.assertEqual(caught.exception.status, 503)
 
     def test_only_approved_prompt_and_scopes_enable_ai(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "must-never-be-used"}):
@@ -224,7 +307,8 @@ class IdentityApiTests(testsupport.ApiTestCase):
             auth._upsert_staff_seen(db, "course-1", "staff-opaque", "old.staff@realmail.edu", "instructor", True, True)
             listing = governance.staff_listing(db, "course-1")
             self.assertNotIn("old.staff@realmail.edu", json.dumps(listing))
-            self.assertIsNone(listing["kiwiStaff"][0]["effectiveRole"])
+            # The role Kiwi reported at the last visit; requests re-ask Kiwi.
+            self.assertEqual(listing["kiwiStaff"][0]["effectiveRole"], "instructor")
             with patch.dict(os.environ, {"KIWI_STAFF_BINDINGS": '{"course-1":{"staff-opaque":"ta"}}'}):
                 self.assertEqual(governance.staff_listing(db, "course-1")["kiwiStaff"][0]["effectiveRole"], "ta")
 
@@ -241,3 +325,26 @@ class IdentityApiTests(testsupport.ApiTestCase):
         with self.db() as db:
             row = db.execute("SELECT display_name, kiwi_email FROM roster WHERE student_id='opaque-user'").fetchone()
             self.assertEqual(tuple(row), ("", ""))
+
+    def test_kiwi_course_role_grants_lab_staff_without_bindings(self):
+        claims = {"sub": "opaque-user", "classId": "course-1", "scopes": ["class:info:read"]}
+
+        def reported(role, manage, view):
+            return {"userId": "opaque-user", "classId": "course-1", "appSlug": "ics-r-lab", "role": role,
+                    "permissions": {"canManageMaterials": manage, "canViewAnalytics": view},
+                    "scopes": ["class:info:read"]}
+
+        # A professor without material or analytics permission is Kiwi staff with no Lab role yet:
+        # an instructor can give one on Staff & roles.
+        cases = ((reported("professor", True, True), "instructor", True), (reported("ta", False, True), "ta", True),
+                 (reported("professor", False, False), None, True), (reported("student", False, False), "student", False))
+        with patch.object(kiwi_api, "verify_token", return_value=claims), patch.dict(os.environ, {"KIWI_STAFF_BINDINGS": "{}"}):
+            for caller, lab_role, is_staff in cases:
+                with self.subTest(caller=caller["role"], manage=caller["permissions"]["canManageMaterials"]), \
+                        patch.object(kiwi_api, "kiwi_caller", return_value=caller):
+                    status, me = self.request("/api/me?classId=course-1", token="signed-token")
+                    self.assertEqual(status, 200)
+                    self.assertEqual((me["role"], me["isStaff"]), (lab_role, is_staff))
+        with self.db() as db:
+            listing = governance.staff_listing(db, "course-1")["kiwiStaff"]
+            self.assertEqual([(r["kiwiRole"], r["effectiveRole"]) for r in listing], [("professor", None)])
